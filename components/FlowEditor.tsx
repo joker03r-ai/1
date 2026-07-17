@@ -23,6 +23,7 @@ import {
   VAR_TYPE_LABELS,
   VAR_SCOPE_LABELS,
 } from "@/lib/variables";
+import { Manager, loadManagers, NOTIFY_CHANNELS } from "@/lib/managers";
 
 const NODE_W = 250;
 
@@ -39,8 +40,12 @@ export default function FlowEditor({ initial }: { initial: Scenario }) {
   const [savedTick, setSavedTick] = useState(0);
   const [vars, setVars] = useState<Variable[]>([]);
   const [showVars, setShowVars] = useState(false);
+  const [managers, setManagers] = useState<Manager[]>([]);
 
-  useEffect(() => setVars(loadVariables()), []);
+  useEffect(() => {
+    setVars(loadVariables());
+    setManagers(loadManagers());
+  }, []);
 
   const canvasRef = useRef<HTMLDivElement>(null);
   const nodeRefs = useRef<Record<string, HTMLDivElement | null>>({});
@@ -142,20 +147,25 @@ export default function FlowEditor({ initial }: { initial: Scenario }) {
       x: 120 + Math.random() * 60,
       y: 120 + Math.random() * 60,
       title: meta.label,
-      text:
-        kind === "action_message"
-          ? "Текст сообщения"
-          : kind === "action_notify"
-          ? "Новая заявка от пользователя"
-          : kind === "event_message" || kind === "condition"
-          ? ""
-          : undefined,
       match: kind === "event_message" || kind === "condition" ? "similar" : undefined,
       varName:
         kind === "action_process" || kind === "action_set_var"
           ? vars[0]?.name || ""
           : undefined,
       varValue: kind === "action_set_var" ? "" : undefined,
+      text:
+        kind === "action_manager"
+          ? "Новая заявка с телефоном %Телефон%. Свяжись в течение 30 минут."
+          : kind === "action_message"
+          ? "Текст сообщения"
+          : kind === "action_notify"
+          ? "Новая заявка от пользователя"
+          : kind === "event_message" || kind === "condition"
+          ? ""
+          : undefined,
+      managers: kind === "action_manager" ? managers.filter((m) => m.admin).map((m) => m.id) : undefined,
+      channelTarget: kind === "action_manager" ? "all" : undefined,
+      forwardUser: kind === "action_manager" ? true : undefined,
     };
     setNodes((ns) => [...ns, n]);
     setSelected(n.id);
@@ -193,6 +203,7 @@ export default function FlowEditor({ initial }: { initial: Scenario }) {
     { kind: "action_process", label: "Обработать" },
     { kind: "action_set_var", label: "Переменная" },
     { kind: "action_notify", label: "Уведомление" },
+    { kind: "action_manager", label: "Менеджеру" },
     { kind: "action_ai", label: "Smartbot AI" },
     { kind: "condition", label: "Условие" },
   ];
@@ -350,6 +361,58 @@ export default function FlowEditor({ initial }: { initial: Scenario }) {
                       value={n.text || ""}
                       onChange={(e) => patchNode(n.id, { text: e.target.value })}
                     />
+                  )}
+                  {n.kind === "action_manager" && (
+                    <>
+                      <textarea
+                        className="fn__textarea"
+                        placeholder="Сообщение менеджеру (можно %Переменная%)"
+                        value={n.text || ""}
+                        onChange={(e) => patchNode(n.id, { text: e.target.value })}
+                      />
+                      <div className="fn__var-hint">Подстановка: <code>%Телефон%</code></div>
+                      <label className="fn__check">
+                        <input
+                          type="checkbox"
+                          checked={!!n.forwardUser}
+                          onChange={(e) => patchNode(n.id, { forwardUser: e.target.checked })}
+                        />
+                        Переслать сообщение пользователя
+                      </label>
+                      <div className="fn__sub">Менеджеры</div>
+                      <div className="fn__mgrs">
+                        {managers.map((m) => {
+                          const on = (n.managers || []).includes(m.id);
+                          return (
+                            <label key={m.id} className={`fn__mgr${on ? " on" : ""}`}>
+                              <input
+                                type="checkbox"
+                                checked={on}
+                                onChange={(e) => {
+                                  const cur = new Set(n.managers || []);
+                                  if (e.target.checked) cur.add(m.id);
+                                  else cur.delete(m.id);
+                                  patchNode(n.id, { managers: Array.from(cur) });
+                                }}
+                              />
+                              {m.name}
+                            </label>
+                          );
+                        })}
+                      </div>
+                      <div className="fn__sub">Канал</div>
+                      <select
+                        className="fn__input"
+                        value={n.channelTarget || "all"}
+                        onChange={(e) => patchNode(n.id, { channelTarget: e.target.value })}
+                      >
+                        {NOTIFY_CHANNELS.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.name}{c.bot ? ` · ${c.bot}` : ""}
+                          </option>
+                        ))}
+                      </select>
+                    </>
                   )}
                   {n.kind === "action_ai" && (
                     <div className="fn__hint">Передаёт диалог AI-боту: отвечает по базе знаний.</div>

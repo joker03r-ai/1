@@ -24,6 +24,7 @@ export type NodeKind =
   | "action_process" // Обработать сообщение (сохранить в переменную)
   | "action_set_var" // Установить переменную
   | "action_notify" // Отправить уведомление
+  | "action_manager" // Написать менеджеру
   | "action_ai" // Общение со Smartbot AI
   | "condition"; // Условие
 
@@ -37,6 +38,9 @@ export type FlowNode = {
   match?: MatchMode; // режим сравнения для event_message / condition
   varName?: string; // переменная для action_process / action_set_var
   varValue?: string; // значение для action_set_var
+  managers?: string[]; // id менеджеров для action_manager
+  channelTarget?: string; // id канала-адресата для action_manager
+  forwardUser?: boolean; // переслать сообщение пользователя (action_manager)
 };
 
 export type Edge = { id: string; from: string; to: string };
@@ -61,6 +65,7 @@ export const NODE_META: Record<
   action_process: { label: "Обработать сообщение", color: "#0ea5e9", icon: "⤵", group: "Действие" },
   action_set_var: { label: "Установить переменную", color: "#14b8a6", icon: "(x)", group: "Действие" },
   action_notify: { label: "Отправить уведомление", color: "#ec4899", icon: "🔔", group: "Действие" },
+  action_manager: { label: "Написать менеджеру", color: "#ef4444", icon: "🧑‍💼", group: "Действие" },
   action_ai: { label: "Общение со Smartbot AI", color: "#a855f7", icon: "🤖", group: "Действие" },
   condition: { label: "Условие", color: "#f59e0b", icon: "◈", group: "Условие" },
 };
