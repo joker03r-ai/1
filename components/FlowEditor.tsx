@@ -205,7 +205,19 @@ export default function FlowEditor({
       channelTarget: kind === "action_manager" ? "all" : undefined,
       forwardUser: kind === "action_manager" ? true : undefined,
       statLabel: kind === "action_stat" ? statLabels[0]?.name || "" : undefined,
+      postId: kind === "event_comment" ? "" : undefined,
+      variants:
+        kind === "action_random"
+          ? [
+              { id: uid("v"), percent: 50 },
+              { id: uid("v"), percent: 50 },
+            ]
+          : undefined,
     };
+    if (kind === "event_comment") {
+      n.text = "";
+      n.match = "contains";
+    }
     setNodes((ns) => [...ns, n]);
     setSelected(n.id);
   }
@@ -243,6 +255,39 @@ export default function FlowEditor({
     );
     setEdges((es) => es.filter((e) => !(e.from === nodeId && e.fromButton === btnId)));
   }
+  function addVariant(nodeId: string) {
+    setNodes((ns) =>
+      ns.map((n) =>
+        n.id === nodeId ? { ...n, variants: [...(n.variants || []), { id: uid("v"), percent: 0 }] } : n
+      )
+    );
+  }
+  function patchVariant(nodeId: string, vId: string, percent: number) {
+    setNodes((ns) =>
+      ns.map((n) =>
+        n.id === nodeId
+          ? { ...n, variants: (n.variants || []).map((v) => (v.id === vId ? { ...v, percent } : v)) }
+          : n
+      )
+    );
+  }
+  function removeVariant(nodeId: string, vId: string) {
+    setNodes((ns) =>
+      ns.map((n) =>
+        n.id === nodeId ? { ...n, variants: (n.variants || []).filter((v) => v.id !== vId) } : n
+      )
+    );
+    setEdges((es) => es.filter((e) => !(e.from === nodeId && e.fromButton === vId)));
+  }
+  function distributeEven(nodeId: string) {
+    setNodes((ns) =>
+      ns.map((n) => {
+        if (n.id !== nodeId || !n.variants?.length) return n;
+        const each = Math.round((100 / n.variants.length) * 10) / 10;
+        return { ...n, variants: n.variants.map((v) => ({ ...v, percent: each })) };
+      })
+    );
+  }
   function removeEdge(id: string) {
     setEdges((es) => es.filter((e) => e.id !== id));
   }
@@ -271,6 +316,7 @@ export default function FlowEditor({
 
   const PALETTE: { kind: NodeKind; label: string }[] = [
     { kind: "event_start", label: "Старт" },
+    { kind: "event_comment", label: "Комментарий" },
     { kind: "event_message", label: "Сообщение" },
     { kind: "action_message", label: "Ответ" },
     { kind: "action_process", label: "Обработать" },
@@ -279,6 +325,7 @@ export default function FlowEditor({
     { kind: "action_manager", label: "Менеджеру" },
     { kind: "action_gsheet", label: "Google Табл." },
     { kind: "action_stat", label: "Статистика" },
+    { kind: "action_random", label: "Рандом" },
     { kind: "action_ai", label: "Smartbot AI" },
     { kind: "condition", label: "Условие" },
   ];
@@ -373,6 +420,68 @@ export default function FlowEditor({
                 <div className="fn__body">
                   {n.kind === "event_start" && (
                     <div className="fn__hint">Бот стартует по команде /start или первому сообщению.</div>
+                  )}
+                  {n.kind === "event_comment" && (
+                    <>
+                      <div className="fn__row">
+                        <span className="fn__if">ЕСЛИ комментарий</span>
+                        <select
+                          className="fn__select"
+                          value={n.match}
+                          onChange={(e) => patchNode(n.id, { match: e.target.value as MatchMode })}
+                        >
+                          {(Object.keys(MATCH_LABELS) as MatchMode[]).map((m) => (
+                            <option key={m} value={m}>{MATCH_LABELS[m]}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <input
+                        className="fn__input"
+                        placeholder="текст комментария (необязательно)"
+                        value={n.text || ""}
+                        onChange={(e) => patchNode(n.id, { text: e.target.value })}
+                      />
+                      <div className="fn__sub">ID поста (необязательно)</div>
+                      <input
+                        className="fn__input"
+                        placeholder="ссылка на пост или ID"
+                        value={n.postId || ""}
+                        onChange={(e) => patchNode(n.id, { postId: e.target.value })}
+                      />
+                    </>
+                  )}
+                  {n.kind === "action_random" && (
+                    <>
+                      <div className="fn__hint" style={{ marginBottom: 6 }}>
+                        Случайно выбирает одну ветку по вероятностям.
+                      </div>
+                      {(n.variants || []).map((v, vi) => (
+                        <div className="fn__btnrow" key={v.id}>
+                          <span className="fn__varlabel">Вариант {vi + 1}</span>
+                          <input
+                            className="fn__input"
+                            type="number"
+                            min={0}
+                            max={100}
+                            value={v.percent}
+                            onChange={(e) => patchVariant(n.id, v.id, Number(e.target.value))}
+                            style={{ width: 64, flex: "none" }}
+                          />
+                          <span className="fn__pct">%</span>
+                          <button className="fn__btn-del" onClick={() => removeVariant(n.id, v.id)}>✕</button>
+                          <button
+                            className="fn__port btn"
+                            title="Связать вариант со следующим блоком"
+                            ref={(el) => { btnPortRefs.current[`${n.id}/${v.id}`] = el; }}
+                            onPointerDown={(e) => onPortPointerDown(e, n.id, undefined, v.id)}
+                          />
+                        </div>
+                      ))}
+                      <div className="fn__ops" style={{ marginTop: 8 }}>
+                        <button className="fn__op" onClick={() => addVariant(n.id)}>+ Вариант</button>
+                        <button className="fn__op" onClick={() => distributeEven(n.id)}>Поровну</button>
+                      </div>
+                    </>
                   )}
                   {(n.kind === "event_message" || n.kind === "condition") && (
                     <>
@@ -632,12 +741,14 @@ export default function FlowEditor({
                     <div className="fn__hint">Передаёт диалог AI-боту: отвечает по базе знаний.</div>
                   )}
                 </div>
-                {/* Порт-выход (низ по центру) */}
-                <button
-                  className="fn__port"
-                  title="Потяните, чтобы связать со следующим блоком"
-                  onPointerDown={(e) => onPortPointerDown(e, n.id)}
-                />
+                {/* Порт-выход (низ по центру) — кроме «Рандома» (ветвление через варианты) */}
+                {n.kind !== "action_random" && (
+                  <button
+                    className="fn__port"
+                    title="Потяните, чтобы связать со следующим блоком"
+                    onPointerDown={(e) => onPortPointerDown(e, n.id)}
+                  />
+                )}
                 {/* Порт-ошибка (проверка данных / интеграция) */}
                 {((n.kind === "action_process" && n.useTemplate) || n.kind === "action_gsheet") && (
                   <button

@@ -20,6 +20,7 @@ export const MATCH_LABELS: Record<MatchMode, string> = {
 export type NodeKind =
   | "event_start" // Первое сообщение и старт бота
   | "event_broadcast_start" // Старт рассылки
+  | "event_comment" // Новый комментарий
   | "event_message" // Сообщение от пользователя
   | "action_message" // Отправить сообщение
   | "action_process" // Обработать сообщение (сохранить в переменную)
@@ -28,6 +29,7 @@ export type NodeKind =
   | "action_manager" // Написать менеджеру
   | "action_gsheet" // Добавление строки в Google Таблицу
   | "action_stat" // Записать в статистику
+  | "action_random" // Рандом (случайный выбор ветки)
   | "action_ai" // Общение со Smartbot AI
   | "condition"; // Условие
 
@@ -52,6 +54,8 @@ export type FlowNode = {
   buttons?: FlowButton[]; // кнопки-ответы (action_message)
   waitAnswer?: boolean; // «ждать ответы от пользователя» в этом блоке
   statLabel?: string; // метка для action_stat
+  postId?: string; // ID поста для event_comment (реагировать под конкретным постом)
+  variants?: RandomVariant[]; // варианты блока «Рандом»
 };
 
 // branch: "error" — выход при ошибке проверки данных (помечен «!»).
@@ -60,6 +64,9 @@ export type Edge = { id: string; from: string; to: string; branch?: "error"; fro
 
 // Кнопка-ответ под сообщением (варианты ответа в тесте и т.п.).
 export type FlowButton = { id: string; label: string };
+
+// Вариант блока «Рандом» с вероятностью (%).
+export type RandomVariant = { id: string; percent: number };
 
 export type DataFormat = "any" | "number" | "email" | "phone";
 
@@ -86,6 +93,7 @@ export const NODE_META: Record<
 > = {
   event_start: { label: "Первое сообщение и старт бота", color: "#22c55e", icon: "▶", group: "Событие" },
   event_broadcast_start: { label: "Старт рассылки", color: "#f97316", icon: "📣", group: "Событие" },
+  event_comment: { label: "Новый комментарий", color: "#0ea5e9", icon: "💬", group: "Событие" },
   event_message: { label: "Сообщение от пользователя", color: "#3b82f6", icon: "✉", group: "Событие" },
   action_message: { label: "Отправить сообщение", color: "#6c5ce7", icon: "✈", group: "Действие" },
   action_process: { label: "Обработать сообщение", color: "#0ea5e9", icon: "⤵", group: "Действие" },
@@ -94,6 +102,7 @@ export const NODE_META: Record<
   action_manager: { label: "Написать менеджеру", color: "#ef4444", icon: "🧑‍💼", group: "Действие" },
   action_gsheet: { label: "Добавление строки в Google Таблицу", color: "#22a06b", icon: "📊", group: "Интеграция" },
   action_stat: { label: "Записать в статистику", color: "#0891b2", icon: "📈", group: "Действие" },
+  action_random: { label: "Рандом", color: "#8b5cf6", icon: "🎲", group: "Условие" },
   action_ai: { label: "Общение со Smartbot AI", color: "#a855f7", icon: "🤖", group: "Действие" },
   condition: { label: "Условие", color: "#f59e0b", icon: "◈", group: "Условие" },
 };
@@ -189,6 +198,7 @@ export const TEMPLATE_CATEGORIES = [
   "SMM малого бизнеса",
   "Для HR",
   "Шаблоны AI-ботов",
+  "Рецепты",
   "Мои шаблоны",
 ];
 
@@ -207,6 +217,7 @@ export const TEMPLATES: Template[] = [
   { id: "webinar-simple", name: "Простой сбор заявок", category: "SMM малого бизнеса", description: "Собирает заявки по слову «заявка», сохраняет контакт, пишет в Google Таблицу и уведомляет админа.", uses: 3410, emoji: "📝" },
   { id: "webinar-funnel", name: "Автоворонка для вебинара", category: "Для онлайн-школ", description: "Готовая воронка сбора заявок на вебинар с записью в таблицу и уведомлениями. Все переменные уже настроены.", uses: 2874, emoji: "🎥" },
   { id: "quiz-score", name: "Тест с набором баллов", category: "Для онлайн-школ", description: "Интерактивный тест: кнопки-ответы, начисление баллов за верные ответы и вывод результата.", uses: 1902, emoji: "🧠" },
+  { id: "comments-game", name: "Игра в комментариях", category: "Рецепты", description: "Бот отвечает на комментарии под постом случайным предсказанием. Реакция на «Новый комментарий» + блок «Рандом».", uses: 1567, emoji: "🎯" },
 ];
 
 // Собирает полный флоу для шаблона. Для вебинарных шаблонов —
@@ -214,6 +225,7 @@ export const TEMPLATES: Template[] = [
 // уведомление админам → ответ клиенту» (как в мини-курсе).
 export function buildTemplate(templateId: string): { nodes: FlowNode[]; edges: Edge[] } {
   if (templateId === "quiz-score") return buildQuizTemplate();
+  if (templateId === "comments-game") return buildCommentsGame();
   if (templateId !== "webinar-simple" && templateId !== "webinar-funnel") {
     return starterNodes();
   }
@@ -264,6 +276,41 @@ function buildQuizTemplate(): { nodes: FlowNode[]; edges: Edge[] } {
       { id: uid("e"), from: score.id, to: correct.id },
       { id: uid("e"), from: correct.id, to: result.id },
       { id: uid("e"), from: wrong.id, to: result.id },
+    ],
+  };
+}
+
+// Рецепт «Игра в комментариях»: новый комментарий -> Рандом (4 по 25%) ->
+// 4 случайных предсказания.
+function buildCommentsGame(): { nodes: FlowNode[]; edges: Edge[] } {
+  const v1: RandomVariant = { id: uid("v"), percent: 25 };
+  const v2: RandomVariant = { id: uid("v"), percent: 25 };
+  const v3: RandomVariant = { id: uid("v"), percent: 25 };
+  const v4: RandomVariant = { id: uid("v"), percent: 25 };
+
+  const comment: FlowNode = { id: uid(), kind: "event_comment", x: 120, y: 60, title: "Новый комментарий", text: "предсказание", match: "contains", postId: "" };
+  const rnd: FlowNode = { id: uid(), kind: "action_random", x: 120, y: 300, title: "Рандом", variants: [v1, v2, v3, v4] };
+  const predictions = [
+    "В новом году вас ждёт удача! 🍀",
+    "Скоро вас ждёт приятная новость 💌",
+    "Смелый шаг приведёт к успеху 🚀",
+    "Впереди — тёплая встреча со старым другом ☕",
+  ];
+  const msgNodes: FlowNode[] = predictions.map((t, i) => ({
+    id: uid(),
+    kind: "action_message" as const,
+    x: 520,
+    y: 120 + i * 180,
+    title: "Отправить сообщение",
+    text: t,
+  }));
+
+  const variants = [v1, v2, v3, v4];
+  return {
+    nodes: [comment, rnd, ...msgNodes],
+    edges: [
+      { id: uid("e"), from: comment.id, to: rnd.id },
+      ...msgNodes.map((m, i) => ({ id: uid("e"), from: rnd.id, to: m.id, fromButton: variants[i].id })),
     ],
   };
 }
