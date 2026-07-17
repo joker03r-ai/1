@@ -50,6 +50,7 @@ export type FlowNode = {
   template?: string; // шаблон ответа, напр. Мой телефон «телефон»
   format?: DataFormat; // ожидаемый формат значения
   requestContact?: boolean; // кнопка «Отправить номер» (action_message)
+  contactVar?: string; // переменная для сохранения телефона из кнопки контакта
   sheetUrl?: string; // ссылка на Google Таблицу (action_gsheet)
   buttons?: FlowButton[]; // кнопки-ответы (action_message)
   waitAnswer?: boolean; // «ждать ответы от пользователя» в этом блоке
@@ -222,6 +223,7 @@ export const TEMPLATES: Template[] = [
   { id: "quiz-score", name: "Тест с набором баллов", category: "Для онлайн-школ", description: "Интерактивный тест: кнопки-ответы, начисление баллов за верные ответы и вывод результата.", uses: 1902, emoji: "🧠" },
   { id: "comments-game", name: "Игра в комментариях", category: "Рецепты", description: "Бот отвечает на комментарии под постом случайным предсказанием. Реакция на «Новый комментарий» + блок «Рандом».", uses: 1567, emoji: "🎯" },
   { id: "faq", name: "Ответы на частые вопросы", category: "Шаблоны AI-ботов", description: "Готовые цепочки на частые вопросы: адрес, доставка, график, ассортимент, оплата. Режим «Похоже на» распознаёт смысл.", uses: 1234, emoji: "❓" },
+  { id: "get-phone", name: "Получение телефона", category: "Рецепты", description: "Бот запрашивает телефон, проверяет формат и переспрашивает при ошибке. Кнопка «Отправить телефон» для Telegram.", uses: 2140, emoji: "📱" },
 ];
 
 // Собирает полный флоу для шаблона. Для вебинарных шаблонов —
@@ -231,6 +233,7 @@ export function buildTemplate(templateId: string): { nodes: FlowNode[]; edges: E
   if (templateId === "quiz-score") return buildQuizTemplate();
   if (templateId === "comments-game") return buildCommentsGame();
   if (templateId === "faq") return buildFAQ();
+  if (templateId === "get-phone") return buildGetPhone();
   if (templateId !== "webinar-simple" && templateId !== "webinar-funnel") {
     return starterNodes();
   }
@@ -339,4 +342,25 @@ function buildFAQ(): { nodes: FlowNode[]; edges: Edge[] } {
     edges.push({ id: uid("e"), from: ev.id, to: ans.id });
   });
   return { nodes, edges };
+}
+
+// Рецепт «Получение телефона»: запрос -> проверка формата -> сохранение,
+// при ошибке переспросить (выход-ошибка возвращает на обработку).
+function buildGetPhone(): { nodes: FlowNode[]; edges: Edge[] } {
+  const start: FlowNode = { id: uid(), kind: "event_start", x: 300, y: 40, title: "Первое сообщение и старт бота" };
+  const ask: FlowNode = { id: uid(), kind: "action_message", x: 300, y: 240, title: "Отправить сообщение", text: "Оставьте, пожалуйста, номер телефона — менеджер свяжется с вами.", requestContact: true, contactVar: "Телефон" };
+  const process: FlowNode = { id: uid(), kind: "action_process", x: 300, y: 470, title: "Обработать сообщение", varName: "Телефон", useTemplate: true, template: "Мой телефон «телефон»", format: "phone" };
+  const ok: FlowNode = { id: uid(), kind: "action_message", x: 620, y: 700, title: "Отправить сообщение", text: "Спасибо! Мы свяжемся с вами по номеру %Телефон%." };
+  const err: FlowNode = { id: uid(), kind: "action_message", x: 60, y: 700, title: "Отправить сообщение", text: "Кажется, это не похоже на телефон. Введите номер ещё раз, пожалуйста." };
+
+  return {
+    nodes: [start, ask, process, ok, err],
+    edges: [
+      { id: uid("e"), from: start.id, to: ask.id },
+      { id: uid("e"), from: ask.id, to: process.id },
+      { id: uid("e"), from: process.id, to: ok.id },
+      { id: uid("e"), from: process.id, to: err.id, branch: "error" },
+      { id: uid("e"), from: err.id, to: process.id },
+    ],
+  };
 }

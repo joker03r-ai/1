@@ -560,7 +560,16 @@ export default function FlowEditor({
                         Кнопка «Отправить номер» (запрос контакта)
                       </label>
                       {n.requestContact && (
-                        <div className="fn__contact-btn">📱 Отправить номер</div>
+                        <>
+                          <div className="fn__contact-btn">📱 Отправить номер</div>
+                          <div className="fn__sub">Сохранить телефон в переменную</div>
+                          <VarSelect
+                            vars={vars}
+                            value={n.contactVar || ""}
+                            onChange={(v) => patchNode(n.id, { contactVar: v })}
+                            onCreate={() => setShowVars(true)}
+                          />
+                        </>
                       )}
                       <div className="fn__sub">Кнопки-ответы</div>
                       {(n.buttons || []).map((btn) => (
