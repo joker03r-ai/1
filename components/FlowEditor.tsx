@@ -601,9 +601,15 @@ export default function FlowEditor({
                   )}
                   {n.kind === "action_process" && (
                     <>
-                      <div className="fn__hint" style={{ marginBottom: 8 }}>
-                        Сохранить ответ пользователя в переменную:
-                      </div>
+                      <label className="fn__check" style={{ marginTop: 0 }}>
+                        <input
+                          type="checkbox"
+                          checked={n.waitAnswer !== false}
+                          onChange={(e) => patchNode(n.id, { waitAnswer: e.target.checked })}
+                        />
+                        Ждать сообщение от пользователя
+                      </label>
+                      <div className="fn__sub">Записать в переменную</div>
                       <VarSelect
                         vars={vars}
                         value={n.varName || ""}
@@ -616,19 +622,12 @@ export default function FlowEditor({
                           checked={!!n.useTemplate}
                           onChange={(e) => patchNode(n.id, { useTemplate: e.target.checked })}
                         />
-                        Использовать шаблон (проверка данных)
+                        Проверить формат сообщения
                       </label>
                       {n.useTemplate && (
                         <>
-                          <input
-                            className="fn__input"
-                            style={{ marginTop: 6 }}
-                            placeholder="Мой телефон «телефон»"
-                            value={n.template || ""}
-                            onChange={(e) => patchNode(n.id, { template: e.target.value })}
-                          />
-                          <div className="fn__row" style={{ marginTop: 6, marginBottom: 0 }}>
-                            <span className="fn__if">Формат</span>
+                          <div className="fn__row" style={{ marginTop: 6, marginBottom: 6 }}>
+                            <span className="fn__if">Фильтр</span>
                             <select
                               className="fn__select"
                               value={n.format || "any"}
@@ -639,6 +638,12 @@ export default function FlowEditor({
                               ))}
                             </select>
                           </div>
+                          <input
+                            className="fn__input"
+                            placeholder="шаблон, напр. Мой телефон «телефон»"
+                            value={n.template || ""}
+                            onChange={(e) => patchNode(n.id, { template: e.target.value })}
+                          />
                           <div className="fn__err-label">! выход при ошибке →</div>
                         </>
                       )}
