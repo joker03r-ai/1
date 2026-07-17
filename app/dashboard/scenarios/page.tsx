@@ -1,5 +1,5 @@
-import Placeholder from "@/components/Placeholder";
+import ScenariosClient from "./ScenariosClient";
 
 export default function Page() {
-  return <Placeholder title="Сценарии" crumbs={["Основной проект", "Сценарии"]} />;
+  return <ScenariosClient />;
 }
