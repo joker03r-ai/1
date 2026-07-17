@@ -28,6 +28,7 @@ import {
 } from "@/lib/variables";
 import { Manager, loadManagers, NOTIFY_CHANNELS } from "@/lib/managers";
 import { StatLabel, loadLabels, addLabel } from "@/lib/stats";
+import { PAYMENT_PROVIDERS } from "@/lib/integrations";
 
 const NODE_W = 250;
 
@@ -244,11 +245,11 @@ export default function FlowEditor({
       )
     );
   }
-  function patchButton(nodeId: string, btnId: string, label: string) {
+  function patchButton(nodeId: string, btnId: string, patch: Partial<FlowButton>) {
     setNodes((ns) =>
       ns.map((n) =>
         n.id === nodeId
-          ? { ...n, buttons: (n.buttons || []).map((b) => (b.id === btnId ? { ...b, label } : b)) }
+          ? { ...n, buttons: (n.buttons || []).map((b) => (b.id === btnId ? { ...b, ...patch } : b)) }
           : n
       )
     );
@@ -620,27 +621,62 @@ export default function FlowEditor({
                           />
                         </>
                       )}
-                      <div className="fn__sub">Кнопки-ответы</div>
+                      <div className="fn__sub">Кнопки</div>
                       {(n.buttons || []).map((btn) => (
-                        <div className="fn__btnrow" key={btn.id}>
-                          <input
+                        <div key={btn.id} className={btn.type === "payment" ? "fn__paybtn" : undefined}>
+                          <div className="fn__btnrow">
+                            <input
+                              className="fn__input"
+                              value={btn.label}
+                              onChange={(e) => patchButton(n.id, btn.id, { label: e.target.value })}
+                            />
+                            <button className="fn__btn-del" onClick={() => removeButton(n.id, btn.id)} title="Удалить кнопку">✕</button>
+                            <button
+                              className="fn__port btn"
+                              title="После нажатия / оплаты — следующий блок"
+                              ref={(el) => { btnPortRefs.current[`${n.id}/${btn.id}`] = el; }}
+                              onPointerDown={(e) => onPortPointerDown(e, n.id, undefined, btn.id)}
+                            />
+                          </div>
+                          <select
                             className="fn__input"
-                            value={btn.label}
-                            onChange={(e) => patchButton(n.id, btn.id, e.target.value)}
-                          />
-                          <button
-                            className="fn__btn-del"
-                            onClick={() => removeButton(n.id, btn.id)}
-                            title="Удалить кнопку"
+                            style={{ marginTop: 4 }}
+                            value={btn.type || "normal"}
+                            onChange={(e) => patchButton(n.id, btn.id, { type: e.target.value as "normal" | "payment" })}
                           >
-                            ✕
-                          </button>
-                          <button
-                            className="fn__port btn"
-                            title="Связать этот вариант со следующим блоком"
-                            ref={(el) => { btnPortRefs.current[`${n.id}/${btn.id}`] = el; }}
-                            onPointerDown={(e) => onPortPointerDown(e, n.id, undefined, btn.id)}
-                          />
+                            <option value="normal">Обычная кнопка</option>
+                            <option value="payment">Создать платёж</option>
+                          </select>
+                          {btn.type === "payment" && (
+                            <>
+                              <select
+                                className="fn__input"
+                                style={{ marginTop: 4 }}
+                                value={btn.provider || (PAYMENT_PROVIDERS[0]?.id || "")}
+                                onChange={(e) => patchButton(n.id, btn.id, { provider: e.target.value })}
+                              >
+                                {PAYMENT_PROVIDERS.map((p) => (
+                                  <option key={p.id} value={p.id}>{p.name}</option>
+                                ))}
+                              </select>
+                              <div className="fn__btnrow">
+                                <input
+                                  className="fn__input"
+                                  placeholder="сумма (можно %Переменная%)"
+                                  value={btn.amount || ""}
+                                  onChange={(e) => patchButton(n.id, btn.id, { amount: e.target.value })}
+                                />
+                                <span className="fn__pct">₽</span>
+                              </div>
+                              <input
+                                className="fn__input"
+                                style={{ marginTop: 4 }}
+                                placeholder="назначение платежа"
+                                value={btn.purpose || ""}
+                                onChange={(e) => patchButton(n.id, btn.id, { purpose: e.target.value })}
+                              />
+                            </>
+                          )}
                         </div>
                       ))}
                       <button className="fn__addbtn" onClick={() => addButton(n.id)}>

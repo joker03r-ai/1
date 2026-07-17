@@ -1,5 +1,5 @@
-import Placeholder from "@/components/Placeholder";
+import IntegrationsClient from "./IntegrationsClient";
 
 export default function Page() {
-  return <Placeholder title="Интеграции" crumbs={["Основной проект", "Интеграции"]} />;
+  return <IntegrationsClient />;
 }

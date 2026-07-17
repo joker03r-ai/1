@@ -1,5 +1,5 @@
-import Placeholder from "@/components/Placeholder";
+import ShopsClient from "./ShopsClient";
 
 export default function Page() {
-  return <Placeholder title="Магазины" crumbs={["Основной проект", "Магазины"]} />;
+  return <ShopsClient />;
 }

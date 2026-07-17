@@ -70,7 +70,15 @@ export type FlowNode = {
 export type Edge = { id: string; from: string; to: string; branch?: "error"; fromButton?: string };
 
 // Кнопка-ответ под сообщением (варианты ответа в тесте и т.п.).
-export type FlowButton = { id: string; label: string };
+// type "payment" — кнопка «Создать платёж».
+export type FlowButton = {
+  id: string;
+  label: string;
+  type?: "normal" | "payment";
+  amount?: string;
+  purpose?: string;
+  provider?: string;
+};
 
 // Вариант блока «Рандом» с вероятностью (%).
 export type RandomVariant = { id: string; percent: number };

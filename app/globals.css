@@ -1705,3 +1705,29 @@ table.tariff tr:last-child td {
 .fn__branch.no { color: #ef4444; }
 .fn__port.err.sub { border-color: #16a34a; color: #16a34a; }
 .fn__port.err.sub:hover { background: #16a34a; color: #fff; }
+
+/* ================= Интеграции ================= */
+.intg-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 14px;
+  margin-bottom: 8px;
+}
+.intg-card {
+  background: #fff; border: 1px solid var(--line); border-radius: 16px;
+  padding: 16px; box-shadow: var(--shadow-sm); display: flex; flex-direction: column;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+.intg-card:hover { transform: translateY(-3px); box-shadow: var(--shadow); }
+.intg-card__top { display: flex; align-items: center; gap: 11px; margin-bottom: 10px; }
+.intg-ico {
+  width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center;
+  font-size: 22px; flex-shrink: 0;
+}
+.intg-name { font-weight: 700; font-size: 14px; }
+.intg-badge { font-size: 11px; font-weight: 700; color: #15a34a; }
+.intg-desc { font-size: 12.5px; color: var(--ink-soft); line-height: 1.5; flex: 1; margin: 0 0 14px; }
+
+/* Платёжная кнопка в блоке */
+.fn__paybtn {
+  border: 1px solid var(--violet-100); border-radius: 10px; padding: 8px;
+  margin-top: 4px; background: var(--violet-050);
+}
