@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 import {
   IconBot,
   IconFlow,
@@ -30,35 +31,65 @@ const NAV = [
 
 export default function Sidebar() {
   const path = usePathname();
+  const [collapsed, setCollapsed] = useState(true);
+
+  useEffect(() => {
+    const v = localStorage.getItem("sb_sidebar_collapsed");
+    if (v !== null) setCollapsed(v === "1");
+  }, []);
+
+  function toggle() {
+    setCollapsed((c) => {
+      const next = !c;
+      localStorage.setItem("sb_sidebar_collapsed", next ? "1" : "0");
+      return next;
+    });
+  }
+
   return (
-    <aside className="sidebar">
-      <div className="sidebar__brand">
-        <span className="brand-logo">🤖</span>
-        <span>Smartbot AI</span>
+    <aside className={`sidebar${collapsed ? " collapsed" : ""}`}>
+      <div className="sidebar__top">
+        <button className="sidebar__burger" onClick={toggle} aria-label="Свернуть меню">
+          ☰
+        </button>
+        {!collapsed && (
+          <div className="sidebar__brand">
+            <span className="brand-logo">🤖</span>
+            <span>Smartbot AI</span>
+          </div>
+        )}
       </div>
 
       <nav className="sidebar__nav">
         {NAV.map(({ href, label, Icon }) => {
           const active = path === href || path.startsWith(href + "/");
           return (
-            <Link key={href} href={href} className={`nav-item${active ? " active" : ""}`}>
+            <Link
+              key={href}
+              href={href}
+              className={`nav-item${active ? " active" : ""}`}
+              title={collapsed ? label : undefined}
+            >
               <Icon className="ico" />
-              <span>{label}</span>
+              {!collapsed && <span>{label}</span>}
             </Link>
           );
         })}
       </nav>
 
-      <div className="sidebar__promo">
-        <div className="title">🎁 Пробный период</div>
-        <div className="sub">Осталось 7 дней · все функции</div>
-        <button className="promo-btn">Выбрать тариф</button>
-      </div>
-
-      <div className="sidebar__foot">
-        <div className="chip">Заказать бота</div>
-        <div className="chip">Партнёры</div>
-      </div>
+      {!collapsed && (
+        <>
+          <div className="sidebar__promo">
+            <div className="title">🎁 Пробный период</div>
+            <div className="sub">Осталось 7 дней · все функции</div>
+            <button className="promo-btn">Выбрать тариф</button>
+          </div>
+          <div className="sidebar__foot">
+            <div className="chip">Заказать бота</div>
+            <div className="chip">Партнёры</div>
+          </div>
+        </>
+      )}
     </aside>
   );
 }

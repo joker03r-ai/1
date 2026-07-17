@@ -87,15 +87,57 @@ select {
   position: sticky;
   top: 0;
   height: 100vh;
+  transition: width 0.16s ease;
+}
+
+.sidebar.collapsed {
+  width: 68px;
+}
+
+.sidebar__top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 14px 6px;
+}
+.sidebar.collapsed .sidebar__top {
+  justify-content: center;
+  padding: 14px 0 6px;
+}
+.sidebar__burger {
+  border: 0;
+  background: none;
+  font-size: 18px;
+  color: var(--ink-soft);
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  flex-shrink: 0;
+}
+.sidebar__burger:hover {
+  background: var(--line-soft);
+  color: var(--ink);
 }
 
 .sidebar__brand {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 18px 20px;
   font-weight: 700;
   font-size: 15px;
+}
+
+/* ---- Collapsed nav: icon-only, centered ---- */
+.sidebar.collapsed .sidebar__nav {
+  padding: 6px 10px;
+}
+.sidebar.collapsed .nav-item {
+  justify-content: center;
+  padding: 11px 0;
+}
+.sidebar.collapsed .nav-item .ico {
+  width: 20px;
+  height: 20px;
 }
 
 .brand-logo {
