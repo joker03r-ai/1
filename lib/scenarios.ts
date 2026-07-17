@@ -48,10 +48,16 @@ export type FlowNode = {
   format?: DataFormat; // ожидаемый формат значения
   requestContact?: boolean; // кнопка «Отправить номер» (action_message)
   sheetUrl?: string; // ссылка на Google Таблицу (action_gsheet)
+  buttons?: FlowButton[]; // кнопки-ответы (action_message)
+  waitAnswer?: boolean; // «ждать ответы от пользователя» в этом блоке
 };
 
 // branch: "error" — выход при ошибке проверки данных (помечен «!»).
-export type Edge = { id: string; from: string; to: string; branch?: "error" };
+// fromButton: id кнопки-ответа, из которой выходит связь.
+export type Edge = { id: string; from: string; to: string; branch?: "error"; fromButton?: string };
+
+// Кнопка-ответ под сообщением (варианты ответа в тесте и т.п.).
+export type FlowButton = { id: string; label: string };
 
 export type DataFormat = "any" | "number" | "email" | "phone";
 
@@ -197,12 +203,14 @@ export const TEMPLATES: Template[] = [
   { id: "school-lead", name: "Запись на пробный урок", category: "Для онлайн-школ", description: "Собирает заявки на пробный урок и напоминает о нём.", uses: 612, emoji: "🎓" },
   { id: "webinar-simple", name: "Простой сбор заявок", category: "SMM малого бизнеса", description: "Собирает заявки по слову «заявка», сохраняет контакт, пишет в Google Таблицу и уведомляет админа.", uses: 3410, emoji: "📝" },
   { id: "webinar-funnel", name: "Автоворонка для вебинара", category: "Для онлайн-школ", description: "Готовая воронка сбора заявок на вебинар с записью в таблицу и уведомлениями. Все переменные уже настроены.", uses: 2874, emoji: "🎥" },
+  { id: "quiz-score", name: "Тест с набором баллов", category: "Для онлайн-школ", description: "Интерактивный тест: кнопки-ответы, начисление баллов за верные ответы и вывод результата.", uses: 1902, emoji: "🧠" },
 ];
 
 // Собирает полный флоу для шаблона. Для вебинарных шаблонов —
 // цепочка «заявка → приветствие → сохранить контакт → Google Таблица →
 // уведомление админам → ответ клиенту» (как в мини-курсе).
 export function buildTemplate(templateId: string): { nodes: FlowNode[]; edges: Edge[] } {
+  if (templateId === "quiz-score") return buildQuizTemplate();
   if (templateId !== "webinar-simple" && templateId !== "webinar-funnel") {
     return starterNodes();
   }
@@ -223,6 +231,36 @@ export function buildTemplate(templateId: string): { nodes: FlowNode[]; edges: E
       { id: uid("e"), from: save.id, to: gsheet.id },
       { id: uid("e"), from: gsheet.id, to: notify.id },
       { id: uid("e"), from: notify.id, to: reply.id },
+    ],
+  };
+}
+
+// Шаблон «Тест с набором баллов»: событие «Тест» -> обнулить баллы ->
+// вопрос с кнопками -> начислить балл за верный -> результат.
+function buildQuizTemplate(): { nodes: FlowNode[]; edges: Edge[] } {
+  const bRight: FlowButton = { id: uid("btn"), label: "Азот (~78%)" };
+  const bWrong1: FlowButton = { id: uid("btn"), label: "Кислород (~78%)" };
+  const bWrong2: FlowButton = { id: uid("btn"), label: "Углекислый газ" };
+
+  const start: FlowNode = { id: uid(), kind: "event_message", x: 120, y: 40, title: "Если ввели «Тест»", text: "тест", match: "contains" };
+  const reset: FlowNode = { id: uid(), kind: "action_set_var", x: 120, y: 230, title: "Установить переменную", varName: "Баллы", varValue: "0" };
+  const q1: FlowNode = { id: uid(), kind: "action_message", x: 120, y: 430, title: "Отправить сообщение", text: "Вопрос 1. Из чего в основном состоит атмосфера Земли?", waitAnswer: true, buttons: [bRight, bWrong1, bWrong2] };
+  const score: FlowNode = { id: uid(), kind: "action_set_var", x: 520, y: 430, title: "Установить переменную", varName: "Баллы", varValue: "{{ %Баллы% + 1 }}" };
+  const correct: FlowNode = { id: uid(), kind: "action_message", x: 520, y: 660, title: "Отправить сообщение", text: "Верно! ✅ Правильный ответ — азот (~78%)." };
+  const wrong: FlowNode = { id: uid(), kind: "action_message", x: 120, y: 720, title: "Отправить сообщение", text: "Неверно. Правильный ответ — азот (~78%)." };
+  const result: FlowNode = { id: uid(), kind: "action_message", x: 300, y: 940, title: "Отправить сообщение", text: "Тест завершён! Ваш результат: %Баллы% из 1. Спасибо за участие 🙌" };
+
+  return {
+    nodes: [start, reset, q1, score, correct, wrong, result],
+    edges: [
+      { id: uid("e"), from: start.id, to: reset.id },
+      { id: uid("e"), from: reset.id, to: q1.id },
+      { id: uid("e"), from: q1.id, to: score.id, fromButton: bRight.id },
+      { id: uid("e"), from: q1.id, to: wrong.id, fromButton: bWrong1.id },
+      { id: uid("e"), from: q1.id, to: wrong.id, fromButton: bWrong2.id },
+      { id: uid("e"), from: score.id, to: correct.id },
+      { id: uid("e"), from: correct.id, to: result.id },
+      { id: uid("e"), from: wrong.id, to: result.id },
     ],
   };
 }

@@ -12,6 +12,7 @@ import {
   MATCH_LABELS,
   DataFormat,
   FORMAT_LABELS,
+  FlowButton,
   uid,
   upsertScenario,
 } from "@/lib/scenarios";
@@ -29,7 +30,13 @@ import { Manager, loadManagers, NOTIFY_CHANNELS } from "@/lib/managers";
 
 const NODE_W = 250;
 
-type PendingEdge = { from: string; x: number; y: number; branch?: "error" } | null;
+type PendingEdge = {
+  from: string;
+  x: number;
+  y: number;
+  branch?: "error";
+  fromButton?: string;
+} | null;
 
 export default function FlowEditor({
   initial,
@@ -63,6 +70,8 @@ export default function FlowEditor({
 
   const canvasRef = useRef<HTMLDivElement>(null);
   const nodeRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const btnPortRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+  const [portPos, setPortPos] = useState<Record<string, { x: number; y: number }>>({});
   const drag = useRef<{ id: string; dx: number; dy: number } | null>(null);
 
   // Автосохранение в localStorage.
@@ -78,7 +87,7 @@ export default function FlowEditor({
     return () => clearTimeout(t);
   }, [nodes, edges, published]); // eslint-disable-line
 
-  // Измерение высот нод для точных стрелок.
+  // Измерение высот нод и позиций портов-кнопок для точных стрелок.
   useLayoutEffect(() => {
     const h: Record<string, number> = {};
     for (const n of nodes) {
@@ -86,6 +95,20 @@ export default function FlowEditor({
       if (el) h[n.id] = el.offsetHeight;
     }
     setHeights(h);
+
+    const canvas = canvasRef.current;
+    if (canvas) {
+      const cr = canvas.getBoundingClientRect();
+      const pos: Record<string, { x: number; y: number }> = {};
+      for (const key of Object.keys(btnPortRefs.current)) {
+        const el = btnPortRefs.current[key];
+        if (el) {
+          const r = el.getBoundingClientRect();
+          pos[key] = { x: r.left + r.width / 2 - cr.left, y: r.top + r.height / 2 - cr.top };
+        }
+      }
+      setPortPos(pos);
+    }
   }, [nodes]);
 
   const canvasPoint = useCallback((clientX: number, clientY: number) => {
@@ -122,10 +145,10 @@ export default function FlowEditor({
   }, [onDragMove]);
 
   // ---- Создание связи ----
-  function onPortPointerDown(e: React.PointerEvent, id: string, branch?: "error") {
+  function onPortPointerDown(e: React.PointerEvent, id: string, branch?: "error", fromButton?: string) {
     e.stopPropagation();
     const p = canvasPoint(e.clientX, e.clientY);
-    setPending({ from: id, x: p.x, y: p.y, branch });
+    setPending({ from: id, x: p.x, y: p.y, branch, fromButton });
     window.addEventListener("pointermove", onPortMove);
     window.addEventListener("pointerup", onPortUp);
   }
@@ -142,8 +165,8 @@ export default function FlowEditor({
     setPending((pd) => {
       if (pd && to && to !== pd.from) {
         setEdges((es) => {
-          if (es.some((x) => x.from === pd.from && x.to === to && x.branch === pd.branch)) return es;
-          return [...es, { id: uid("e"), from: pd.from, to, branch: pd.branch }];
+          if (es.some((x) => x.from === pd.from && x.to === to && x.branch === pd.branch && x.fromButton === pd.fromButton)) return es;
+          return [...es, { id: uid("e"), from: pd.from, to, branch: pd.branch, fromButton: pd.fromButton }];
         });
       }
       return null;
@@ -190,6 +213,32 @@ export default function FlowEditor({
   function patchNode(id: string, patch: Partial<FlowNode>) {
     setNodes((ns) => ns.map((n) => (n.id === id ? { ...n, ...patch } : n)));
   }
+  function addButton(nodeId: string) {
+    setNodes((ns) =>
+      ns.map((n) =>
+        n.id === nodeId
+          ? { ...n, buttons: [...(n.buttons || []), { id: uid("btn"), label: "Вариант ответа" }] }
+          : n
+      )
+    );
+  }
+  function patchButton(nodeId: string, btnId: string, label: string) {
+    setNodes((ns) =>
+      ns.map((n) =>
+        n.id === nodeId
+          ? { ...n, buttons: (n.buttons || []).map((b) => (b.id === btnId ? { ...b, label } : b)) }
+          : n
+      )
+    );
+  }
+  function removeButton(nodeId: string, btnId: string) {
+    setNodes((ns) =>
+      ns.map((n) =>
+        n.id === nodeId ? { ...n, buttons: (n.buttons || []).filter((b) => b.id !== btnId) } : n
+      )
+    );
+    setEdges((es) => es.filter((e) => !(e.from === nodeId && e.fromButton === btnId)));
+  }
   function removeEdge(id: string) {
     setEdges((es) => es.filter((e) => e.id !== id));
   }
@@ -198,11 +247,18 @@ export default function FlowEditor({
     return heights[id] ?? 90;
   }
 
-  // Bezier path между нижним портом from и верхним центром to.
-  // branch "error" — выход из правого-нижнего порта.
-  function edgePath(from: FlowNode, to: FlowNode, branch?: "error") {
-    const x1 = branch === "error" ? from.x + NODE_W - 24 : from.x + NODE_W / 2;
-    const y1 = from.y + nodeH(from.id);
+  // Bezier path между портом-выходом from и верхним центром to.
+  // branch "error" — правый-нижний порт; fromButton — порт конкретной кнопки.
+  function edgePath(from: FlowNode, to: FlowNode, branch?: "error", fromButton?: string) {
+    let x1: number, y1: number;
+    const bp = fromButton ? portPos[`${from.id}/${fromButton}`] : undefined;
+    if (bp) {
+      x1 = bp.x;
+      y1 = bp.y;
+    } else {
+      x1 = branch === "error" ? from.x + NODE_W - 24 : from.x + NODE_W / 2;
+      y1 = from.y + nodeH(from.id);
+    }
     const x2 = to.x + NODE_W / 2;
     const y2 = to.y;
     const dy = Math.max(40, Math.abs(y2 - y1) / 2);
@@ -270,9 +326,9 @@ export default function FlowEditor({
               if (!from || !to) return null;
               return (
                 <g key={e.id} className="flow__edge">
-                  <path d={edgePath(from, to, e.branch)} className="flow__edge-hit" onClick={() => removeEdge(e.id)} />
+                  <path d={edgePath(from, to, e.branch, e.fromButton)} className="flow__edge-hit" onClick={() => removeEdge(e.id)} />
                   <path
-                    d={edgePath(from, to, e.branch)}
+                    d={edgePath(from, to, e.branch, e.fromButton)}
                     className={`flow__edge-line${e.branch === "error" ? " err" : ""}`}
                     markerEnd={e.branch === "error" ? "url(#arrow-err)" : "url(#arrow)"}
                   />
@@ -281,8 +337,9 @@ export default function FlowEditor({
             })}
             {pending && (() => {
               const from = nodes.find((n) => n.id === pending.from)!;
-              const x1 = pending.branch === "error" ? from.x + NODE_W - 24 : from.x + NODE_W / 2;
-              const y1 = from.y + nodeH(from.id);
+              const bp = pending.fromButton ? portPos[`${from.id}/${pending.fromButton}`] : undefined;
+              const x1 = bp ? bp.x : pending.branch === "error" ? from.x + NODE_W - 24 : from.x + NODE_W / 2;
+              const y1 = bp ? bp.y : from.y + nodeH(from.id);
               return (
                 <path
                   d={`M ${x1} ${y1} C ${x1} ${y1 + 50}, ${pending.x} ${pending.y - 50}, ${pending.x} ${pending.y}`}
@@ -356,6 +413,32 @@ export default function FlowEditor({
                       {n.requestContact && (
                         <div className="fn__contact-btn">📱 Отправить номер</div>
                       )}
+                      <div className="fn__sub">Кнопки-ответы</div>
+                      {(n.buttons || []).map((btn) => (
+                        <div className="fn__btnrow" key={btn.id}>
+                          <input
+                            className="fn__input"
+                            value={btn.label}
+                            onChange={(e) => patchButton(n.id, btn.id, e.target.value)}
+                          />
+                          <button
+                            className="fn__btn-del"
+                            onClick={() => removeButton(n.id, btn.id)}
+                            title="Удалить кнопку"
+                          >
+                            ✕
+                          </button>
+                          <button
+                            className="fn__port btn"
+                            title="Связать этот вариант со следующим блоком"
+                            ref={(el) => { btnPortRefs.current[`${n.id}/${btn.id}`] = el; }}
+                            onPointerDown={(e) => onPortPointerDown(e, n.id, undefined, btn.id)}
+                          />
+                        </div>
+                      ))}
+                      <button className="fn__addbtn" onClick={() => addButton(n.id)}>
+                        + Добавить кнопку
+                      </button>
                     </>
                   )}
                   {n.kind === "action_process" && (
@@ -414,10 +497,27 @@ export default function FlowEditor({
                       <input
                         className="fn__input"
                         style={{ marginTop: 6 }}
-                        placeholder="значение (можно %Переменная%)"
+                        placeholder="значение или {{ %Переменная% + 1 }}"
                         value={n.varValue || ""}
                         onChange={(e) => patchNode(n.id, { varValue: e.target.value })}
                       />
+                      <div className="fn__var-hint">
+                        Арифметика: <code>{"{{ %Баллы% + 1 }}"}</code>
+                      </div>
+                      <div className="fn__ops">
+                        <button
+                          className="fn__op"
+                          onClick={() => patchNode(n.id, { varValue: `{{ %${n.varName || "Переменная"}% + 1 }}` })}
+                        >
+                          + Операции с числами
+                        </button>
+                        <button
+                          className="fn__op"
+                          onClick={() => patchNode(n.id, { varValue: "{{ now + 1d }}" })}
+                        >
+                          + Операции с датами
+                        </button>
+                      </div>
                     </>
                   )}
                   {n.kind === "action_notify" && (
@@ -567,6 +667,7 @@ function VarSelect({
   onChange: (v: string) => void;
   onCreate: () => void;
 }) {
+  const missing = value && !vars.some((v) => v.name === value);
   return (
     <select
       className="fn__input"
@@ -576,7 +677,8 @@ function VarSelect({
         else onChange(e.target.value);
       }}
     >
-      {vars.length === 0 && <option value="">нет переменных</option>}
+      {vars.length === 0 && !value && <option value="">нет переменных</option>}
+      {missing && <option value={value}>{value}</option>}
       {vars.map((v) => (
         <option key={v.id} value={v.name}>
           {v.name} · {VAR_SCOPE_LABELS[v.scope]}

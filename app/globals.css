@@ -1537,3 +1537,31 @@ table.tariff tr:last-child td {
   border-radius: 8px; background: #eaf6ff; color: #2b6ef6;
   font-size: 12px; font-weight: 700; border: 1px solid #d3e8ff;
 }
+
+/* Кнопки-ответы в блоке сообщения */
+.fn__btnrow { display: flex; align-items: center; gap: 6px; margin-top: 6px; position: relative; }
+.fn__btnrow .fn__input { flex: 1; }
+.fn__btn-del {
+  border: 0; background: var(--line-soft); color: var(--ink-soft);
+  width: 24px; height: 24px; border-radius: 6px; font-size: 11px; flex-shrink: 0;
+}
+.fn__port.btn {
+  position: static; transform: none; left: auto; bottom: auto;
+  width: 14px; height: 14px; flex-shrink: 0;
+  border-color: var(--violet); background: #fff;
+}
+.fn__port.btn:hover { background: var(--violet); }
+.fn__addbtn {
+  margin-top: 8px; width: 100%; border: 1px dashed var(--line);
+  background: #fff; color: var(--violet-600); border-radius: 8px;
+  padding: 6px; font-size: 12px; font-weight: 600;
+}
+.fn__addbtn:hover { border-color: var(--violet); background: var(--violet-050); }
+
+/* Операции в «Установить переменную» */
+.fn__ops { display: flex; gap: 6px; margin-top: 8px; }
+.fn__op {
+  flex: 1; border: 1px solid var(--line); background: #fff; color: var(--violet-600);
+  border-radius: 8px; padding: 6px 4px; font-size: 11px; font-weight: 600;
+}
+.fn__op:hover { border-color: var(--violet); background: var(--violet-050); }
