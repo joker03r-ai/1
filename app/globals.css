@@ -1600,3 +1600,59 @@ table.tariff tr:last-child td {
 
 /* Условие «ИЛИ» */
 .fn__or { font-size: 11px; font-weight: 800; color: var(--ink-faint); flex-shrink: 0; }
+
+/* ================= Сценарии: таблица (как в оригинале) ================= */
+.scn-head {
+  display: flex; align-items: center; justify-content: space-between;
+  border-bottom: 1px solid var(--line); margin-bottom: 18px; padding-bottom: 0;
+}
+.scn-toolbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; gap: 12px; }
+.scn-search {
+  display: flex; align-items: center; gap: 8px;
+  background: #fff; border: 1px solid var(--line); border-radius: 12px;
+  padding: 0 12px; width: 340px; max-width: 100%;
+}
+.scn-search input { border: 0; outline: none; padding: 10px 0; width: 100%; background: transparent; }
+.scn-search__ico { opacity: 0.5; font-size: 13px; }
+.scn-new {
+  position: absolute; top: -8px; right: -6px;
+  background: var(--violet); color: #fff; font-size: 9px; font-weight: 700;
+  padding: 2px 6px; border-radius: 6px;
+}
+
+.scn-table-wrap {
+  background: #fff; border: 1px solid var(--line); border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm); overflow: hidden;
+}
+.scn-table { width: 100%; border-collapse: collapse; }
+.scn-table thead th {
+  text-align: left; font-size: 12.5px; font-weight: 600; color: var(--ink-soft);
+  padding: 14px 16px; border-bottom: 1px solid var(--line);
+}
+.scn-table tbody tr { cursor: pointer; transition: background 0.12s; }
+.scn-table tbody tr:hover { background: var(--line-soft); }
+.scn-table tbody td { padding: 16px; border-bottom: 1px solid var(--line-soft); font-size: 13px; vertical-align: middle; }
+.scn-table tbody tr:last-child td { border-bottom: 0; }
+.scn-name { font-weight: 700; font-size: 14px; }
+.scn-work { color: var(--ink-soft); font-size: 12.5px; line-height: 1.9; }
+.scn-work .dot, .scn-status .dot {
+  display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 7px;
+}
+.dot.on { background: var(--green); }
+.dot.warn { background: var(--amber); }
+.scn-status { display: inline-flex; align-items: center; font-weight: 600; font-size: 12.5px; }
+.scn-status.pub { color: #15a34a; }
+.scn-status.draft { color: #b26a00; }
+.scn-kebab {
+  border: 0; background: none; color: var(--ink-faint); font-size: 18px;
+  padding: 4px 8px; border-radius: 6px; line-height: 1;
+}
+.scn-kebab:hover { background: var(--line); color: var(--ink); }
+.scn-menu {
+  position: absolute; right: 12px; top: 40px; z-index: 20;
+  background: #fff; border: 1px solid var(--line); border-radius: 12px;
+  box-shadow: var(--shadow-lg); padding: 6px; min-width: 140px;
+}
+.scn-menu__item { padding: 8px 10px; border-radius: 8px; font-size: 13px; font-weight: 600; }
+.scn-menu__item:hover { background: var(--line-soft); }
+.scn-menu__item.danger { color: #ef4444; }
