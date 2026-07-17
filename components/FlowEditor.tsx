@@ -29,6 +29,7 @@ import {
 import { Manager, loadManagers, NOTIFY_CHANNELS } from "@/lib/managers";
 import { StatLabel, loadLabels, addLabel } from "@/lib/stats";
 import { PAYMENT_PROVIDERS } from "@/lib/integrations";
+import { useEsc } from "@/lib/useEsc";
 
 const NODE_W = 250;
 
@@ -73,6 +74,10 @@ export default function FlowEditor({
     setManagers(loadManagers());
     setStatLabels(loadLabels());
   }, []);
+
+  useEsc(showPublish, () => setShowPublish(false));
+  useEsc(showSettings, () => setShowSettings(false));
+  useEsc(showVars, () => setShowVars(false));
 
   const canvasRef = useRef<HTMLDivElement>(null);
   const nodeRefs = useRef<Record<string, HTMLDivElement | null>>({});

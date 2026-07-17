@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Topbar from "@/components/Topbar";
+import { useEsc } from "@/lib/useEsc";
 import {
   Scenario,
   loadScenarios,
@@ -29,6 +30,8 @@ export default function ScenariosClient() {
   const [menu, setMenu] = useState<string | null>(null);
 
   useEffect(() => setList(loadScenarios()), []);
+  useEsc(creating, () => setCreating(false));
+  useEsc(catalog, () => setCatalog(false));
 
   function fmtDate(ts: number) {
     return new Date(ts).toLocaleString("ru-RU", {

@@ -8,6 +8,7 @@ import FlowEditor from "@/components/FlowEditor";
 import { Broadcast, getBroadcast, upsertBroadcast } from "@/lib/mailings";
 import { NOTIFY_CHANNELS } from "@/lib/managers";
 import { loadVariables, Variable } from "@/lib/variables";
+import { useEsc } from "@/lib/useEsc";
 
 export default function BroadcastEditorClient() {
   const params = useParams();
@@ -99,6 +100,7 @@ function BroadcastParams({
   const [when, setWhen] = useState("");
   const [vars, setVars] = useState<Variable[]>([]);
   const [conditions, setConditions] = useState<{ varName: string; value: string }[]>([]);
+  useEsc(true, () => { persistParams(); onClose(); });
 
   useEffect(() => setVars(loadVariables()), []);
 

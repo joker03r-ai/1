@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Topbar from "@/components/Topbar";
+import { useEsc } from "@/lib/useEsc";
 import { BotUser, loadUsers } from "@/lib/users";
 import {
   Variable,
@@ -150,6 +151,7 @@ function CreateVariableModal({
   const [type, setType] = useState<VarType>("string");
   const [scope, setScope] = useState<VarScope>("user");
   const [initial, setInitial] = useState("");
+  useEsc(true, onClose);
 
   function submit() {
     if (!name.trim()) return;

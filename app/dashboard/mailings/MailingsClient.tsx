@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Topbar from "@/components/Topbar";
+import { useEsc } from "@/lib/useEsc";
 import {
   Broadcast,
   BroadcastStatus,
@@ -28,6 +29,7 @@ export default function MailingsClient() {
   const [name, setName] = useState("Новая рассылка");
 
   useEffect(() => setList(loadBroadcasts()), []);
+  useEsc(creating, () => setCreating(false));
 
   function create() {
     const b = starterBroadcast(name.trim() || "Новая рассылка");

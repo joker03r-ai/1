@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Topbar from "@/components/Topbar";
+import { useEsc } from "@/lib/useEsc";
 import { PAYMENT_PROVIDERS } from "@/lib/integrations";
 
 type Shop = { id: string; name: string; provider: string };
@@ -11,6 +12,7 @@ export default function ShopsClient() {
   const [creating, setCreating] = useState(false);
   const [name, setName] = useState("");
   const [provider, setProvider] = useState(PAYMENT_PROVIDERS[0]?.id || "");
+  useEsc(creating, () => setCreating(false));
 
   useEffect(() => {
     try {
