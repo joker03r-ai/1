@@ -19,6 +19,7 @@ export const MATCH_LABELS: Record<MatchMode, string> = {
 
 export type NodeKind =
   | "event_start" // Первое сообщение и старт бота
+  | "event_broadcast_start" // Старт рассылки
   | "event_message" // Сообщение от пользователя
   | "action_message" // Отправить сообщение
   | "action_process" // Обработать сообщение (сохранить в переменную)
@@ -76,6 +77,7 @@ export const NODE_META: Record<
   { label: string; color: string; icon: string; group: string }
 > = {
   event_start: { label: "Первое сообщение и старт бота", color: "#22c55e", icon: "▶", group: "Событие" },
+  event_broadcast_start: { label: "Старт рассылки", color: "#f97316", icon: "📣", group: "Событие" },
   event_message: { label: "Сообщение от пользователя", color: "#3b82f6", icon: "✉", group: "Событие" },
   action_message: { label: "Отправить сообщение", color: "#6c5ce7", icon: "✈", group: "Действие" },
   action_process: { label: "Обработать сообщение", color: "#0ea5e9", icon: "⤵", group: "Действие" },

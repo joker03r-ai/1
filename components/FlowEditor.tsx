@@ -31,7 +31,19 @@ const NODE_W = 250;
 
 type PendingEdge = { from: string; x: number; y: number; branch?: "error" } | null;
 
-export default function FlowEditor({ initial }: { initial: Scenario }) {
+export default function FlowEditor({
+  initial,
+  persist,
+  headerActions,
+  backHref = "/dashboard/scenarios",
+}: {
+  initial: Scenario;
+  // Кастомное сохранение (для рассылок). По умолчанию — в сценарии.
+  persist?: (data: { nodes: FlowNode[]; edges: Edge[]; published: boolean }) => void;
+  // Заменяет кнопку «Опубликовать» (например, «Настроить рассылку»).
+  headerActions?: React.ReactNode;
+  backHref?: string;
+}) {
   const [nodes, setNodes] = useState<FlowNode[]>(initial.nodes);
   const [edges, setEdges] = useState<Edge[]>(initial.edges);
   const [published, setPublished] = useState(initial.published);
@@ -56,13 +68,11 @@ export default function FlowEditor({ initial }: { initial: Scenario }) {
   // Автосохранение в localStorage.
   useEffect(() => {
     const t = setTimeout(() => {
-      upsertScenario({
-        ...initial,
-        nodes,
-        edges,
-        published,
-        updatedAt: Date.now(),
-      });
+      if (persist) {
+        persist({ nodes, edges, published });
+      } else {
+        upsertScenario({ ...initial, nodes, edges, published, updatedAt: Date.now() });
+      }
       setSavedTick((x) => x + 1);
     }, 400);
     return () => clearTimeout(t);
@@ -216,7 +226,7 @@ export default function FlowEditor({ initial }: { initial: Scenario }) {
     <div className="flow">
       {/* Тулбар */}
       <div className="flow__toolbar">
-        <Link href="/dashboard/scenarios" className="btn" style={{ padding: "6px 11px" }}>
+        <Link href={backHref} className="btn" style={{ padding: "6px 11px" }}>
           ←
         </Link>
         <div className="flow__palette">
@@ -232,12 +242,14 @@ export default function FlowEditor({ initial }: { initial: Scenario }) {
           (x) Переменные
         </button>
         <span className="flow__saved">{savedTick > 0 ? "✓ Сохранено" : ""}</span>
-        <button
-          className={`btn ${published ? "" : "btn-primary"}`}
-          onClick={() => setShowPublish(true)}
-        >
-          {published ? "✓ Опубликован" : "Опубликовать"}
-        </button>
+        {headerActions ?? (
+          <button
+            className={`btn ${published ? "" : "btn-primary"}`}
+            onClick={() => setShowPublish(true)}
+          >
+            {published ? "✓ Опубликован" : "Опубликовать"}
+          </button>
+        )}
       </div>
 
       {/* Канвас */}

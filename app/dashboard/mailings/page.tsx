@@ -1,5 +1,5 @@
-import Placeholder from "@/components/Placeholder";
+import MailingsClient from "./MailingsClient";
 
 export default function Page() {
-  return <Placeholder title="Рассылки" crumbs={["Основной проект", "Рассылки"]} />;
+  return <MailingsClient />;
 }
