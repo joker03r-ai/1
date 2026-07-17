@@ -1521,3 +1521,19 @@ table.tariff tr:last-child td {
   padding: 5px 8px; border: 1px solid var(--line); border-radius: 8px; cursor: pointer;
 }
 .fn__mgr.on { border-color: var(--violet); background: var(--violet-050); color: var(--violet-600); font-weight: 600; }
+
+/* Проверка данных: порт-ошибка, метки, кнопка контакта */
+.flow__edge-line.err { stroke: #ef4444; }
+.fn__port.err {
+  left: auto; right: 18px; transform: none;
+  border-color: #ef4444; color: #ef4444; background: #fff;
+  font-size: 10px; font-weight: 800; line-height: 1;
+  display: grid; place-items: center;
+}
+.fn__port.err:hover { background: #ef4444; color: #fff; }
+.fn__err-label { font-size: 11px; color: #ef4444; font-weight: 700; margin-top: 8px; text-align: right; }
+.fn__contact-btn {
+  margin-top: 8px; text-align: center; padding: 7px;
+  border-radius: 8px; background: #eaf6ff; color: #2b6ef6;
+  font-size: 12px; font-weight: 700; border: 1px solid #d3e8ff;
+}

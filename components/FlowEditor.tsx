@@ -10,6 +10,8 @@ import {
   NODE_META,
   MatchMode,
   MATCH_LABELS,
+  DataFormat,
+  FORMAT_LABELS,
   uid,
   upsertScenario,
 } from "@/lib/scenarios";
@@ -27,7 +29,7 @@ import { Manager, loadManagers, NOTIFY_CHANNELS } from "@/lib/managers";
 
 const NODE_W = 250;
 
-type PendingEdge = { from: string; x: number; y: number } | null;
+type PendingEdge = { from: string; x: number; y: number; branch?: "error" } | null;
 
 export default function FlowEditor({ initial }: { initial: Scenario }) {
   const [nodes, setNodes] = useState<FlowNode[]>(initial.nodes);
@@ -110,10 +112,10 @@ export default function FlowEditor({ initial }: { initial: Scenario }) {
   }, [onDragMove]);
 
   // ---- Создание связи ----
-  function onPortPointerDown(e: React.PointerEvent, id: string) {
+  function onPortPointerDown(e: React.PointerEvent, id: string, branch?: "error") {
     e.stopPropagation();
     const p = canvasPoint(e.clientX, e.clientY);
-    setPending({ from: id, x: p.x, y: p.y });
+    setPending({ from: id, x: p.x, y: p.y, branch });
     window.addEventListener("pointermove", onPortMove);
     window.addEventListener("pointerup", onPortUp);
   }
@@ -130,8 +132,8 @@ export default function FlowEditor({ initial }: { initial: Scenario }) {
     setPending((pd) => {
       if (pd && to && to !== pd.from) {
         setEdges((es) => {
-          if (es.some((x) => x.from === pd.from && x.to === to)) return es;
-          return [...es, { id: uid("e"), from: pd.from, to }];
+          if (es.some((x) => x.from === pd.from && x.to === to && x.branch === pd.branch)) return es;
+          return [...es, { id: uid("e"), from: pd.from, to, branch: pd.branch }];
         });
       }
       return null;
@@ -187,8 +189,9 @@ export default function FlowEditor({ initial }: { initial: Scenario }) {
   }
 
   // Bezier path между нижним портом from и верхним центром to.
-  function edgePath(from: FlowNode, to: FlowNode) {
-    const x1 = from.x + NODE_W / 2;
+  // branch "error" — выход из правого-нижнего порта.
+  function edgePath(from: FlowNode, to: FlowNode, branch?: "error") {
+    const x1 = branch === "error" ? from.x + NODE_W - 24 : from.x + NODE_W / 2;
     const y1 = from.y + nodeH(from.id);
     const x2 = to.x + NODE_W / 2;
     const y2 = to.y;
@@ -244,6 +247,9 @@ export default function FlowEditor({ initial }: { initial: Scenario }) {
               <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
                 <path d="M 0 0 L 10 5 L 0 10 z" fill="#9aa0b2" />
               </marker>
+              <marker id="arrow-err" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                <path d="M 0 0 L 10 5 L 0 10 z" fill="#ef4444" />
+              </marker>
             </defs>
             {edges.map((e) => {
               const from = nodes.find((n) => n.id === e.from);
@@ -251,19 +257,23 @@ export default function FlowEditor({ initial }: { initial: Scenario }) {
               if (!from || !to) return null;
               return (
                 <g key={e.id} className="flow__edge">
-                  <path d={edgePath(from, to)} className="flow__edge-hit" onClick={() => removeEdge(e.id)} />
-                  <path d={edgePath(from, to)} className="flow__edge-line" markerEnd="url(#arrow)" />
+                  <path d={edgePath(from, to, e.branch)} className="flow__edge-hit" onClick={() => removeEdge(e.id)} />
+                  <path
+                    d={edgePath(from, to, e.branch)}
+                    className={`flow__edge-line${e.branch === "error" ? " err" : ""}`}
+                    markerEnd={e.branch === "error" ? "url(#arrow-err)" : "url(#arrow)"}
+                  />
                 </g>
               );
             })}
             {pending && (() => {
               const from = nodes.find((n) => n.id === pending.from)!;
-              const x1 = from.x + NODE_W / 2;
+              const x1 = pending.branch === "error" ? from.x + NODE_W - 24 : from.x + NODE_W / 2;
               const y1 = from.y + nodeH(from.id);
               return (
                 <path
                   d={`M ${x1} ${y1} C ${x1} ${y1 + 50}, ${pending.x} ${pending.y - 50}, ${pending.x} ${pending.y}`}
-                  className="flow__edge-line pending"
+                  className={`flow__edge-line pending${pending.branch === "error" ? " err" : ""}`}
                 />
               );
             })()}
@@ -322,6 +332,17 @@ export default function FlowEditor({ initial }: { initial: Scenario }) {
                       <div className="fn__var-hint">
                         Подстановка: <code>%Переменная%</code>
                       </div>
+                      <label className="fn__check">
+                        <input
+                          type="checkbox"
+                          checked={!!n.requestContact}
+                          onChange={(e) => patchNode(n.id, { requestContact: e.target.checked })}
+                        />
+                        Кнопка «Отправить номер» (запрос контакта)
+                      </label>
+                      {n.requestContact && (
+                        <div className="fn__contact-btn">📱 Отправить номер</div>
+                      )}
                     </>
                   )}
                   {n.kind === "action_process" && (
@@ -335,6 +356,38 @@ export default function FlowEditor({ initial }: { initial: Scenario }) {
                         onChange={(v) => patchNode(n.id, { varName: v })}
                         onCreate={() => setShowVars(true)}
                       />
+                      <label className="fn__check">
+                        <input
+                          type="checkbox"
+                          checked={!!n.useTemplate}
+                          onChange={(e) => patchNode(n.id, { useTemplate: e.target.checked })}
+                        />
+                        Использовать шаблон (проверка данных)
+                      </label>
+                      {n.useTemplate && (
+                        <>
+                          <input
+                            className="fn__input"
+                            style={{ marginTop: 6 }}
+                            placeholder="Мой телефон «телефон»"
+                            value={n.template || ""}
+                            onChange={(e) => patchNode(n.id, { template: e.target.value })}
+                          />
+                          <div className="fn__row" style={{ marginTop: 6, marginBottom: 0 }}>
+                            <span className="fn__if">Формат</span>
+                            <select
+                              className="fn__select"
+                              value={n.format || "any"}
+                              onChange={(e) => patchNode(n.id, { format: e.target.value as DataFormat })}
+                            >
+                              {(Object.keys(FORMAT_LABELS) as DataFormat[]).map((f) => (
+                                <option key={f} value={f}>{FORMAT_LABELS[f]}</option>
+                              ))}
+                            </select>
+                          </div>
+                          <div className="fn__err-label">! выход при ошибке →</div>
+                        </>
+                      )}
                     </>
                   )}
                   {n.kind === "action_set_var" && (
@@ -418,12 +471,22 @@ export default function FlowEditor({ initial }: { initial: Scenario }) {
                     <div className="fn__hint">Передаёт диалог AI-боту: отвечает по базе знаний.</div>
                   )}
                 </div>
-                {/* Порт-выход (низ) */}
+                {/* Порт-выход (низ по центру) */}
                 <button
                   className="fn__port"
                   title="Потяните, чтобы связать со следующим блоком"
                   onPointerDown={(e) => onPortPointerDown(e, n.id)}
                 />
+                {/* Порт-ошибка (для проверки данных) */}
+                {n.kind === "action_process" && n.useTemplate && (
+                  <button
+                    className="fn__port err"
+                    title="Выход при ошибке проверки"
+                    onPointerDown={(e) => onPortPointerDown(e, n.id, "error")}
+                  >
+                    !
+                  </button>
+                )}
               </div>
             );
           })}

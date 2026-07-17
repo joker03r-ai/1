@@ -41,9 +41,23 @@ export type FlowNode = {
   managers?: string[]; // id менеджеров для action_manager
   channelTarget?: string; // id канала-адресата для action_manager
   forwardUser?: boolean; // переслать сообщение пользователя (action_manager)
+  useTemplate?: boolean; // проверка данных по шаблону (action_process)
+  template?: string; // шаблон ответа, напр. Мой телефон «телефон»
+  format?: DataFormat; // ожидаемый формат значения
+  requestContact?: boolean; // кнопка «Отправить номер» (action_message)
 };
 
-export type Edge = { id: string; from: string; to: string };
+// branch: "error" — выход при ошибке проверки данных (помечен «!»).
+export type Edge = { id: string; from: string; to: string; branch?: "error" };
+
+export type DataFormat = "any" | "number" | "email" | "phone";
+
+export const FORMAT_LABELS: Record<DataFormat, string> = {
+  any: "любой",
+  number: "число",
+  email: "почта",
+  phone: "телефон",
+};
 
 export type Scenario = {
   id: string;
