@@ -207,6 +207,7 @@ export default function FlowEditor({ initial }: { initial: Scenario }) {
     { kind: "action_set_var", label: "Переменная" },
     { kind: "action_notify", label: "Уведомление" },
     { kind: "action_manager", label: "Менеджеру" },
+    { kind: "action_gsheet", label: "Google Табл." },
     { kind: "action_ai", label: "Smartbot AI" },
     { kind: "condition", label: "Условие" },
   ];
@@ -467,6 +468,20 @@ export default function FlowEditor({ initial }: { initial: Scenario }) {
                       </select>
                     </>
                   )}
+                  {n.kind === "action_gsheet" && (
+                    <>
+                      <div className="fn__hint" style={{ marginBottom: 8 }}>
+                        Заносит данные пользователя строкой в Google Таблицу.
+                      </div>
+                      <input
+                        className="fn__input"
+                        placeholder="Ссылка на Google Таблицу"
+                        value={n.sheetUrl || ""}
+                        onChange={(e) => patchNode(n.id, { sheetUrl: e.target.value })}
+                      />
+                      <div className="fn__err-label">! выход при ошибке →</div>
+                    </>
+                  )}
                   {n.kind === "action_ai" && (
                     <div className="fn__hint">Передаёт диалог AI-боту: отвечает по базе знаний.</div>
                   )}
@@ -477,11 +492,11 @@ export default function FlowEditor({ initial }: { initial: Scenario }) {
                   title="Потяните, чтобы связать со следующим блоком"
                   onPointerDown={(e) => onPortPointerDown(e, n.id)}
                 />
-                {/* Порт-ошибка (для проверки данных) */}
-                {n.kind === "action_process" && n.useTemplate && (
+                {/* Порт-ошибка (проверка данных / интеграция) */}
+                {((n.kind === "action_process" && n.useTemplate) || n.kind === "action_gsheet") && (
                   <button
                     className="fn__port err"
-                    title="Выход при ошибке проверки"
+                    title="Выход при ошибке"
                     onPointerDown={(e) => onPortPointerDown(e, n.id, "error")}
                   >
                     !

@@ -9,6 +9,7 @@ import {
   upsertScenario,
   deleteScenario,
   starterNodes,
+  buildTemplate,
   uid,
   TEMPLATES,
   TEMPLATE_CATEGORIES,
@@ -27,7 +28,7 @@ export default function ScenariosClient() {
   useEffect(() => setList(loadScenarios()), []);
 
   function create(fromTemplate?: Template) {
-    const { nodes, edges } = starterNodes();
+    const { nodes, edges } = fromTemplate ? buildTemplate(fromTemplate.id) : starterNodes();
     const s: Scenario = {
       id: uid("s"),
       name: fromTemplate ? fromTemplate.name : name.trim() || "Новый сценарий",

@@ -25,6 +25,7 @@ export type NodeKind =
   | "action_set_var" // Установить переменную
   | "action_notify" // Отправить уведомление
   | "action_manager" // Написать менеджеру
+  | "action_gsheet" // Добавление строки в Google Таблицу
   | "action_ai" // Общение со Smartbot AI
   | "condition"; // Условие
 
@@ -45,6 +46,7 @@ export type FlowNode = {
   template?: string; // шаблон ответа, напр. Мой телефон «телефон»
   format?: DataFormat; // ожидаемый формат значения
   requestContact?: boolean; // кнопка «Отправить номер» (action_message)
+  sheetUrl?: string; // ссылка на Google Таблицу (action_gsheet)
 };
 
 // branch: "error" — выход при ошибке проверки данных (помечен «!»).
@@ -80,6 +82,7 @@ export const NODE_META: Record<
   action_set_var: { label: "Установить переменную", color: "#14b8a6", icon: "(x)", group: "Действие" },
   action_notify: { label: "Отправить уведомление", color: "#ec4899", icon: "🔔", group: "Действие" },
   action_manager: { label: "Написать менеджеру", color: "#ef4444", icon: "🧑‍💼", group: "Действие" },
+  action_gsheet: { label: "Добавление строки в Google Таблицу", color: "#22a06b", icon: "📊", group: "Интеграция" },
   action_ai: { label: "Общение со Smartbot AI", color: "#a855f7", icon: "🤖", group: "Действие" },
   condition: { label: "Условие", color: "#f59e0b", icon: "◈", group: "Условие" },
 };
@@ -190,4 +193,34 @@ export const TEMPLATES: Template[] = [
   { id: "shop-order", name: "Приём заказов для магазина", category: "Для магазина и кафе", description: "Оформление заказа прямо в чате с уведомлением менеджеру.", uses: 1284, emoji: "🛒" },
   { id: "booking", name: "Запись в салон", category: "Для салонов и студий", description: "Запись клиентов на услугу с выбором даты и времени.", uses: 934, emoji: "📅" },
   { id: "school-lead", name: "Запись на пробный урок", category: "Для онлайн-школ", description: "Собирает заявки на пробный урок и напоминает о нём.", uses: 612, emoji: "🎓" },
+  { id: "webinar-simple", name: "Простой сбор заявок", category: "SMM малого бизнеса", description: "Собирает заявки по слову «заявка», сохраняет контакт, пишет в Google Таблицу и уведомляет админа.", uses: 3410, emoji: "📝" },
+  { id: "webinar-funnel", name: "Автоворонка для вебинара", category: "Для онлайн-школ", description: "Готовая воронка сбора заявок на вебинар с записью в таблицу и уведомлениями. Все переменные уже настроены.", uses: 2874, emoji: "🎥" },
 ];
+
+// Собирает полный флоу для шаблона. Для вебинарных шаблонов —
+// цепочка «заявка → приветствие → сохранить контакт → Google Таблица →
+// уведомление админам → ответ клиенту» (как в мини-курсе).
+export function buildTemplate(templateId: string): { nodes: FlowNode[]; edges: Edge[] } {
+  if (templateId !== "webinar-simple" && templateId !== "webinar-funnel") {
+    return starterNodes();
+  }
+  const startEvent: FlowNode = { id: uid(), kind: "event_start", x: 470, y: 40, title: "Первое сообщение и старт бота" };
+  const zayavka: FlowNode = { id: uid(), kind: "event_message", x: 120, y: 40, title: "Если ввели «заявка»", text: "заявка", match: "contains" };
+  const hello: FlowNode = { id: uid(), kind: "action_message", x: 120, y: 250, title: "Отправить сообщение", text: "Привет! Спасибо за интерес к нашему вебинару. Оставьте контакт — пришлём ссылку на трансляцию." };
+  const save: FlowNode = { id: uid(), kind: "action_process", x: 120, y: 430, title: "Обработать сообщение", varName: "Контакт", useTemplate: false };
+  const gsheet: FlowNode = { id: uid(), kind: "action_gsheet", x: 120, y: 610, title: "Добавление строки в Google Таблицу", sheetUrl: "" };
+  const notify: FlowNode = { id: uid(), kind: "action_manager", x: 120, y: 820, title: "Написать менеджеру", text: "Поступила новая заявка от %first_name% (%Контакт%).", managers: [], channelTarget: "all", forwardUser: false };
+  const reply: FlowNode = { id: uid(), kind: "action_message", x: 120, y: 1060, title: "Отправить сообщение", text: "Заявка принята! Ссылку на вебинар пришлём за 10 минут до старта. До встречи 🙌" };
+
+  return {
+    nodes: [startEvent, zayavka, hello, save, gsheet, notify, reply],
+    edges: [
+      { id: uid("e"), from: startEvent.id, to: hello.id },
+      { id: uid("e"), from: zayavka.id, to: hello.id },
+      { id: uid("e"), from: hello.id, to: save.id },
+      { id: uid("e"), from: save.id, to: gsheet.id },
+      { id: uid("e"), from: gsheet.id, to: notify.id },
+      { id: uid("e"), from: notify.id, to: reply.id },
+    ],
+  };
+}
