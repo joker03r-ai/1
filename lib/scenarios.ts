@@ -6,7 +6,9 @@ export type MatchMode =
   | "similar"
   | "contains"
   | "not_contains"
-  | "starts_with";
+  | "starts_with"
+  | "greater"
+  | "less";
 
 export const MATCH_LABELS: Record<MatchMode, string> = {
   equals: "равно",
@@ -15,6 +17,8 @@ export const MATCH_LABELS: Record<MatchMode, string> = {
   contains: "содержит",
   not_contains: "не содержит",
   starts_with: "начинается с",
+  greater: "больше",
+  less: "меньше",
 };
 
 export type NodeKind =
