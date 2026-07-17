@@ -21,6 +21,9 @@ export type NodeKind =
   | "event_start" // Первое сообщение и старт бота
   | "event_message" // Сообщение от пользователя
   | "action_message" // Отправить сообщение
+  | "action_process" // Обработать сообщение (сохранить в переменную)
+  | "action_set_var" // Установить переменную
+  | "action_notify" // Отправить уведомление
   | "action_ai" // Общение со Smartbot AI
   | "condition"; // Условие
 
@@ -32,6 +35,8 @@ export type FlowNode = {
   title: string;
   text?: string; // текст ответа / условия / сообщения пользователя
   match?: MatchMode; // режим сравнения для event_message / condition
+  varName?: string; // переменная для action_process / action_set_var
+  varValue?: string; // значение для action_set_var
 };
 
 export type Edge = { id: string; from: string; to: string };
@@ -53,6 +58,9 @@ export const NODE_META: Record<
   event_start: { label: "Первое сообщение и старт бота", color: "#22c55e", icon: "▶", group: "Событие" },
   event_message: { label: "Сообщение от пользователя", color: "#3b82f6", icon: "✉", group: "Событие" },
   action_message: { label: "Отправить сообщение", color: "#6c5ce7", icon: "✈", group: "Действие" },
+  action_process: { label: "Обработать сообщение", color: "#0ea5e9", icon: "⤵", group: "Действие" },
+  action_set_var: { label: "Установить переменную", color: "#14b8a6", icon: "(x)", group: "Действие" },
+  action_notify: { label: "Отправить уведомление", color: "#ec4899", icon: "🔔", group: "Действие" },
   action_ai: { label: "Общение со Smartbot AI", color: "#a855f7", icon: "🤖", group: "Действие" },
   condition: { label: "Условие", color: "#f59e0b", icon: "◈", group: "Условие" },
 };

@@ -13,6 +13,16 @@ import {
   uid,
   upsertScenario,
 } from "@/lib/scenarios";
+import {
+  Variable,
+  loadVariables,
+  addVariable,
+  vid,
+  VarType,
+  VarScope,
+  VAR_TYPE_LABELS,
+  VAR_SCOPE_LABELS,
+} from "@/lib/variables";
 
 const NODE_W = 250;
 
@@ -27,6 +37,10 @@ export default function FlowEditor({ initial }: { initial: Scenario }) {
   const [selected, setSelected] = useState<string | null>(null);
   const [showPublish, setShowPublish] = useState(false);
   const [savedTick, setSavedTick] = useState(0);
+  const [vars, setVars] = useState<Variable[]>([]);
+  const [showVars, setShowVars] = useState(false);
+
+  useEffect(() => setVars(loadVariables()), []);
 
   const canvasRef = useRef<HTMLDivElement>(null);
   const nodeRefs = useRef<Record<string, HTMLDivElement | null>>({});
@@ -128,8 +142,20 @@ export default function FlowEditor({ initial }: { initial: Scenario }) {
       x: 120 + Math.random() * 60,
       y: 120 + Math.random() * 60,
       title: meta.label,
-      text: kind === "action_message" ? "Текст сообщения" : kind === "event_message" || kind === "condition" ? "" : undefined,
+      text:
+        kind === "action_message"
+          ? "Текст сообщения"
+          : kind === "action_notify"
+          ? "Новая заявка от пользователя"
+          : kind === "event_message" || kind === "condition"
+          ? ""
+          : undefined,
       match: kind === "event_message" || kind === "condition" ? "similar" : undefined,
+      varName:
+        kind === "action_process" || kind === "action_set_var"
+          ? vars[0]?.name || ""
+          : undefined,
+      varValue: kind === "action_set_var" ? "" : undefined,
     };
     setNodes((ns) => [...ns, n]);
     setSelected(n.id);
@@ -160,12 +186,15 @@ export default function FlowEditor({ initial }: { initial: Scenario }) {
     return `M ${x1} ${y1} C ${x1} ${y1 + dy}, ${x2} ${y2 - dy}, ${x2} ${y2}`;
   }
 
-  const PALETTE: { kind: NodeKind; label: string; icon: string }[] = [
-    { kind: "event_start", label: "Старт", icon: "▶" },
-    { kind: "event_message", label: "Сообщение", icon: "✉" },
-    { kind: "action_message", label: "Ответ", icon: "✈" },
-    { kind: "action_ai", label: "Smartbot AI", icon: "🤖" },
-    { kind: "condition", label: "Условие", icon: "◈" },
+  const PALETTE: { kind: NodeKind; label: string }[] = [
+    { kind: "event_start", label: "Старт" },
+    { kind: "event_message", label: "Сообщение" },
+    { kind: "action_message", label: "Ответ" },
+    { kind: "action_process", label: "Обработать" },
+    { kind: "action_set_var", label: "Переменная" },
+    { kind: "action_notify", label: "Уведомление" },
+    { kind: "action_ai", label: "Smartbot AI" },
+    { kind: "condition", label: "Условие" },
   ];
 
   return (
@@ -178,12 +207,15 @@ export default function FlowEditor({ initial }: { initial: Scenario }) {
         <div className="flow__palette">
           {PALETTE.map((p) => (
             <button key={p.kind} className="flow__pbtn" onClick={() => addNode(p.kind)} title={NODE_META[p.kind].label}>
-              <span className="fp-ico" style={{ background: NODE_META[p.kind].color }}>{p.icon}</span>
+              <span className="fp-ico" style={{ background: NODE_META[p.kind].color }}>{NODE_META[p.kind].icon}</span>
               {p.label}
             </button>
           ))}
         </div>
         <div style={{ flex: 1 }} />
+        <button className="btn" onClick={() => setShowVars(true)} style={{ padding: "6px 11px" }}>
+          (x) Переменные
+        </button>
         <span className="flow__saved">{savedTick > 0 ? "✓ Сохранено" : ""}</span>
         <button
           className={`btn ${published ? "" : "btn-primary"}`}
@@ -269,9 +301,52 @@ export default function FlowEditor({ initial }: { initial: Scenario }) {
                     </>
                   )}
                   {n.kind === "action_message" && (
+                    <>
+                      <textarea
+                        className="fn__textarea"
+                        placeholder="Текст сообщения от бота"
+                        value={n.text || ""}
+                        onChange={(e) => patchNode(n.id, { text: e.target.value })}
+                      />
+                      <div className="fn__var-hint">
+                        Подстановка: <code>%Переменная%</code>
+                      </div>
+                    </>
+                  )}
+                  {n.kind === "action_process" && (
+                    <>
+                      <div className="fn__hint" style={{ marginBottom: 8 }}>
+                        Сохранить ответ пользователя в переменную:
+                      </div>
+                      <VarSelect
+                        vars={vars}
+                        value={n.varName || ""}
+                        onChange={(v) => patchNode(n.id, { varName: v })}
+                        onCreate={() => setShowVars(true)}
+                      />
+                    </>
+                  )}
+                  {n.kind === "action_set_var" && (
+                    <>
+                      <VarSelect
+                        vars={vars}
+                        value={n.varName || ""}
+                        onChange={(v) => patchNode(n.id, { varName: v })}
+                        onCreate={() => setShowVars(true)}
+                      />
+                      <input
+                        className="fn__input"
+                        style={{ marginTop: 6 }}
+                        placeholder="значение (можно %Переменная%)"
+                        value={n.varValue || ""}
+                        onChange={(e) => patchNode(n.id, { varValue: e.target.value })}
+                      />
+                    </>
+                  )}
+                  {n.kind === "action_notify" && (
                     <textarea
                       className="fn__textarea"
-                      placeholder="Текст сообщения от бота"
+                      placeholder="Текст уведомления менеджеру"
                       value={n.text || ""}
                       onChange={(e) => patchNode(n.id, { text: e.target.value })}
                     />
@@ -291,6 +366,14 @@ export default function FlowEditor({ initial }: { initial: Scenario }) {
           })}
         </div>
       </div>
+
+      {showVars && (
+        <VariablesModal
+          vars={vars}
+          onClose={() => setShowVars(false)}
+          onCreated={(v) => setVars(addVariable(v))}
+        />
+      )}
 
       {showPublish && (
         <div className="modal-overlay" onClick={() => setShowPublish(false)}>
@@ -315,6 +398,117 @@ export default function FlowEditor({ initial }: { initial: Scenario }) {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// --- Выбор переменной внутри ноды ---
+function VarSelect({
+  vars,
+  value,
+  onChange,
+  onCreate,
+}: {
+  vars: Variable[];
+  value: string;
+  onChange: (v: string) => void;
+  onCreate: () => void;
+}) {
+  return (
+    <select
+      className="fn__input"
+      value={value}
+      onChange={(e) => {
+        if (e.target.value === "__new__") onCreate();
+        else onChange(e.target.value);
+      }}
+    >
+      {vars.length === 0 && <option value="">нет переменных</option>}
+      {vars.map((v) => (
+        <option key={v.id} value={v.name}>
+          {v.name} · {VAR_SCOPE_LABELS[v.scope]}
+        </option>
+      ))}
+      <option value="__new__">+ Создать переменную…</option>
+    </select>
+  );
+}
+
+// --- Модалка «Создание переменной» ---
+function VariablesModal({
+  vars,
+  onClose,
+  onCreated,
+}: {
+  vars: Variable[];
+  onClose: () => void;
+  onCreated: (v: Variable) => void;
+}) {
+  const [name, setName] = useState("");
+  const [type, setType] = useState<VarType>("string");
+  const [scope, setScope] = useState<VarScope>("user");
+  const [initial, setInitial] = useState("");
+
+  function submit() {
+    if (!name.trim()) return;
+    onCreated({ id: vid(), name: name.trim(), type, scope, initial });
+    setName("");
+    setInitial("");
+  }
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <div className="modal__head">
+          <b>Переменные</b>
+          <button className="fn__x dark" onClick={onClose}>✕</button>
+        </div>
+
+        {vars.length > 0 && (
+          <div className="var-list">
+            {vars.map((v) => (
+              <div className="var-row" key={v.id}>
+                <span className="var-name">%{v.name}%</span>
+                <span className="muted" style={{ fontSize: 12 }}>
+                  {VAR_TYPE_LABELS[v.type]} · {VAR_SCOPE_LABELS[v.scope]}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="var-create-title">Создание переменной</div>
+        <div className="field">
+          <label className="label">Название</label>
+          <input className="input" placeholder="Телефон" value={name} onChange={(e) => setName(e.target.value)} autoFocus />
+        </div>
+        <div className="field">
+          <label className="label">Тип переменной</label>
+          <select className="select" value={type} onChange={(e) => setType(e.target.value as VarType)}>
+            {(Object.keys(VAR_TYPE_LABELS) as VarType[]).map((t) => (
+              <option key={t} value={t}>{VAR_TYPE_LABELS[t]}</option>
+            ))}
+          </select>
+        </div>
+        <div className="field">
+          <label className="label">Начальное значение</label>
+          <input className="input" placeholder="необязательно" value={initial} onChange={(e) => setInitial(e.target.value)} />
+        </div>
+        <div className="field">
+          <label className="label">Уровень доступа</label>
+          <div className="seg" style={{ width: "100%" }}>
+            {(Object.keys(VAR_SCOPE_LABELS) as VarScope[]).map((s) => (
+              <button key={s} className={scope === s ? "on" : ""} onClick={() => setScope(s)} style={{ flex: 1 }} type="button">
+                {VAR_SCOPE_LABELS[s]}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="row" style={{ justifyContent: "flex-end", gap: 10 }}>
+          <button className="btn" onClick={onClose}>Закрыть</button>
+          <button className="btn btn-primary" onClick={submit}>Создать</button>
+        </div>
+      </div>
     </div>
   );
 }

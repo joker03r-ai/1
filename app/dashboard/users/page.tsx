@@ -1,5 +1,5 @@
-import Placeholder from "@/components/Placeholder";
+import UsersClient from "./UsersClient";
 
 export default function Page() {
-  return <Placeholder title="Пользователи" crumbs={["Основной проект", "Пользователи"]} />;
+  return <UsersClient />;
 }

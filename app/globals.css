@@ -1491,3 +1491,20 @@ table.tariff tr:last-child td {
 .tpl-uses { font-size: 12px; color: var(--ink-faint); }
 
 .modal.wide { max-width: 900px; max-height: 84vh; overflow: auto; }
+
+/* variables in flow nodes & modal */
+.fn__var-hint { font-size: 11px; color: var(--ink-faint); margin-top: 6px; }
+.fn__var-hint code {
+  background: var(--line-soft); padding: 1px 5px; border-radius: 5px;
+  color: var(--violet-600); font-size: 11px;
+}
+.var-list {
+  background: var(--line-soft); border-radius: 12px; padding: 8px; margin: 14px 0 18px;
+  display: flex; flex-direction: column; gap: 4px; max-height: 160px; overflow: auto;
+}
+.var-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 7px 10px; background: #fff; border-radius: 8px;
+}
+.var-name { font-weight: 700; color: var(--violet-600); font-size: 13px; }
+.var-create-title { font-weight: 700; font-size: 14px; margin-bottom: 12px; }
