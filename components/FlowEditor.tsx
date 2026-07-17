@@ -204,7 +204,7 @@ export default function FlowEditor({
           ? ""
           : undefined,
       managers: kind === "action_manager" ? managers.filter((m) => m.admin).map((m) => m.id) : undefined,
-      channelTarget: kind === "action_manager" ? "all" : undefined,
+      channelTarget: kind === "logic_subscribe" ? "smartbot_pro" : kind === "action_manager" ? "all" : undefined,
       forwardUser: kind === "action_manager" ? true : undefined,
       statLabel: kind === "action_stat" ? statLabels[0]?.name || "" : undefined,
       postId: kind === "event_comment" ? "" : undefined,
@@ -343,6 +343,7 @@ export default function FlowEditor({
     { kind: "action_gsheet", label: "Google Табл." },
     { kind: "action_stat", label: "Статистика" },
     { kind: "action_random", label: "Рандом" },
+    { kind: "logic_subscribe", label: "Подписка" },
     { kind: "action_ai", label: "Smartbot AI" },
     { kind: "condition", label: "Условие" },
   ];
@@ -786,6 +787,27 @@ export default function FlowEditor({
                       </select>
                     </>
                   )}
+                  {n.kind === "logic_subscribe" && (
+                    <>
+                      <div className="fn__hint" style={{ marginBottom: 8 }}>
+                        Проверяет подписку на канал/сообщество.
+                      </div>
+                      <div className="fn__sub">Канал</div>
+                      <select
+                        className="fn__input"
+                        value={n.channelTarget || ""}
+                        onChange={(e) => patchNode(n.id, { channelTarget: e.target.value })}
+                      >
+                        {NOTIFY_CHANNELS.filter((c) => c.id !== "all").map((c) => (
+                          <option key={c.id} value={c.id}>{c.name}{c.bot ? ` · ${c.bot}` : ""}</option>
+                        ))}
+                      </select>
+                      <div className="fn__branch-row">
+                        <span className="fn__branch ok">✓ подписан ↓</span>
+                        <span className="fn__branch no">✗ не подписан →</span>
+                      </div>
+                    </>
+                  )}
                   {n.kind === "action_ai" && (
                     <div className="fn__hint">Передаёт диалог AI-боту: отвечает по базе знаний.</div>
                   )}
@@ -798,14 +820,16 @@ export default function FlowEditor({
                     onPointerDown={(e) => onPortPointerDown(e, n.id)}
                   />
                 )}
-                {/* Порт-ошибка (проверка данных / интеграция) */}
-                {((n.kind === "action_process" && n.useTemplate) || n.kind === "action_gsheet") && (
+                {/* Порт-ошибка / второй выход (проверка данных, интеграция, подписка) */}
+                {((n.kind === "action_process" && n.useTemplate) ||
+                  n.kind === "action_gsheet" ||
+                  n.kind === "logic_subscribe") && (
                   <button
-                    className="fn__port err"
-                    title="Выход при ошибке"
+                    className={`fn__port err${n.kind === "logic_subscribe" ? " sub" : ""}`}
+                    title={n.kind === "logic_subscribe" ? "Если не подписан" : "Выход при ошибке"}
                     onPointerDown={(e) => onPortPointerDown(e, n.id, "error")}
                   >
-                    !
+                    {n.kind === "logic_subscribe" ? "✗" : "!"}
                   </button>
                 )}
               </div>

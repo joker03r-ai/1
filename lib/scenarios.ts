@@ -30,6 +30,7 @@ export type NodeKind =
   | "action_gsheet" // Добавление строки в Google Таблицу
   | "action_stat" // Записать в статистику
   | "action_random" // Рандом (случайный выбор ветки)
+  | "logic_subscribe" // Проверка подписки (подписан / не подписан)
   | "action_ai" // Общение со Smartbot AI
   | "condition"; // Условие
 
@@ -107,6 +108,7 @@ export const NODE_META: Record<
   action_gsheet: { label: "Добавление строки в Google Таблицу", color: "#22a06b", icon: "📊", group: "Интеграция" },
   action_stat: { label: "Записать в статистику", color: "#0891b2", icon: "📈", group: "Действие" },
   action_random: { label: "Рандом", color: "#8b5cf6", icon: "🎲", group: "Условие" },
+  logic_subscribe: { label: "Проверка подписки", color: "#16a34a", icon: "🔔", group: "Условие" },
   action_ai: { label: "Общение со Smartbot AI", color: "#a855f7", icon: "🤖", group: "Действие" },
   condition: { label: "Условие", color: "#f59e0b", icon: "◈", group: "Условие" },
 };
@@ -209,7 +211,7 @@ export const TEMPLATE_CATEGORIES = [
 export const TEMPLATES: Template[] = [
   { id: "santa", name: "Тайный Санта", category: "SMM малого бизнеса", description: "Отличный способ организовать Тайного Санту для небольшой компании.", uses: 691, emoji: "🎅" },
   { id: "amo-status", name: "AI-бот с изменением статуса в amoCRM", category: "Шаблоны AI-ботов", description: "Бот меняет статус сделки в amoCRM в зависимости от ответа клиента.", uses: 3095, emoji: "🔄" },
-  { id: "leadmagnet", name: "Лид-магнит", category: "SMM малого бизнеса", description: "Выдаёт бонус за подписку и собирает контакт клиента.", uses: 402, emoji: "🧲" },
+  { id: "leadmagnet", name: "Лид-магнит за подписку", category: "Рецепты", description: "Проверяет подписку на канал/сообщество и выдаёт бонус подписчикам. Блок «Проверка подписки».", uses: 402, emoji: "🧲" },
   { id: "ai-consult", name: "Консультация в режиме AI", category: "Шаблоны AI-ботов", description: "Используйте этот шаблон, чтобы AI консультировал клиентов 24/7.", uses: 1145, emoji: "💬" },
   { id: "sales-ai", name: "Продажи с помощью Smartbot AI", category: "Шаблоны AI-ботов", description: "Обрабатывает вопросы, консультирует и продаёт с помощью AI.", uses: 1650, emoji: "💸" },
   { id: "support-ai", name: "AI-бот тех. поддержки: сбор обращений", category: "Шаблоны AI-ботов", description: "Собирает обращения клиентов и передаёт оператору.", uses: 2661, emoji: "🎧" },
@@ -234,6 +236,7 @@ export function buildTemplate(templateId: string): { nodes: FlowNode[]; edges: E
   if (templateId === "comments-game") return buildCommentsGame();
   if (templateId === "faq") return buildFAQ();
   if (templateId === "get-phone") return buildGetPhone();
+  if (templateId === "leadmagnet") return buildLeadMagnet();
   if (templateId !== "webinar-simple" && templateId !== "webinar-funnel") {
     return starterNodes();
   }
@@ -361,6 +364,23 @@ function buildGetPhone(): { nodes: FlowNode[]; edges: Edge[] } {
       { id: uid("e"), from: process.id, to: ok.id },
       { id: uid("e"), from: process.id, to: err.id, branch: "error" },
       { id: uid("e"), from: err.id, to: process.id },
+    ],
+  };
+}
+
+// Рецепт «Лид-магнит за подписку»: проверка подписки на канал ->
+// подписан -> бонус; не подписан -> просьба подписаться.
+function buildLeadMagnet(): { nodes: FlowNode[]; edges: Edge[] } {
+  const start: FlowNode = { id: uid(), kind: "event_start", x: 260, y: 40, title: "Первое сообщение и старт бота" };
+  const check: FlowNode = { id: uid(), kind: "logic_subscribe", x: 260, y: 240, title: "Проверка подписки", channelTarget: "smartbot_pro" };
+  const bonus: FlowNode = { id: uid(), kind: "action_message", x: 60, y: 490, title: "Отправить сообщение", text: "Спасибо за подписку! 🎁 Держите ваш бонус: https://example.com/lead-magnet.pdf" };
+  const notsub: FlowNode = { id: uid(), kind: "action_message", x: 520, y: 490, title: "Отправить сообщение", text: "Ой, кажется, вы ещё не подписаны на канал. Подпишитесь и напишите снова 🙂" };
+  return {
+    nodes: [start, check, bonus, notsub],
+    edges: [
+      { id: uid("e"), from: start.id, to: check.id },
+      { id: uid("e"), from: check.id, to: bonus.id },
+      { id: uid("e"), from: check.id, to: notsub.id, branch: "error" },
     ],
   };
 }
