@@ -27,6 +27,7 @@ import {
   VAR_SCOPE_LABELS,
 } from "@/lib/variables";
 import { Manager, loadManagers, NOTIFY_CHANNELS } from "@/lib/managers";
+import { StatLabel, loadLabels, addLabel } from "@/lib/stats";
 
 const NODE_W = 250;
 
@@ -62,10 +63,12 @@ export default function FlowEditor({
   const [vars, setVars] = useState<Variable[]>([]);
   const [showVars, setShowVars] = useState(false);
   const [managers, setManagers] = useState<Manager[]>([]);
+  const [statLabels, setStatLabels] = useState<StatLabel[]>([]);
 
   useEffect(() => {
     setVars(loadVariables());
     setManagers(loadManagers());
+    setStatLabels(loadLabels());
   }, []);
 
   const canvasRef = useRef<HTMLDivElement>(null);
@@ -201,6 +204,7 @@ export default function FlowEditor({
       managers: kind === "action_manager" ? managers.filter((m) => m.admin).map((m) => m.id) : undefined,
       channelTarget: kind === "action_manager" ? "all" : undefined,
       forwardUser: kind === "action_manager" ? true : undefined,
+      statLabel: kind === "action_stat" ? statLabels[0]?.name || "" : undefined,
     };
     setNodes((ns) => [...ns, n]);
     setSelected(n.id);
@@ -274,6 +278,7 @@ export default function FlowEditor({
     { kind: "action_notify", label: "Уведомление" },
     { kind: "action_manager", label: "Менеджеру" },
     { kind: "action_gsheet", label: "Google Табл." },
+    { kind: "action_stat", label: "Статистика" },
     { kind: "action_ai", label: "Smartbot AI" },
     { kind: "condition", label: "Условие" },
   ];
@@ -592,6 +597,35 @@ export default function FlowEditor({
                         onChange={(e) => patchNode(n.id, { sheetUrl: e.target.value })}
                       />
                       <div className="fn__err-label">! выход при ошибке →</div>
+                    </>
+                  )}
+                  {n.kind === "action_stat" && (
+                    <>
+                      <div className="fn__hint" style={{ marginBottom: 8 }}>
+                        Отмечает пользователя меткой в статистике.
+                      </div>
+                      <select
+                        className="fn__input"
+                        value={n.statLabel || ""}
+                        onChange={(e) => {
+                          if (e.target.value === "__new__") {
+                            const name = prompt("Название метки");
+                            if (name && name.trim()) {
+                              const list = addLabel(name.trim());
+                              setStatLabels(list);
+                              patchNode(n.id, { statLabel: name.trim() });
+                            }
+                          } else patchNode(n.id, { statLabel: e.target.value });
+                        }}
+                      >
+                        {n.statLabel && !statLabels.some((l) => l.name === n.statLabel) && (
+                          <option value={n.statLabel}>{n.statLabel}</option>
+                        )}
+                        {statLabels.map((l) => (
+                          <option key={l.id} value={l.name}>{l.name}</option>
+                        ))}
+                        <option value="__new__">+ Создать метку…</option>
+                      </select>
                     </>
                   )}
                   {n.kind === "action_ai" && (

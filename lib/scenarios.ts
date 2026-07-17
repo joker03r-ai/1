@@ -27,6 +27,7 @@ export type NodeKind =
   | "action_notify" // Отправить уведомление
   | "action_manager" // Написать менеджеру
   | "action_gsheet" // Добавление строки в Google Таблицу
+  | "action_stat" // Записать в статистику
   | "action_ai" // Общение со Smartbot AI
   | "condition"; // Условие
 
@@ -50,6 +51,7 @@ export type FlowNode = {
   sheetUrl?: string; // ссылка на Google Таблицу (action_gsheet)
   buttons?: FlowButton[]; // кнопки-ответы (action_message)
   waitAnswer?: boolean; // «ждать ответы от пользователя» в этом блоке
+  statLabel?: string; // метка для action_stat
 };
 
 // branch: "error" — выход при ошибке проверки данных (помечен «!»).
@@ -91,6 +93,7 @@ export const NODE_META: Record<
   action_notify: { label: "Отправить уведомление", color: "#ec4899", icon: "🔔", group: "Действие" },
   action_manager: { label: "Написать менеджеру", color: "#ef4444", icon: "🧑‍💼", group: "Действие" },
   action_gsheet: { label: "Добавление строки в Google Таблицу", color: "#22a06b", icon: "📊", group: "Интеграция" },
+  action_stat: { label: "Записать в статистику", color: "#0891b2", icon: "📈", group: "Действие" },
   action_ai: { label: "Общение со Smartbot AI", color: "#a855f7", icon: "🤖", group: "Действие" },
   condition: { label: "Условие", color: "#f59e0b", icon: "◈", group: "Условие" },
 };
