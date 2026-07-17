@@ -64,6 +64,8 @@ export default function FlowEditor({
   const [showVars, setShowVars] = useState(false);
   const [managers, setManagers] = useState<Manager[]>([]);
   const [statLabels, setStatLabels] = useState<StatLabel[]>([]);
+  const [threshold, setThreshold] = useState<number>(initial.similarityThreshold ?? 0.4);
+  const [showSettings, setShowSettings] = useState(false);
 
   useEffect(() => {
     setVars(loadVariables());
@@ -83,12 +85,12 @@ export default function FlowEditor({
       if (persist) {
         persist({ nodes, edges, published });
       } else {
-        upsertScenario({ ...initial, nodes, edges, published, updatedAt: Date.now() });
+        upsertScenario({ ...initial, nodes, edges, published, similarityThreshold: threshold, updatedAt: Date.now() });
       }
       setSavedTick((x) => x + 1);
     }, 400);
     return () => clearTimeout(t);
-  }, [nodes, edges, published]); // eslint-disable-line
+  }, [nodes, edges, published, threshold]); // eslint-disable-line
 
   // Измерение высот нод и позиций портов-кнопок для точных стрелок.
   useLayoutEffect(() => {
@@ -279,6 +281,21 @@ export default function FlowEditor({
     );
     setEdges((es) => es.filter((e) => !(e.from === nodeId && e.fromButton === vId)));
   }
+  function addAlt(nodeId: string) {
+    setNodes((ns) => ns.map((n) => (n.id === nodeId ? { ...n, alts: [...(n.alts || []), ""] } : n)));
+  }
+  function patchAlt(nodeId: string, i: number, val: string) {
+    setNodes((ns) =>
+      ns.map((n) =>
+        n.id === nodeId ? { ...n, alts: (n.alts || []).map((a, idx) => (idx === i ? val : a)) } : n
+      )
+    );
+  }
+  function removeAlt(nodeId: string, i: number) {
+    setNodes((ns) =>
+      ns.map((n) => (n.id === nodeId ? { ...n, alts: (n.alts || []).filter((_, idx) => idx !== i) } : n))
+    );
+  }
   function distributeEven(nodeId: string) {
     setNodes((ns) =>
       ns.map((n) => {
@@ -346,6 +363,9 @@ export default function FlowEditor({
           ))}
         </div>
         <div style={{ flex: 1 }} />
+        <button className="btn" onClick={() => setShowSettings(true)} style={{ padding: "6px 11px" }}>
+          ⚙ Настройки
+        </button>
         <button className="btn" onClick={() => setShowVars(true)} style={{ padding: "6px 11px" }}>
           (x) Переменные
         </button>
@@ -503,6 +523,21 @@ export default function FlowEditor({
                         value={n.text || ""}
                         onChange={(e) => patchNode(n.id, { text: e.target.value })}
                       />
+                      {(n.alts || []).map((a, i) => (
+                        <div className="fn__btnrow" key={i}>
+                          <span className="fn__or">ИЛИ</span>
+                          <input
+                            className="fn__input"
+                            placeholder="другая формулировка"
+                            value={a}
+                            onChange={(e) => patchAlt(n.id, i, e.target.value)}
+                          />
+                          <button className="fn__btn-del" onClick={() => removeAlt(n.id, i)}>✕</button>
+                        </div>
+                      ))}
+                      <button className="fn__addbtn" onClick={() => addAlt(n.id)}>
+                        + Условие «ИЛИ»
+                      </button>
                     </>
                   )}
                   {n.kind === "action_message" && (
@@ -771,6 +806,41 @@ export default function FlowEditor({
           onClose={() => setShowVars(false)}
           onCreated={(v) => setVars(addVariable(v))}
         />
+      )}
+
+      {showSettings && (
+        <div className="modal-overlay" onClick={() => setShowSettings(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal__head">
+              <b>Настройки сценария</b>
+              <button className="fn__x dark" onClick={() => setShowSettings(false)}>✕</button>
+            </div>
+            <div className="field" style={{ marginTop: 16 }}>
+              <label className="label">Порог совпадения для режима «Похоже на»</label>
+              <div className="row">
+                <input
+                  type="range"
+                  min={0}
+                  max={1}
+                  step={0.05}
+                  value={threshold}
+                  onChange={(e) => setThreshold(Number(e.target.value))}
+                  style={{ flex: 1 }}
+                />
+                <span style={{ fontWeight: 800, width: 44, textAlign: "right" }}>{threshold.toFixed(2)}</span>
+              </div>
+              <div className="hint">
+                Насколько сообщение должно быть похоже на заданную фразу, чтобы
+                сработало условие. Рекомендуем 0.4 — бот распознаёт смысл, опечатки и
+                синонимы.
+              </div>
+            </div>
+            <div className="row" style={{ justifyContent: "flex-end", gap: 10 }}>
+              <button className="btn" onClick={() => setThreshold(0.4)}>Сбросить (0.4)</button>
+              <button className="btn btn-primary" onClick={() => setShowSettings(false)}>Готово</button>
+            </div>
+          </div>
+        </div>
       )}
 
       {showPublish && (

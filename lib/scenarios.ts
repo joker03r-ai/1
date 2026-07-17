@@ -56,6 +56,7 @@ export type FlowNode = {
   statLabel?: string; // метка для action_stat
   postId?: string; // ID поста для event_comment (реагировать под конкретным постом)
   variants?: RandomVariant[]; // варианты блока «Рандом»
+  alts?: string[]; // доп. фразы-условия «ИЛИ» (event_message / condition)
 };
 
 // branch: "error" — выход при ошибке проверки данных (помечен «!»).
@@ -85,6 +86,8 @@ export type Scenario = {
   nodes: FlowNode[];
   edges: Edge[];
   updatedAt: number;
+  // Порог совпадения для режима «Похоже на» (0..1, рекомендуется 0.4).
+  similarityThreshold?: number;
 };
 
 export const NODE_META: Record<
@@ -218,6 +221,7 @@ export const TEMPLATES: Template[] = [
   { id: "webinar-funnel", name: "Автоворонка для вебинара", category: "Для онлайн-школ", description: "Готовая воронка сбора заявок на вебинар с записью в таблицу и уведомлениями. Все переменные уже настроены.", uses: 2874, emoji: "🎥" },
   { id: "quiz-score", name: "Тест с набором баллов", category: "Для онлайн-школ", description: "Интерактивный тест: кнопки-ответы, начисление баллов за верные ответы и вывод результата.", uses: 1902, emoji: "🧠" },
   { id: "comments-game", name: "Игра в комментариях", category: "Рецепты", description: "Бот отвечает на комментарии под постом случайным предсказанием. Реакция на «Новый комментарий» + блок «Рандом».", uses: 1567, emoji: "🎯" },
+  { id: "faq", name: "Ответы на частые вопросы", category: "Шаблоны AI-ботов", description: "Готовые цепочки на частые вопросы: адрес, доставка, график, ассортимент, оплата. Режим «Похоже на» распознаёт смысл.", uses: 1234, emoji: "❓" },
 ];
 
 // Собирает полный флоу для шаблона. Для вебинарных шаблонов —
@@ -226,6 +230,7 @@ export const TEMPLATES: Template[] = [
 export function buildTemplate(templateId: string): { nodes: FlowNode[]; edges: Edge[] } {
   if (templateId === "quiz-score") return buildQuizTemplate();
   if (templateId === "comments-game") return buildCommentsGame();
+  if (templateId === "faq") return buildFAQ();
   if (templateId !== "webinar-simple" && templateId !== "webinar-funnel") {
     return starterNodes();
   }
@@ -313,4 +318,25 @@ function buildCommentsGame(): { nodes: FlowNode[]; edges: Edge[] } {
       ...msgNodes.map((m, i) => ({ id: uid("e"), from: rnd.id, to: m.id, fromButton: variants[i].id })),
     ],
   };
+}
+
+// Рецепт «Ответы на частые вопросы»: несколько цепочек вопрос -> ответ,
+// каждое событие в режиме «похоже на» с доп. формулировками «ИЛИ».
+function buildFAQ(): { nodes: FlowNode[]; edges: Edge[] } {
+  const faqs: { q: string; alts: string[]; a: string }[] = [
+    { q: "адрес", alts: ["где вы находитесь", "как вас найти"], a: "Мы находимся по адресу: г. Москва, ул. Примерная, 1. Ждём вас!" },
+    { q: "доставка", alts: ["есть ли доставка", "как заказать доставку"], a: "Да, доставляем по всему городу за 1–2 часа. Оформить можно прямо в чате." },
+    { q: "график", alts: ["время работы", "во сколько открываетесь"], a: "Работаем ежедневно с 9:00 до 21:00." },
+    { q: "ассортимент", alts: ["что у вас есть", "каталог"], a: "У нас широкий ассортимент — пришлём каталог, если интересно 🙂" },
+    { q: "оплата", alts: ["как оплатить", "способы оплаты"], a: "Принимаем оплату картой, наличными и переводом. Оплатить можно при получении." },
+  ];
+  const nodes: FlowNode[] = [];
+  const edges: Edge[] = [];
+  faqs.forEach((f, i) => {
+    const ev: FlowNode = { id: uid(), kind: "event_message", x: 120, y: 60 + i * 210, title: "Сообщение от пользователя", text: f.q, match: "similar", alts: f.alts };
+    const ans: FlowNode = { id: uid(), kind: "action_message", x: 520, y: 60 + i * 210, title: "Отправить сообщение", text: f.a };
+    nodes.push(ev, ans);
+    edges.push({ id: uid("e"), from: ev.id, to: ans.id });
+  });
+  return { nodes, edges };
 }
