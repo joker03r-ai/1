@@ -50,9 +50,9 @@ export default function Sidebar() {
       </nav>
 
       <div className="sidebar__promo">
-        <div className="title">Подписка активна</div>
-        <div className="sub">Осталось 12 дней</div>
-        <button className="promo-btn">Настроить</button>
+        <div className="title">🎁 Пробный период</div>
+        <div className="sub">Осталось 7 дней · все функции</div>
+        <button className="promo-btn">Выбрать тариф</button>
       </div>
 
       <div className="sidebar__foot">
