@@ -1,0 +1,30 @@
+name: Deploy to server
+
+# Автодеплой: после каждого пуша в ветку GitHub заходит на сервер по SSH
+# и запускает deploy.sh (git pull + docker build + перезапуск контейнера).
+on:
+  push:
+    branches:
+      - claude/screenshot-analysis-recreation-6yze8d
+  workflow_dispatch: {} # ручной запуск из вкладки Actions
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          password: ${{ secrets.SSH_PASSWORD }}
+          # Если предпочитаете вход по ключу — закомментируйте password и
+          # раскомментируйте следующую строку, добавив секрет SSH_KEY:
+          # key: ${{ secrets.SSH_KEY }}
+          command_timeout: 15m
+          script: |
+            set -e
+            apt-get update -y >/dev/null 2>&1 || true
+            apt-get install -y git curl >/dev/null 2>&1 || true
+            curl -fsSL https://raw.githubusercontent.com/joker03r-ai/1/claude/screenshot-analysis-recreation-6yze8d/deploy.sh -o /tmp/deploy.sh
+            ANTHROPIC_API_KEY="${{ secrets.ANTHROPIC_API_KEY }}" bash /tmp/deploy.sh
