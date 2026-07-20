@@ -1,5 +1,5 @@
-import Placeholder from "@/components/Placeholder";
+import ChatsClient from "./ChatsClient";
 
 export default function Page() {
-  return <Placeholder title="Чаты" crumbs={["Основной проект", "Чаты"]} />;
+  return <ChatsClient />;
 }
