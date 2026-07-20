@@ -30,6 +30,7 @@ import { Manager, loadManagers, NOTIFY_CHANNELS } from "@/lib/managers";
 import { StatLabel, loadLabels, addLabel } from "@/lib/stats";
 import { PAYMENT_PROVIDERS } from "@/lib/integrations";
 import { useEsc } from "@/lib/useEsc";
+import { layoutFlow } from "@/lib/layout";
 
 const NODE_W = 250;
 
@@ -323,45 +324,17 @@ export default function FlowEditor({
     return heights[id] ?? 90;
   }
 
-  // Авто-раскладка: уровни по связям (сверху вниз), внутри уровня — по горизонтали.
+  // Авто-раскладка: древовидная (каждый блок центрируется под родителями/детьми).
   function autoLayout() {
     if (nodes.length === 0) return;
-    const level: Record<string, number> = {};
-    nodes.forEach((n) => (level[n.id] = 0));
-    // Длиннейший путь (для ацикличных); циклы ограничены числом итераций.
-    for (let it = 0; it < nodes.length; it++) {
-      let changed = false;
-      for (const e of edges) {
-        if (level[e.to] !== undefined && level[e.from] !== undefined) {
-          if (level[e.to] < level[e.from] + 1) {
-            level[e.to] = level[e.from] + 1;
-            changed = true;
-          }
-        }
-      }
-      if (!changed) break;
-    }
-    const byLevel: Record<number, FlowNode[]> = {};
-    nodes.forEach((n) => {
-      (byLevel[level[n.id]] ??= []).push(n);
+    const pos = layoutFlow(nodes, edges, (id) => heights[id] ?? 120, {
+      nodeW: NODE_W,
+      hGap: 80,
+      vGap: 80,
+      startX: 160,
+      startY: 60,
     });
-    const levels = Object.keys(byLevel).map(Number).sort((a, b) => a - b);
-    const COL_GAP = 70, ROW_GAP = 80, START_X = 140;
-    const pos: Record<string, { x: number; y: number }> = {};
-    let y = 60;
-    for (const lv of levels) {
-      const arr = byLevel[lv].slice().sort((a, b) => a.x - b.x);
-      let maxH = 0;
-      // Центрируем ряд относительно общей ширины.
-      const rowW = arr.length * NODE_W + (arr.length - 1) * COL_GAP;
-      const offset = Math.max(0, (1000 - rowW) / 2);
-      arr.forEach((n, i) => {
-        pos[n.id] = { x: START_X + offset + i * (NODE_W + COL_GAP), y };
-        maxH = Math.max(maxH, heights[n.id] ?? 120);
-      });
-      y += maxH + ROW_GAP;
-    }
-    setNodes((ns) => ns.map((n) => ({ ...n, ...pos[n.id] })));
+    setNodes((ns) => ns.map((n) => (pos[n.id] ? { ...n, ...pos[n.id] } : n)));
   }
 
   // Bezier path между портом-выходом from и верхним центром to.

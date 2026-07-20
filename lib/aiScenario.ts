@@ -10,6 +10,7 @@ import {
   RandomVariant,
   uid,
 } from "./scenarios";
+import { layoutFlow } from "./layout";
 
 export type GenGraph = { name: string; nodes: FlowNode[]; edges: Edge[] };
 
@@ -123,34 +124,61 @@ function sanitize(raw: any): GenGraph {
   return { name, nodes, edges };
 }
 
-// Раскладка по уровням (сверху вниз), как «Упорядочить» в редакторе.
+// Оценка высоты блока по типу (на сервере реальные размеры неизвестны).
+// Значения откалиброваны по фактически отрисованным карточкам редактора.
+function estHeight(n: FlowNode): number {
+  switch (n.kind) {
+    case "event_start":
+      return 100;
+    case "event_message":
+    case "event_comment":
+    case "condition":
+      return 165;
+    case "action_message": {
+      let h = 255;
+      if (n.buttons?.length) h += n.buttons.length * 40;
+      return h;
+    }
+    case "action_process":
+      return 265;
+    case "action_set_var":
+      return 200;
+    case "action_gsheet":
+    case "action_stat":
+      return 160;
+    case "action_manager":
+      return 390;
+    case "action_notify":
+      return 260;
+    case "action_random":
+      return 150 + (n.variants?.length ?? 2) * 40;
+    case "logic_subscribe":
+      return 190;
+    case "action_ai":
+      return 130;
+    default:
+      return 200;
+  }
+}
+
+// Древовидная раскладка — та же, что «Упорядочить» в редакторе.
 function layout(nodes: FlowNode[], edges: Edge[]) {
   if (!nodes.length) return;
-  const level: Record<string, number> = {};
-  nodes.forEach((n) => (level[n.id] = 0));
-  for (let it = 0; it < nodes.length; it++) {
-    let changed = false;
-    for (const e of edges) {
-      if (level[e.to] < level[e.from] + 1) {
-        level[e.to] = level[e.from] + 1;
-        changed = true;
-      }
+  const hById: Record<string, number> = {};
+  nodes.forEach((n) => (hById[n.id] = estHeight(n)));
+  const pos = layoutFlow(nodes, edges, (id) => hById[id] ?? 120, {
+    nodeW: 250,
+    hGap: 80,
+    vGap: 90,
+    startX: 160,
+    startY: 60,
+  });
+  nodes.forEach((n) => {
+    if (pos[n.id]) {
+      n.x = pos[n.id].x;
+      n.y = pos[n.id].y;
     }
-    if (!changed) break;
-  }
-  const byLevel: Record<number, FlowNode[]> = {};
-  nodes.forEach((n) => (byLevel[level[n.id]] ??= []).push(n));
-  const NODE_W = 250, COL_GAP = 70, ROW_GAP = 250, X0 = 160, Y0 = 60;
-  Object.keys(byLevel)
-    .map(Number)
-    .sort((a, b) => a - b)
-    .forEach((lv) => {
-      const arr = byLevel[lv];
-      arr.forEach((n, i) => {
-        n.x = X0 + i * (NODE_W + COL_GAP);
-        n.y = Y0 + lv * ROW_GAP;
-      });
-    });
+  });
 }
 
 async function callClaude(prompt: string): Promise<GenGraph> {
