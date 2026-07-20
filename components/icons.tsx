@@ -91,3 +91,8 @@ export const IconGear = base(
   </>
 );
 export const IconPlus = base(<path d="M12 5v14M5 12h14" />);
+export const IconChannels = base(
+  <>
+    <path d="M4 9v6M8 7v10M12 5v14M16 8v8M20 10v4" />
+  </>
+);

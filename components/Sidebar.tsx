@@ -14,6 +14,7 @@ import {
   IconChart,
   IconPlug,
   IconDoc,
+  IconChannels,
 } from "./icons";
 
 const NAV = [
@@ -26,6 +27,7 @@ const NAV = [
   { href: "/dashboard/shops", label: "Магазины", Icon: IconStore },
   { href: "/dashboard/stats", label: "Статистика", Icon: IconChart },
   { href: "/dashboard/integrations", label: "Интеграции", Icon: IconPlug },
+  { href: "/dashboard/channels", label: "Каналы", Icon: IconChannels },
   { href: "/dashboard/docs", label: "Документация", Icon: IconDoc },
 ];
 

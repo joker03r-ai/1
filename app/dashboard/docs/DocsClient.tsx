@@ -94,6 +94,7 @@ const SECTIONS = [
   { icon: "🛍️", name: "Магазины", href: "/dashboard/shops", desc: "Товары и приём платежей в боте." },
   { icon: "📊", name: "Статистика", href: "/dashboard/stats", desc: "Метки событий и графики по дням." },
   { icon: "🔌", name: "Интеграции", href: "/dashboard/integrations", desc: "Платёжные системы, CRM, Google Таблицы." },
+  { icon: "📡", name: "Каналы", href: "/dashboard/channels", desc: "Подключение бота к Telegram, VK, WhatsApp, Instagram и др." },
 ];
 
 const BLOCKS = [
