@@ -2,9 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Topbar from "@/components/Topbar";
-import { StatLabel, loadLabels, generateSeries, Point } from "@/lib/stats";
+import { StatLabel, loadLabels, seriesFromMessageTimes, Point } from "@/lib/stats";
 import { loadUsers } from "@/lib/users";
-import { loadScenarios } from "@/lib/scenarios";
 import { loadChats } from "@/lib/tgchats";
 
 const CHANNEL_COLORS: Record<string, string> = {
@@ -21,18 +20,19 @@ export default function StatsClient() {
   const [channel, setChannel] = useState("Все каналы");
   const [days, setDays] = useState(30);
   const [users, setUsers] = useState<ReturnType<typeof loadUsers>>([]);
-  const [scenCount, setScenCount] = useState(0);
-  const [msgCount, setMsgCount] = useState(0);
+  const [msgTimes, setMsgTimes] = useState<number[]>([]);
 
   useEffect(() => {
     setLabels(loadLabels());
     setUsers(loadUsers());
-    setScenCount(loadScenarios().length);
-    setMsgCount(loadChats().reduce((s, c) => s + c.messages.length, 0));
+    // Реальные метки времени всех сообщений из спарсенных чатов.
+    const times: number[] = [];
+    loadChats().forEach((c) => c.messages.forEach((m) => times.push(m.ts)));
+    setMsgTimes(times);
   }, []);
   useEffect(() => {
-    setSeries(generateSeries(days));
-  }, [days]);
+    setSeries(seriesFromMessageTimes(msgTimes, days));
+  }, [days, msgTimes]);
 
   const total = useMemo(() => series.reduce((s, p) => s + p.value, 0), [series]);
   const newInPeriod = useMemo(
@@ -45,6 +45,10 @@ export default function StatsClient() {
   );
   const weekDelta = prevWeek > 0 ? Math.round(((newInPeriod - prevWeek) / prevWeek) * 100) : 0;
   const maxLabel = Math.max(1, ...labels.map((l) => l.count));
+
+  const labelsTotal = labels.reduce((s, l) => s + l.count, 0);
+  // Есть ли реальная активность (сообщения/события), а не просто записи в базе.
+  const hasData = msgTimes.length > 0 || labelsTotal > 0;
 
   // Разбивка пользователей по каналам.
   const channels = useMemo(() => {
@@ -73,8 +77,8 @@ export default function StatsClient() {
   const leadLabel = labels.find((l) => l.id === "sl_lead");
   const dialogLabel = labels.find((l) => l.id === "sl_dialog");
   const conv = leadLabel && dialogLabel && dialogLabel.count
-    ? ((leadLabel.count / dialogLabel.count) * 100).toFixed(1).replace(".", ",")
-    : "16,5";
+    ? ((leadLabel.count / dialogLabel.count) * 100).toFixed(1).replace(".", ",") + "%"
+    : "—";
 
   return (
     <>
@@ -82,8 +86,16 @@ export default function StatsClient() {
       <div className="content">
         <h1 className="h1" style={{ marginBottom: 2 }}>Статистика</h1>
         <p className="muted" style={{ marginTop: 0 }}>
-          Следите, как растёт кабинет: активность пользователей по времени и по каналам.
+          Реальные показатели кабинета: активность из спарсенных чатов и метки событий.
         </p>
+
+        {!hasData && (
+          <div className="stat-empty-note">
+            📊 Данных пока нет. Статистика заполнится автоматически, когда бот начнёт
+            общаться с людьми и сработает блок «Записать в статистику». Числа здесь —
+            только реальные, ничего не выдумывается.
+          </div>
+        )}
 
         {/* Фильтры */}
         <div className="stat-filters">
@@ -124,8 +136,8 @@ export default function StatsClient() {
             delta={weekDelta}
             accent
           />
-          <StatTile label="Пользователей" value={(1240 + users.length).toLocaleString("ru-RU")} sub={`${users.length} в базе кабинета`} />
-          <StatTile label="Конверсия в заявку" value={`${conv}%`} sub="из диалога в заявку" />
+          <StatTile label="Пользователей" value={users.length.toLocaleString("ru-RU")} sub="в базе кабинета" />
+          <StatTile label="Конверсия в заявку" value={conv} sub="из диалога в заявку" />
         </div>
 
         {/* Воронка + каналы */}
@@ -135,7 +147,7 @@ export default function StatsClient() {
               <b>Воронка</b>
               <span className="muted" style={{ fontSize: 12 }}>от диалога к заявке</span>
             </div>
-            {funnel.length ? funnel.map((f, i) => (
+            {labelsTotal > 0 ? funnel.map((f, i) => (
               <div className="funnel-row" key={f.name}>
                 <div className="funnel-top">
                   <span className="funnel-name">{f.name}</span>
@@ -145,7 +157,7 @@ export default function StatsClient() {
                   <div className="funnel-fill" style={{ width: `${Math.max(4, f.pct)}%`, opacity: 1 - i * 0.16 }} />
                 </div>
               </div>
-            )) : <div className="muted">Добавьте блок «Записать в статистику», чтобы видеть воронку.</div>}
+            )) : <div className="muted">Пока пусто. Воронка появится, когда бот начнёт записывать события в статистику.</div>}
           </div>
 
           <div className="card" style={{ padding: 20 }}>
@@ -172,7 +184,14 @@ export default function StatsClient() {
             <b>Активность пользователей</b>
             <span className="muted" style={{ fontSize: 12 }}>сообщений в день</span>
           </div>
-          <LineChart data={series} />
+          {total > 0 ? (
+            <LineChart data={series} />
+          ) : (
+            <div className="stat-chart-empty">
+              Нет активности за период. График строится из реальных сообщений
+              спарсенных чатов — как только они появятся, здесь будет динамика по дням.
+            </div>
+          )}
         </div>
 
         {/* Разбивка по меткам */}
