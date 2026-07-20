@@ -34,7 +34,7 @@ export default function SupportWidget() {
   return (
     <div className="support">
       {open && (
-        <div className="support__panel" role="dialog" aria-label="Техподдержка Smartbot">
+        <div className="support__panel" role="dialog" aria-label="Техподдержка BotPilot">
           <div className="support__head">
             <button
               className="support__collapse"
@@ -47,7 +47,7 @@ export default function SupportWidget() {
               <span className="sa sa1">🙂</span>
               <span className="sa sa2">👩</span>
             </div>
-            <div className="support__title">Команда заботы Smartbot</div>
+            <div className="support__title">Команда заботы BotPilot</div>
             <div className="support__subtitle">Мы тут и готовы помочь</div>
           </div>
 
@@ -61,7 +61,7 @@ export default function SupportWidget() {
                   </button>
                   <a
                     className="support__action"
-                    href="https://t.me/smartbot"
+                    href="https://t.me/botpilot"
                     target="_blank"
                     rel="noreferrer"
                   >

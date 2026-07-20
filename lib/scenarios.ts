@@ -35,7 +35,7 @@ export type NodeKind =
   | "action_stat" // Записать в статистику
   | "action_random" // Рандом (случайный выбор ветки)
   | "logic_subscribe" // Проверка подписки (подписан / не подписан)
-  | "action_ai" // Общение со Smartbot AI
+  | "action_ai" // Общение со BotPilot AI
   | "condition"; // Условие
 
 export type FlowNode = {
@@ -121,7 +121,7 @@ export const NODE_META: Record<
   action_stat: { label: "Записать в статистику", color: "#0891b2", icon: "📈", group: "Действие" },
   action_random: { label: "Рандом", color: "#8b5cf6", icon: "🎲", group: "Условие" },
   logic_subscribe: { label: "Проверка подписки", color: "#16a34a", icon: "🔔", group: "Условие" },
-  action_ai: { label: "Общение со Smartbot AI", color: "#a855f7", icon: "🤖", group: "Действие" },
+  action_ai: { label: "Общение со BotPilot AI", color: "#a855f7", icon: "🤖", group: "Действие" },
   condition: { label: "Условие", color: "#f59e0b", icon: "◈", group: "Условие" },
 };
 
@@ -225,10 +225,10 @@ export const TEMPLATES: Template[] = [
   { id: "amo-status", name: "AI-бот с изменением статуса в amoCRM", category: "Шаблоны AI-ботов", description: "Бот меняет статус сделки в amoCRM в зависимости от ответа клиента.", uses: 3095, emoji: "🔄" },
   { id: "leadmagnet", name: "Лид-магнит за подписку", category: "Рецепты", description: "Проверяет подписку на канал/сообщество и выдаёт бонус подписчикам. Блок «Проверка подписки».", uses: 402, emoji: "🧲" },
   { id: "ai-consult", name: "Консультация в режиме AI", category: "Шаблоны AI-ботов", description: "Используйте этот шаблон, чтобы AI консультировал клиентов 24/7.", uses: 1145, emoji: "💬" },
-  { id: "sales-ai", name: "Продажи с помощью Smartbot AI", category: "Шаблоны AI-ботов", description: "Обрабатывает вопросы, консультирует и продаёт с помощью AI.", uses: 1650, emoji: "💸" },
+  { id: "sales-ai", name: "Продажи с помощью BotPilot AI", category: "Шаблоны AI-ботов", description: "Обрабатывает вопросы, консультирует и продаёт с помощью AI.", uses: 1650, emoji: "💸" },
   { id: "support-ai", name: "AI-бот тех. поддержки: сбор обращений", category: "Шаблоны AI-ботов", description: "Собирает обращения клиентов и передаёт оператору.", uses: 2661, emoji: "🎧" },
   { id: "onboarding", name: "Адаптация сотрудника", category: "Для HR", description: "Бот помогает адаптировать нового сотрудника и отвечает на вопросы.", uses: 1073, emoji: "🧑‍💼" },
-  { id: "lead-ai", name: "Получение лида через Smartbot AI", category: "Шаблоны AI-ботов", description: "Бот собирает контакт и передаёт горячий лид менеджеру.", uses: 796, emoji: "🎯" },
+  { id: "lead-ai", name: "Получение лида через BotPilot AI", category: "Шаблоны AI-ботов", description: "Бот собирает контакт и передаёт горячий лид менеджеру.", uses: 796, emoji: "🎯" },
   { id: "shop-order", name: "Приём заказов для магазина", category: "Для магазина и кафе", description: "Оформление заказа прямо в чате с уведомлением менеджеру.", uses: 1284, emoji: "🛒" },
   { id: "booking", name: "Запись в салон", category: "Для салонов и студий", description: "Запись клиентов на услугу с выбором даты и времени.", uses: 934, emoji: "📅" },
   { id: "school-lead", name: "Запись на пробный урок", category: "Для онлайн-школ", description: "Собирает заявки на пробный урок и напоминает о нём.", uses: 612, emoji: "🎓" },
@@ -384,7 +384,7 @@ function buildGetPhone(): { nodes: FlowNode[]; edges: Edge[] } {
 // подписан -> бонус; не подписан -> просьба подписаться.
 function buildLeadMagnet(): { nodes: FlowNode[]; edges: Edge[] } {
   const start: FlowNode = { id: uid(), kind: "event_start", x: 260, y: 40, title: "Первое сообщение и старт бота" };
-  const check: FlowNode = { id: uid(), kind: "logic_subscribe", x: 260, y: 240, title: "Проверка подписки", channelTarget: "smartbot_pro" };
+  const check: FlowNode = { id: uid(), kind: "logic_subscribe", x: 260, y: 240, title: "Проверка подписки", channelTarget: "botpilot_pro" };
   const bonus: FlowNode = { id: uid(), kind: "action_message", x: 60, y: 490, title: "Отправить сообщение", text: "Спасибо за подписку! 🎁 Держите ваш бонус: https://example.com/lead-magnet.pdf" };
   const notsub: FlowNode = { id: uid(), kind: "action_message", x: 520, y: 490, title: "Отправить сообщение", text: "Ой, кажется, вы ещё не подписаны на канал. Подпишитесь и напишите снова 🙂" };
   return {

@@ -17,7 +17,7 @@ import {
 } from "./icons";
 
 const NAV = [
-  { href: "/dashboard/bots", label: "Smartbot AI", Icon: IconBot },
+  { href: "/dashboard/bots", label: "BotPilot AI", Icon: IconBot },
   { href: "/dashboard/scenarios", label: "Сценарии", Icon: IconFlow },
   { href: "/dashboard/nocode", label: "Nocode Cloud", Icon: IconCloud },
   { href: "/dashboard/mailings", label: "Рассылки", Icon: IconSend },
@@ -55,7 +55,7 @@ export default function Sidebar() {
         {!collapsed && (
           <div className="sidebar__brand">
             <span className="brand-logo">🤖</span>
-            <span>Smartbot AI</span>
+            <span>BotPilot</span>
           </div>
         )}
       </div>

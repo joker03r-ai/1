@@ -40,6 +40,6 @@ export type NotifyChannel = { id: string; name: string; bot: string };
 
 export const NOTIFY_CHANNELS: NotifyChannel[] = [
   { id: "all", name: "Отправить во все каналы", bot: "" },
-  { id: "smartbot_pro", name: "Smartbot_PRO", bot: "Telegram" },
+  { id: "botpilot_pro", name: "BotPilot_PRO", bot: "Telegram" },
   { id: "trouble_shooter", name: "trouble_shooter", bot: "Telegram" },
 ];

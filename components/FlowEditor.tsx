@@ -214,7 +214,7 @@ export default function FlowEditor({
           ? ""
           : undefined,
       managers: kind === "action_manager" ? managers.filter((m) => m.admin).map((m) => m.id) : undefined,
-      channelTarget: kind === "logic_subscribe" ? "smartbot_pro" : kind === "action_manager" ? "all" : undefined,
+      channelTarget: kind === "logic_subscribe" ? "botpilot_pro" : kind === "action_manager" ? "all" : undefined,
       forwardUser: kind === "action_manager" ? true : undefined,
       statLabel: kind === "action_stat" ? statLabels[0]?.name || "" : undefined,
       postId: kind === "event_comment" ? "" : undefined,
@@ -395,7 +395,7 @@ export default function FlowEditor({
     { kind: "action_stat", label: "Статистика" },
     { kind: "action_random", label: "Рандом" },
     { kind: "logic_subscribe", label: "Подписка" },
-    { kind: "action_ai", label: "Smartbot AI" },
+    { kind: "action_ai", label: "BotPilot AI" },
     { kind: "condition", label: "Условие" },
   ];
 

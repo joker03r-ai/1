@@ -49,7 +49,7 @@ export default function BotDetail() {
 
   return (
     <>
-      <Topbar crumbs={["Основной проект", "Smartbot AI", bot.name]} />
+      <Topbar crumbs={["Основной проект", "BotPilot AI", bot.name]} />
       <div className="content">
         <div style={{ marginBottom: 4 }}>
           <a className="btn-ghost" href="/dashboard/bots" style={{ fontSize: 13 }}>

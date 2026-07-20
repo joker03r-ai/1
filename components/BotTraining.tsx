@@ -83,7 +83,7 @@ export default function BotTraining({
         />
         <div className="hint">
           Без таблиц, картинок и нумерованных списков — только текст, как в примере
-          Smartbot.
+          BotPilot.
         </div>
       </div>
 

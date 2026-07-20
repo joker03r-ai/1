@@ -38,7 +38,7 @@ export default function Landing() {
     <div className="lp">
       <nav className="lp__nav">
         <div className="lp__brand">
-          <span className="brand-logo">🤖</span> Smartbot Pro
+          <span className="brand-logo">🤖</span> BotPilot
         </div>
         <div className="lp__nav-links">
           <a href="#features">Возможности</a>
@@ -85,7 +85,7 @@ export default function Landing() {
           </div>
           <div className="lp__win-body">
             <div className="lp__win-side">
-              {["Smartbot AI", "Сценарии", "Nocode Cloud", "Рассылки", "Чаты", "Статистика"].map(
+              {["BotPilot AI", "Сценарии", "Nocode Cloud", "Рассылки", "Чаты", "Статистика"].map(
                 (t, i) => (
                   <div className={`li${i === 0 ? " on" : ""}`} key={t}>
                     <span>{["🤖", "🧩", "☁️", "✈️", "💬", "📊"][i]}</span> {t}
@@ -106,7 +106,7 @@ export default function Landing() {
       <section className="lp__features" id="features">
         <h2>Всё, чтобы бот приносил заявки</h2>
         <p className="lead">
-          От обучения на ваших данных до интеграций с CRM — Smartbot Pro закрывает весь
+          От обучения на ваших данных до интеграций с CRM — BotPilot закрывает весь
           цикл общения с клиентом.
         </p>
         <div className="lp__grid">
@@ -131,7 +131,7 @@ export default function Landing() {
       </section>
 
       <footer className="lp__foot">
-        © {new Date().getFullYear()} Smartbot Pro · Платформа автоматизации маркетинга,
+        © {new Date().getFullYear()} BotPilot · Платформа автоматизации маркетинга,
         продаж и клиентского сервиса
       </footer>
     </div>

@@ -29,7 +29,7 @@ export const GOAL_LABELS: Record<BotGoal, string> = {
 
 export const DEFAULT_BOT: BotConfig = {
   id: "1",
-  name: "Smartbot AI",
+  name: "BotPilot AI",
   modelId: "gpt-4o-mini",
   goal: "consult",
   knowledge:
@@ -41,7 +41,7 @@ export const DEFAULT_BOT: BotConfig = {
     "Ты — менеджер по продажам. Общайся вежливо и доброжелательно. " +
     "Отвечай только по теме компании и товаров. Если не знаешь ответа — предложи связаться с оператором. " +
     "Старайся мягко узнать номер телефона клиента для консультации.",
-  sites: ["www.smartbotpro.ru"],
+  sites: ["www.botpilot.ru"],
   documents: [],
   showSources: false,
   stopWord: "Оператор",

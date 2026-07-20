@@ -15,7 +15,7 @@ export default function BalancePanel({ bot }: { bot: BotConfig }) {
       <div className="info-note">
         <span>ℹ️</span>
         <span>
-          Обратите внимание: Smartbot AI тарифицируется отдельно от основной подписки
+          Обратите внимание: BotPilot AI тарифицируется отдельно от основной подписки
           на использование платформы. За каждый ответ бота с баланса кабинета
           списываются средства.
         </span>

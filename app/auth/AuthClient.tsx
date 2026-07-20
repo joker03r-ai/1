@@ -55,7 +55,7 @@ export default function AuthClient() {
     <div className="auth">
       <div className="auth__promo">
         <Link href="/" className="auth__promo-brand">
-          <span className="brand-logo">🤖</span> Smartbot Pro
+          <span className="brand-logo">🤖</span> BotPilot
         </Link>
         <div className="auth__promo-body">
           <h2>Создавайте ботов любой сложности и общайтесь с клиентами</h2>
@@ -186,7 +186,7 @@ export default function AuthClient() {
                       value={subdomain}
                       onChange={(e) => setSubdomain(slugify(e.target.value))}
                     />
-                    <span className="suffix">.smartbotpro.ru</span>
+                    <span className="suffix">.botpilot.ru</span>
                   </div>
                   <div className="hint">
                     Уникальный адрес для перехода в кабинет — он будет в адресной строке

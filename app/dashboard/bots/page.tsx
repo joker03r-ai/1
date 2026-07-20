@@ -5,7 +5,7 @@ import { IconPlus, IconBot } from "@/components/icons";
 export default function BotsListPage() {
   return (
     <>
-      <Topbar crumbs={["Основной проект", "Smartbot AI"]} />
+      <Topbar crumbs={["Основной проект", "BotPilot AI"]} />
       <div className="content">
         <div className="row" style={{ justifyContent: "space-between", marginBottom: 20 }}>
           <div>
@@ -27,7 +27,7 @@ export default function BotsListPage() {
             🤖
           </div>
           <div style={{ flex: 1 }}>
-            <div style={{ fontWeight: 700, fontSize: 15 }}>Smartbot AI</div>
+            <div style={{ fontWeight: 700, fontSize: 15 }}>BotPilot AI</div>
             <div className="muted" style={{ fontSize: 13 }}>
               Модель: ChatGPT 4o mini · Цель: Проконсультировать
             </div>
