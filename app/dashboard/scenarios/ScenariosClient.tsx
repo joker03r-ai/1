@@ -28,10 +28,54 @@ export default function ScenariosClient() {
   const [tab, setTab] = useState<"scenarios" | "reactions">("scenarios");
   const [q, setQ] = useState("");
   const [menu, setMenu] = useState<string | null>(null);
+  const [aiOpen, setAiOpen] = useState(false);
+  const [aiPrompt, setAiPrompt] = useState("");
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState("");
 
   useEffect(() => setList(loadScenarios()), []);
   useEsc(creating, () => setCreating(false));
   useEsc(catalog, () => setCatalog(false));
+  useEsc(aiOpen, () => !aiLoading && setAiOpen(false));
+
+  const AI_EXAMPLES = [
+    "Бот, который собирает заявки на вебинар и пишет менеджеру",
+    "Консультант в режиме AI по нашему магазину",
+    "Викторина с начислением баллов",
+    "Выдаёт бонус за подписку на канал",
+  ];
+
+  async function generateAI() {
+    const prompt = aiPrompt.trim();
+    if (!prompt || aiLoading) return;
+    setAiLoading(true);
+    setAiError("");
+    try {
+      const res = await fetch("/api/generate-scenario", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ prompt }),
+      });
+      const data = await res.json();
+      if (!res.ok || !Array.isArray(data.nodes)) {
+        throw new Error(data.error || "Не удалось собрать сценарий");
+      }
+      const s: Scenario = {
+        id: uid("s"),
+        name: data.name || "Сценарий от ИИ",
+        allChannels: true,
+        published: false,
+        nodes: data.nodes,
+        edges: data.edges || [],
+        updatedAt: Date.now(),
+      };
+      upsertScenario(s);
+      router.push(`/dashboard/scenarios/${s.id}`);
+    } catch (e: any) {
+      setAiError(e?.message || "Ошибка генерации");
+      setAiLoading(false);
+    }
+  }
 
   function fmtDate(ts: number) {
     return new Date(ts).toLocaleString("ru-RU", {
@@ -83,6 +127,9 @@ export default function ScenariosClient() {
             </button>
           </div>
           <div className="row">
+            <button className="btn btn-ai" onClick={() => setAiOpen(true)}>
+              ✨ Собрать ИИ
+            </button>
             <button className="btn btn-blue" onClick={() => setCreating(true)}>
               + Создать сценарий
             </button>
@@ -187,6 +234,45 @@ export default function ScenariosClient() {
           </div>
         )}
       </div>
+
+      {/* AI-генератор сценария */}
+      {aiOpen && (
+        <div className="modal-overlay" onClick={() => !aiLoading && setAiOpen(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal__head">
+              <b>✨ Собрать сценарий с ИИ</b>
+              <button className="fn__x dark" onClick={() => !aiLoading && setAiOpen(false)}>✕</button>
+            </div>
+            <p className="muted" style={{ marginTop: 8 }}>
+              Опишите, какой бот вам нужен — нейросеть соберёт готовую схему из блоков,
+              и она откроется в редакторе.
+            </p>
+            <textarea
+              className="textarea"
+              style={{ minHeight: 96, marginBottom: 10 }}
+              placeholder="Например: бот, который собирает заявки на вебинар, сохраняет телефон и пишет менеджеру"
+              value={aiPrompt}
+              onChange={(e) => setAiPrompt(e.target.value)}
+              disabled={aiLoading}
+              autoFocus
+            />
+            <div className="ai-examples">
+              {AI_EXAMPLES.map((ex) => (
+                <button key={ex} className="ai-chip" onClick={() => setAiPrompt(ex)} disabled={aiLoading}>
+                  {ex}
+                </button>
+              ))}
+            </div>
+            {aiError && <div className="ai-error">⚠ {aiError}</div>}
+            <div className="row" style={{ justifyContent: "flex-end", gap: 10, marginTop: 16 }}>
+              <button className="btn" onClick={() => setAiOpen(false)} disabled={aiLoading}>Отменить</button>
+              <button className="btn btn-ai" onClick={generateAI} disabled={aiLoading || !aiPrompt.trim()}>
+                {aiLoading ? "Собираю…" : "✨ Собрать сценарий"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Модалка создания */}
       {creating && (

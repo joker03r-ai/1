@@ -1731,3 +1731,19 @@ table.tariff tr:last-child td {
   border: 1px solid var(--violet-100); border-radius: 10px; padding: 8px;
   margin-top: 4px; background: var(--violet-050);
 }
+
+/* AI-генератор сценариев */
+.btn-ai {
+  background: linear-gradient(135deg, #ec4899, #8b5cf6);
+  border-color: transparent; color: #fff;
+  box-shadow: 0 8px 20px -4px rgba(168, 85, 247, 0.45);
+}
+.btn-ai:hover { filter: brightness(1.05); transform: translateY(-1px); background: linear-gradient(135deg, #ec4899, #8b5cf6); }
+.btn-ai:disabled { opacity: 0.6; cursor: default; transform: none; }
+.ai-examples { display: flex; flex-wrap: wrap; gap: 6px; }
+.ai-chip {
+  border: 1px solid var(--line); background: var(--line-soft); color: var(--ink-soft);
+  border-radius: 999px; padding: 6px 11px; font-size: 12px; font-weight: 600;
+}
+.ai-chip:hover { border-color: var(--violet); color: var(--violet-600); background: var(--violet-050); }
+.ai-error { color: #ef4444; font-size: 13px; margin-top: 10px; font-weight: 600; }
