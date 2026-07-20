@@ -2180,3 +2180,6 @@ a.docs-card:hover { box-shadow: var(--shadow); transform: translateY(-1px); bord
 
 .docs-oli { margin: 6px 0 0; padding-left: 20px; font-size: 14px; color: var(--ink-soft); line-height: 1.6; display: flex; flex-direction: column; gap: 5px; }
 .docs-oli li { padding-left: 2px; }
+
+.scn-folder-chip__pen { font-size: 11px; opacity: .5; margin-left: 4px; padding: 0 2px; border-radius: 4px; }
+.scn-folder-chip__pen:hover { opacity: 1; color: var(--violet-600); }

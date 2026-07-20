@@ -13,6 +13,7 @@ import {
   loadFolders,
   addFolder,
   deleteFolder,
+  renameFolder,
   moveScenarioToFolder,
   starterNodes,
   buildTemplate,
@@ -62,6 +63,8 @@ export default function ScenariosClient() {
   const [catalog, setCatalog] = useState(false);
   const [folderModal, setFolderModal] = useState(false);
   const [folderName, setFolderName] = useState("");
+  const [renaming, setRenaming] = useState<{ kind: "folder" | "scenario"; id: string; name: string } | null>(null);
+  const [renameVal, setRenameVal] = useState("");
   const [name, setName] = useState("Новый сценарий");
   const [allChannels, setAllChannels] = useState(true);
   const [cat, setCat] = useState("Все");
@@ -82,6 +85,7 @@ export default function ScenariosClient() {
   useEsc(creating, () => setCreating(false));
   useEsc(catalog, () => setCatalog(false));
   useEsc(folderModal, () => setFolderModal(false));
+  useEsc(!!renaming, () => setRenaming(null));
   useEsc(aiOpen, () => !aiLoading && setAiOpen(false));
 
   // Анимация статуса во время генерации.
@@ -187,6 +191,27 @@ export default function ScenariosClient() {
     setMenu(null);
   }
 
+  function openRename(kind: "folder" | "scenario", id: string, name: string) {
+    setRenaming({ kind, id, name });
+    setRenameVal(name);
+    setMenu(null);
+  }
+
+  function doRename() {
+    if (!renaming) return;
+    const nm = renameVal.trim();
+    if (!nm) return;
+    if (renaming.kind === "folder") {
+      renameFolder(renaming.id, nm);
+      setFolders(loadFolders());
+    } else {
+      const s = list.find((x) => x.id === renaming.id);
+      if (s) upsertScenario({ ...s, name: nm, updatedAt: Date.now() });
+      setList(loadScenarios());
+    }
+    setRenaming(null);
+  }
+
   const ungroupedCount = list.filter((s) => !s.folderId).length;
   const countFor = (fid: string) => list.filter((s) => s.folderId === fid).length;
 
@@ -263,9 +288,17 @@ export default function ScenariosClient() {
                 key={f.id}
                 className={`scn-folder-chip${activeFolder === f.id ? " on" : ""}`}
                 onClick={() => setActiveFolder(f.id)}
-                title={f.name}
+                onDoubleClick={() => openRename("folder", f.id, f.name)}
+                title="Двойной клик — переименовать"
               >
                 📁 {f.name} <span className="scn-folder-count">{countFor(f.id)}</span>
+                <span
+                  className="scn-folder-chip__pen"
+                  onClick={(e) => { e.stopPropagation(); openRename("folder", f.id, f.name); }}
+                  title="Переименовать папку"
+                >
+                  ✎
+                </span>
                 <span className="scn-folder-chip__x" onClick={(e) => removeFolder(f.id, e)} title="Удалить папку">
                   ✕
                 </span>
@@ -349,6 +382,7 @@ export default function ScenariosClient() {
                         {menu === s.id && (
                           <div className="scn-menu" onMouseLeave={() => setMenu(null)}>
                             <div className="scn-menu__item" onClick={() => router.push(`/dashboard/scenarios/${s.id}`)}>Открыть</div>
+                            <div className="scn-menu__item" onClick={() => openRename("scenario", s.id, s.name)}>Переименовать</div>
                             <div className="scn-menu__label">Переместить в папку</div>
                             {folders.length === 0 && (
                               <div className="scn-menu__hint">Сначала создайте папку</div>
@@ -440,6 +474,32 @@ export default function ScenariosClient() {
                   {aiLoading ? "Собираю…" : "✨ Собрать сценарий"}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Модалка переименования (папка/сценарий) */}
+      {renaming && (
+        <div className="modal-overlay" onClick={() => setRenaming(null)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal__head">
+              <b>{renaming.kind === "folder" ? "Переименовать папку" : "Переименовать сценарий"}</b>
+              <button className="fn__x dark" onClick={() => setRenaming(null)}>✕</button>
+            </div>
+            <div className="field" style={{ marginTop: 16 }}>
+              <label className="label">Новое название</label>
+              <input
+                className="input"
+                value={renameVal}
+                onChange={(e) => setRenameVal(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && doRename()}
+                autoFocus
+              />
+            </div>
+            <div className="row" style={{ justifyContent: "flex-end", gap: 10, marginTop: 6 }}>
+              <button className="btn" onClick={() => setRenaming(null)}>Отменить</button>
+              <button className="btn btn-primary" onClick={doRename} disabled={!renameVal.trim()}>Сохранить</button>
             </div>
           </div>
         </div>

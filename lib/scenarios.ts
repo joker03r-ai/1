@@ -1,5 +1,7 @@
 // Модель визуальных сценариев (блок-схема диалога).
 
+import { arrangeGraph } from "./layout";
+
 export type MatchMode =
   | "equals"
   | "not_equals"
@@ -235,13 +237,13 @@ export function starterNodes(): { nodes: FlowNode[]; edges: Edge[] } {
     title: NODE_META.action_message.label,
     text: "Привет из бота!",
   };
-  return {
-    nodes: [start, msg, hello],
-    edges: [
-      { id: uid("e"), from: start.id, to: hello.id },
-      { id: uid("e"), from: msg.id, to: hello.id },
-    ],
-  };
+  const nodes = [start, msg, hello];
+  const edges = [
+    { id: uid("e"), from: start.id, to: hello.id },
+    { id: uid("e"), from: msg.id, to: hello.id },
+  ];
+  arrangeGraph(nodes, edges);
+  return { nodes, edges };
 }
 
 export type Template = {
@@ -288,7 +290,15 @@ export const TEMPLATES: Template[] = [
 // Собирает полный флоу для шаблона. Для вебинарных шаблонов —
 // цепочка «заявка → приветствие → сохранить контакт → Google Таблица →
 // уведомление админам → ответ клиенту» (как в мини-курсе).
+// Публичная сборка шаблона: строит граф и сразу аккуратно раскладывает его,
+// чтобы сценарий открывался ровным, а не «разбросанным».
 export function buildTemplate(templateId: string): { nodes: FlowNode[]; edges: Edge[] } {
+  const g = buildTemplateRaw(templateId);
+  arrangeGraph(g.nodes, g.edges);
+  return g;
+}
+
+function buildTemplateRaw(templateId: string): { nodes: FlowNode[]; edges: Edge[] } {
   if (templateId === "quiz-score") return buildQuizTemplate();
   if (templateId === "comments-game") return buildCommentsGame();
   if (templateId === "faq") return buildFAQ();

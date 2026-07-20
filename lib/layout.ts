@@ -5,6 +5,68 @@
 
 export type PosMap = Record<string, { x: number; y: number }>;
 
+// Оценка высоты карточки блока по типу (когда реальные размеры недоступны —
+// на сервере или при построении шаблона). Откалибровано по редактору.
+export function estimateNodeHeight(n: any): number {
+  switch (n?.kind) {
+    case "event_start":
+      return 100;
+    case "event_message":
+    case "event_comment":
+    case "condition":
+      return 165;
+    case "action_message": {
+      let h = 255;
+      if (n?.buttons?.length) h += n.buttons.length * 40;
+      return h;
+    }
+    case "action_process":
+      return 265;
+    case "action_set_var":
+      return 200;
+    case "action_gsheet":
+    case "action_stat":
+      return 160;
+    case "action_manager":
+      return 390;
+    case "action_notify":
+      return 260;
+    case "action_random":
+      return 150 + (n?.variants?.length ?? 2) * 40;
+    case "logic_subscribe":
+      return 190;
+    case "action_ai":
+      return 130;
+    default:
+      return 200;
+  }
+}
+
+// Аккуратно раскладывает граф на месте (мутирует x/y узлов) по оценке высот.
+export function arrangeGraph(
+  nodes: { id: string; x: number; y: number; [k: string]: any }[],
+  edges: { from: string; to: string }[],
+  opts: LayoutOpts = {}
+) {
+  if (!nodes.length) return;
+  const hById: Record<string, number> = {};
+  nodes.forEach((n) => (hById[n.id] = estimateNodeHeight(n)));
+  const pos = layoutFlow(nodes, edges, (id) => hById[id] ?? 200, {
+    nodeW: 250,
+    hGap: 80,
+    vGap: 90,
+    startX: 160,
+    startY: 60,
+    ...opts,
+  });
+  nodes.forEach((n) => {
+    if (pos[n.id]) {
+      n.x = pos[n.id].x;
+      n.y = pos[n.id].y;
+    }
+  });
+}
+
 export interface LayoutOpts {
   nodeW?: number;
   hGap?: number;
