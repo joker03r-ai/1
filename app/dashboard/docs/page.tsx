@@ -1,5 +1,5 @@
-import Placeholder from "@/components/Placeholder";
+import DocsClient from "./DocsClient";
 
 export default function Page() {
-  return <Placeholder title="Документация" crumbs={["Основной проект", "Документация"]} />;
+  return <DocsClient />;
 }
