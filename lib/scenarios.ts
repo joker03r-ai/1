@@ -102,7 +102,11 @@ export type Scenario = {
   updatedAt: number;
   // Порог совпадения для режима «Похоже на» (0..1, рекомендуется 0.4).
   similarityThreshold?: number;
+  // Папка, в которой лежит сценарий (пусто — «Без папки»).
+  folderId?: string;
 };
+
+export type ScenarioFolder = { id: string; name: string; createdAt: number };
 
 export const NODE_META: Record<
   NodeKind,
@@ -157,6 +161,47 @@ export function upsertScenario(s: Scenario) {
 
 export function deleteScenario(id: string) {
   saveScenarios(loadScenarios().filter((s) => s.id !== id));
+}
+
+// ===== Папки сценариев =====
+const FKEY = "sb_scenario_folders";
+
+export function loadFolders(): ScenarioFolder[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = localStorage.getItem(FKEY);
+    return raw ? (JSON.parse(raw) as ScenarioFolder[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function saveFolders(list: ScenarioFolder[]) {
+  try {
+    localStorage.setItem(FKEY, JSON.stringify(list));
+  } catch {}
+}
+
+export function addFolder(name: string): ScenarioFolder {
+  const f: ScenarioFolder = { id: uid("f"), name: name.trim() || "Новая папка", createdAt: Date.now() };
+  saveFolders([...loadFolders(), f]);
+  return f;
+}
+
+export function renameFolder(id: string, name: string) {
+  saveFolders(loadFolders().map((f) => (f.id === id ? { ...f, name: name.trim() || f.name } : f)));
+}
+
+// Удаляет папку; сценарии из неё остаются, но становятся «Без папки».
+export function deleteFolder(id: string) {
+  saveFolders(loadFolders().filter((f) => f.id !== id));
+  const scns = loadScenarios().map((s) => (s.folderId === id ? { ...s, folderId: undefined } : s));
+  saveScenarios(scns);
+}
+
+export function moveScenarioToFolder(scenarioId: string, folderId?: string) {
+  const scns = loadScenarios().map((s) => (s.id === scenarioId ? { ...s, folderId } : s));
+  saveScenarios(scns);
 }
 
 export function uid(prefix = "n"): string {
