@@ -13,6 +13,10 @@ import {
   loadToken,
   saveToken,
   clearToken,
+  MtSession,
+  loadMt,
+  saveMt,
+  clearMt,
   CHAT_TYPE_LABELS,
   CHAT_TYPE_ICON,
 } from "@/lib/tgchats";
@@ -55,6 +59,22 @@ export default function ChatsClient() {
   const [connectErr, setConnectErr] = useState("");
   const [banner, setBanner] = useState("");
 
+  // Парсер публичных каналов (MTProto, аккаунт).
+  const [mt, setMt] = useState<MtSession | null>(null);
+  const [mtOpen, setMtOpen] = useState(false);
+  const [mtStep, setMtStep] = useState<"creds" | "code" | "channels">("creds");
+  const [mApiId, setMApiId] = useState("");
+  const [mApiHash, setMApiHash] = useState("");
+  const [mPhone, setMPhone] = useState("");
+  const [mCode, setMCode] = useState("");
+  const [mPass, setMPass] = useState("");
+  const [mNeedPass, setMNeedPass] = useState(false);
+  const [mHash, setMHash] = useState("");
+  const [mSess, setMSess] = useState("");
+  const [mChannels, setMChannels] = useState("");
+  const [mBusy, setMBusy] = useState(false);
+  const [mErr, setMErr] = useState("");
+
   // Форма добавления участника команды.
   const [nName, setNName] = useState("");
   const [nUser, setNUser] = useState("");
@@ -65,10 +85,19 @@ export default function ChatsClient() {
     setTeam(loadTeam());
     setViewerId(getCurrentId());
     setToken(loadToken());
+    const saved = loadMt();
+    setMt(saved);
+    if (saved) {
+      setMApiId(saved.apiId);
+      setMApiHash(saved.apiHash);
+      setMSess(saved.session);
+      setMtStep("channels");
+    }
   }, []);
 
   useEsc(teamOpen, () => setTeamOpen(false));
   useEsc(connectOpen, () => !connecting && setConnectOpen(false));
+  useEsc(mtOpen, () => !mBusy && setMtOpen(false));
 
   const viewer = useMemo(() => currentMember(team.length ? team : [{ id: "me", name: "Вы", role: "owner", chatAccess: [], addedAt: 0 } as Member]), [team, viewerId]);
   const manage = canManage(viewer.role);
@@ -164,6 +193,105 @@ export default function ChatsClient() {
     setBanner("");
   }
 
+  function openMt() {
+    setMErr("");
+    const saved = loadMt();
+    setMtStep(saved ? "channels" : "creds");
+    setMtOpen(true);
+  }
+
+  async function mtSendCode() {
+    setMErr("");
+    setMBusy(true);
+    try {
+      const res = await fetch("/api/telegram/mtproto/send-code", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ apiId: mApiId, apiHash: mApiHash, phone: mPhone }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Ошибка");
+      setMHash(data.phoneCodeHash);
+      setMSess(data.session);
+      setMtStep("code");
+    } catch (e: any) {
+      setMErr(e?.message || "Не удалось отправить код");
+    } finally {
+      setMBusy(false);
+    }
+  }
+
+  async function mtSignIn() {
+    setMErr("");
+    setMBusy(true);
+    try {
+      const res = await fetch("/api/telegram/mtproto/sign-in", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          apiId: mApiId, apiHash: mApiHash, phone: mPhone,
+          phoneCodeHash: mHash, code: mCode, password: mPass, session: mSess,
+        }),
+      });
+      const data = await res.json();
+      if (data.needPassword) {
+        setMNeedPass(true);
+        setMSess(data.session || mSess);
+        setMErr("Введите пароль двухфакторной защиты");
+        return;
+      }
+      if (!res.ok) throw new Error(data.error || "Ошибка входа");
+      const saved: MtSession = { apiId: mApiId, apiHash: mApiHash, session: data.session, user: data.user?.username || data.user?.name };
+      saveMt(saved);
+      setMt(saved);
+      setMSess(data.session);
+      setMtStep("channels");
+    } catch (e: any) {
+      setMErr(e?.message || "Не удалось войти");
+    } finally {
+      setMBusy(false);
+    }
+  }
+
+  async function mtParse() {
+    setMErr("");
+    const list = mChannels.split(/[\n,]/).map((s) => s.trim()).filter(Boolean);
+    if (!list.length) { setMErr("Укажите хотя бы один канал"); return; }
+    setMBusy(true);
+    try {
+      const res = await fetch("/api/telegram/mtproto/parse", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ apiId: mApiId, apiHash: mApiHash, session: mSess, channels: list }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Ошибка парсинга");
+      const list2: TgChat[] = data.chats || [];
+      // Мержим с уже спарсенными (по id).
+      const merged = [...list2, ...chats.filter((c) => !list2.some((n) => n.id === c.id))];
+      saveChats(merged);
+      setChats(merged);
+      setSelected(list2[0]?.id ?? selected);
+      setBanner(data.note || `Спарсено каналов: ${list2.length}.`);
+      setMtOpen(false);
+    } catch (e: any) {
+      setMErr(e?.message || "Не удалось спарсить");
+    } finally {
+      setMBusy(false);
+    }
+  }
+
+  function mtLogout() {
+    if (!confirm("Выйти из аккаунта Telegram? Сессия будет удалена из браузера.")) return;
+    clearMt();
+    setMt(null);
+    setMtStep("creds");
+    setMSess("");
+    setMNeedPass(false);
+    setMCode("");
+    setMPass("");
+  }
+
   function switchViewer(id: string) {
     setViewerId(id);
     setCurrentId(id);
@@ -238,6 +366,11 @@ export default function ChatsClient() {
             <button className="btn btn-primary" onClick={() => setTeamOpen(true)}>
               👥 Команда
             </button>
+            {manage && (
+              <button className="btn btn-ai" onClick={openMt}>
+                🔎 Парсер каналов
+              </button>
+            )}
             <button className="btn btn-blue" onClick={runParse} disabled={!manage || parsing}>
               {parsing ? "Парсинг…" : chats.length ? "🔄 Обновить парсинг" : "🔄 Запустить парсинг"}
             </button>
@@ -415,6 +548,110 @@ export default function ChatsClient() {
           </div>
         )}
       </div>
+
+      {/* Модалка: парсер публичных каналов (MTProto) */}
+      {mtOpen && (
+        <div className="modal-overlay" onClick={() => !mBusy && setMtOpen(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 480 }}>
+            <div className="modal__head">
+              <b>🔎 Парсер каналов Telegram</b>
+              <button className="fn__x dark" onClick={() => !mBusy && setMtOpen(false)}>✕</button>
+            </div>
+
+            {mtStep !== "channels" && (
+              <>
+                <p className="muted" style={{ marginTop: 10 }}>
+                  Вход в Telegram по аккаунту — только так можно парсить любые публичные
+                  каналы по ссылке. api_id и api_hash берутся на{" "}
+                  <b>my.telegram.org</b> → API development tools.
+                </p>
+                <div className="tg-help">
+                  ⚠ Вход даёт полный доступ к аккаунту. Сессия хранится в этом браузере.
+                  Парсите только те каналы, где это разрешено правилами Telegram.
+                </div>
+              </>
+            )}
+
+            {mtStep === "creds" && (
+              <>
+                <div className="field" style={{ marginTop: 14 }}>
+                  <label className="label">api_id</label>
+                  <input className="input" value={mApiId} onChange={(e) => setMApiId(e.target.value)} placeholder="1234567" />
+                </div>
+                <div className="field">
+                  <label className="label">api_hash</label>
+                  <input className="input" value={mApiHash} onChange={(e) => setMApiHash(e.target.value)} placeholder="abcdef0123456789..." />
+                </div>
+                <div className="field">
+                  <label className="label">Телефон аккаунта</label>
+                  <input className="input" value={mPhone} onChange={(e) => setMPhone(e.target.value)} placeholder="+79001234567" />
+                </div>
+                {mErr && <div className="ai-error">⚠ {mErr}</div>}
+                <div className="row" style={{ justifyContent: "flex-end", gap: 10, marginTop: 14 }}>
+                  <button className="btn" onClick={() => setMtOpen(false)} disabled={mBusy}>Отменить</button>
+                  <button className="btn btn-primary" onClick={mtSendCode} disabled={mBusy || !mApiId || !mApiHash || !mPhone}>
+                    {mBusy ? "Отправляю…" : "Получить код"}
+                  </button>
+                </div>
+              </>
+            )}
+
+            {mtStep === "code" && (
+              <>
+                <div className="field" style={{ marginTop: 14 }}>
+                  <label className="label">Код из Telegram</label>
+                  <input className="input" value={mCode} onChange={(e) => setMCode(e.target.value)} placeholder="12345" autoFocus />
+                </div>
+                {mNeedPass && (
+                  <div className="field">
+                    <label className="label">Пароль двухфакторной защиты</label>
+                    <input className="input" type="password" value={mPass} onChange={(e) => setMPass(e.target.value)} />
+                  </div>
+                )}
+                {mErr && <div className="ai-error">⚠ {mErr}</div>}
+                <div className="row" style={{ justifyContent: "flex-end", gap: 10, marginTop: 14 }}>
+                  <button className="btn" onClick={() => setMtStep("creds")} disabled={mBusy}>Назад</button>
+                  <button className="btn btn-primary" onClick={mtSignIn} disabled={mBusy || !mCode}>
+                    {mBusy ? "Вхожу…" : "Войти"}
+                  </button>
+                </div>
+              </>
+            )}
+
+            {mtStep === "channels" && (
+              <>
+                <div className="tg-conn live" style={{ marginTop: 12 }}>
+                  <span className="tg-conn__dot" />
+                  <span>Аккаунт подключён{mt?.user ? ` · ${mt.user.startsWith("@") ? mt.user : "@" + mt.user}` : ""}</span>
+                  <button className="tg-conn__link" onClick={mtLogout}>Выйти</button>
+                </div>
+                <div className="field" style={{ marginTop: 8 }}>
+                  <label className="label">Каналы (ссылки или @username, по одному в строке)</label>
+                  <textarea
+                    className="textarea"
+                    style={{ minHeight: 110 }}
+                    value={mChannels}
+                    onChange={(e) => setMChannels(e.target.value)}
+                    placeholder={"@durov\nhttps://t.me/telegram\nmyshopchat"}
+                    autoFocus
+                  />
+                </div>
+                <div className="tg-help">
+                  Парсятся сообщения и (где доступно) участники. Список участников
+                  каналов Telegram скрывает — он придёт только для групп, где вы админ.
+                </div>
+                {mErr && <div className="ai-error">⚠ {mErr}</div>}
+                <div className="row" style={{ justifyContent: "flex-end", gap: 10, marginTop: 14 }}>
+                  <button className="btn" onClick={() => setMtOpen(false)} disabled={mBusy}>Закрыть</button>
+                  <button className="btn btn-ai" onClick={mtParse} disabled={mBusy || !mChannels.trim()}>
+                    {mBusy ? "Парсинг…" : "🔎 Спарсить каналы"}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Модалка подключения Telegram */}
       {connectOpen && (

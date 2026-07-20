@@ -74,6 +74,34 @@ export function clearToken() {
   } catch {}
 }
 
+// ===== MTProto (аккаунт-парсер публичных каналов) =====
+// ВНИМАНИЕ: сессия даёт полный доступ к Telegram-аккаунту. Хранится локально в
+// браузере — это компромисс для self-hosted демо. В продакшене выносите на сервер.
+export type MtSession = { apiId: string; apiHash: string; session: string; user?: string };
+const MKEY = "sb_tg_mt";
+
+export function loadMt(): MtSession | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(MKEY);
+    return raw ? (JSON.parse(raw) as MtSession) : null;
+  } catch {
+    return null;
+  }
+}
+
+export function saveMt(s: MtSession) {
+  try {
+    localStorage.setItem(MKEY, JSON.stringify(s));
+  } catch {}
+}
+
+export function clearMt() {
+  try {
+    localStorage.removeItem(MKEY);
+  } catch {}
+}
+
 export function loadChats(): TgChat[] {
   if (typeof window === "undefined") return [];
   try {
