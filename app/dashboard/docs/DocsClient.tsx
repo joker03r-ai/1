@@ -11,8 +11,38 @@ const TOC = [
   { id: "editor", label: "Конструктор сценариев" },
   { id: "ai", label: "Сборка сценария ИИ" },
   { id: "recipes", label: "Готовые рецепты" },
+  { id: "payments", label: "Оплата и интеграции" },
   { id: "settings", label: "Подключение и настройка" },
   { id: "faq", label: "Частые вопросы" },
+];
+
+const PAY_STEPS: { name: string; emoji: string; steps: string[] }[] = [
+  {
+    name: "ЮKassa",
+    emoji: "💳",
+    steps: [
+      "ЛК ЮKassa → «Настройки» → «Магазин»: скопируйте shopId.",
+      "Раздел «API-ключи» → выпустите секретный ключ (live для боевых платежей).",
+      "Интеграции → ЮKassa → «Подключить» → вставьте shopId и секретный ключ → «Сохранить и подключить».",
+    ],
+  },
+  {
+    name: "Telegram Payments",
+    emoji: "✈️",
+    steps: [
+      "@BotFather → /mybots → ваш бот → Payments.",
+      "Подключите провайдера (например ЮKassa) и скопируйте токен провайдера.",
+      "Интеграции → Telegram Payments → вставьте токен провайдера.",
+    ],
+  },
+  {
+    name: "ЮMoney / Qiwi / Тинькофф / Prodamus",
+    emoji: "🧾",
+    steps: [
+      "В личном кабинете сервиса выпустите API-токен / секретный ключ.",
+      "Интеграции → нужный сервис → «Подключить» → вставьте данные из подсказки в окне.",
+    ],
+  },
 ];
 
 const STEPS = [
@@ -254,6 +284,32 @@ export default function DocsClient() {
                   </div>
                 ))}
               </div>
+            </section>
+
+            <section id="payments" className="docs-section">
+              <div className="section-title">Приём оплаты и интеграции</div>
+              <p className="muted" style={{ marginTop: 0, maxWidth: 640 }}>
+                Оплата подключается в разделе <b>«Интеграции»</b>. Нажмите «Подключить» у
+                нужного сервиса и введите ключи из его личного кабинета — в окне есть
+                пошаговая подсказка. После подключения появится галочка «✓ подключено»,
+                и в сценарии можно добавлять кнопку оплаты.
+              </p>
+              {PAY_STEPS.map((p) => (
+                <div key={p.name} style={{ marginBottom: 14 }}>
+                  <div className="docs-sub">{p.emoji} {p.name}</div>
+                  <ol className="docs-oli">
+                    {p.steps.map((s, i) => <li key={i}>{s}</li>)}
+                  </ol>
+                </div>
+              ))}
+              <div className="docs-callout">
+                Не подключается платёжка? Проверьте: 1) заполнены оба поля (id и секретный
+                ключ), 2) ключ боевой (live), а не тестовый, 3) в поле не попал лишний
+                пробел. После «Сохранить и подключить» карточка станет зелёной.
+              </div>
+              <Link href="/dashboard/integrations" className="btn btn-primary" style={{ display: "inline-block" }}>
+                Открыть интеграции
+              </Link>
             </section>
 
             <section id="settings" className="docs-section">
