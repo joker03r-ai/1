@@ -51,6 +51,28 @@ export const CHAT_TYPE_ICON: Record<ChatType, string> = {
 };
 
 const KEY = "sb_tg_chats";
+const TKEY = "sb_tg_token";
+
+export function loadToken(): string {
+  if (typeof window === "undefined") return "";
+  try {
+    return localStorage.getItem(TKEY) || "";
+  } catch {
+    return "";
+  }
+}
+
+export function saveToken(t: string) {
+  try {
+    localStorage.setItem(TKEY, t.trim());
+  } catch {}
+}
+
+export function clearToken() {
+  try {
+    localStorage.removeItem(TKEY);
+  } catch {}
+}
 
 export function loadChats(): TgChat[] {
   if (typeof window === "undefined") return [];

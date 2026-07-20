@@ -82,7 +82,7 @@ export default function Sidebar() {
           <div className="sidebar__promo">
             <div className="title">🎁 Пробный период</div>
             <div className="sub">Осталось 7 дней · все функции</div>
-            <button className="promo-btn">Выбрать тариф</button>
+            <Link href="/dashboard/billing" className="promo-btn">Выбрать тариф</Link>
           </div>
           <div className="sidebar__foot">
             <div className="chip">Заказать бота</div>

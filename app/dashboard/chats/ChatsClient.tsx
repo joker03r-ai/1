@@ -7,8 +7,12 @@ import {
   TgChat,
   TgRole,
   loadChats,
+  saveChats,
   parseChats,
   setParticipantRole,
+  loadToken,
+  saveToken,
+  clearToken,
   CHAT_TYPE_LABELS,
   CHAT_TYPE_ICON,
 } from "@/lib/tgchats";
@@ -42,6 +46,15 @@ export default function ChatsClient() {
   const [parsing, setParsing] = useState(false);
   const [teamOpen, setTeamOpen] = useState(false);
 
+  // Подключение реального Telegram-бота.
+  const [token, setToken] = useState("");
+  const [botName, setBotName] = useState("");
+  const [connectOpen, setConnectOpen] = useState(false);
+  const [tokenInput, setTokenInput] = useState("");
+  const [connecting, setConnecting] = useState(false);
+  const [connectErr, setConnectErr] = useState("");
+  const [banner, setBanner] = useState("");
+
   // Форма добавления участника команды.
   const [nName, setNName] = useState("");
   const [nUser, setNUser] = useState("");
@@ -51,9 +64,11 @@ export default function ChatsClient() {
     setChats(loadChats());
     setTeam(loadTeam());
     setViewerId(getCurrentId());
+    setToken(loadToken());
   }, []);
 
   useEsc(teamOpen, () => setTeamOpen(false));
+  useEsc(connectOpen, () => !connecting && setConnectOpen(false));
 
   const viewer = useMemo(() => currentMember(team.length ? team : [{ id: "me", name: "Вы", role: "owner", chatAccess: [], addedAt: 0 } as Member]), [team, viewerId]);
   const manage = canManage(viewer.role);
@@ -72,16 +87,81 @@ export default function ChatsClient() {
     if (selected && !visibleChats.some((c) => c.id === selected)) setSelected(null);
   }, [visibleChats, selected]);
 
-  function runParse() {
+  async function runParse() {
     if (!manage) return;
+    setBanner("");
     setParsing(true);
-    // Имитация запроса к Telegram Bot API.
+    if (token) {
+      // Реальный парсинг через Telegram Bot API.
+      try {
+        const res = await fetch("/api/telegram/parse", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ token }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Ошибка парсинга");
+        const list: TgChat[] = data.chats || [];
+        saveChats(list);
+        setChats(list);
+        setSelected(list[0]?.id ?? null);
+        setBotName(data.bot?.username ? "@" + data.bot.username : "");
+        setBanner(data.note || (list.length ? `Готово: спарсено чатов — ${list.length}.` : ""));
+      } catch (e: any) {
+        setBanner("⚠ " + (e?.message || "Не удалось спарсить. Проверьте токен и что бот добавлен в чаты."));
+      } finally {
+        setParsing(false);
+      }
+      return;
+    }
+    // Демо-режим (без токена).
     setTimeout(() => {
       const res = parseChats();
       setChats(res);
       setSelected(res[0]?.id ?? null);
+      setBanner("Демо-данные. Подключите токен бота, чтобы парсить реальные чаты Telegram.");
       setParsing(false);
-    }, 900);
+    }, 700);
+  }
+
+  async function connectBot() {
+    const t = tokenInput.trim();
+    if (!t) return;
+    setConnecting(true);
+    setConnectErr("");
+    try {
+      const res = await fetch("/api/telegram/parse", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ token: t }),
+      });
+      const data = await res.json();
+      // Токен валиден, если Telegram вернул имя бота (даже когда чатов пока нет).
+      if (!data.bot && !res.ok) throw new Error(data.error || "Токен не принят");
+      saveToken(t);
+      setToken(t);
+      setBotName(data.bot?.username ? "@" + data.bot.username : "");
+      if (Array.isArray(data.chats)) {
+        saveChats(data.chats);
+        setChats(data.chats);
+        setSelected(data.chats[0]?.id ?? null);
+      }
+      setBanner(data.note || (data.chats?.length ? `Подключено. Спарсено чатов — ${data.chats.length}.` : "Бот подключён."));
+      setConnectOpen(false);
+      setTokenInput("");
+    } catch (e: any) {
+      setConnectErr(e?.message || "Не удалось подключить бота");
+    } finally {
+      setConnecting(false);
+    }
+  }
+
+  function disconnectBot() {
+    if (!confirm("Отключить бота? Токен будет удалён из этого браузера.")) return;
+    clearToken();
+    setToken("");
+    setBotName("");
+    setBanner("");
   }
 
   function switchViewer(id: string) {
@@ -163,6 +243,27 @@ export default function ChatsClient() {
             </button>
           </div>
         </div>
+
+        {/* Статус подключения Telegram */}
+        {manage && (
+          <div className={`tg-conn${token ? " live" : ""}`}>
+            {token ? (
+              <>
+                <span className="tg-conn__dot" />
+                <span>Реальный парсинг Telegram подключён{botName ? ` · ${botName}` : ""}</span>
+                <button className="tg-conn__link" onClick={disconnectBot}>Отключить</button>
+              </>
+            ) : (
+              <>
+                <span>⚪ Демо-режим. Чтобы парсить реальные чаты Telegram — подключите токен бота.</span>
+                <button className="tg-conn__link primary" onClick={() => { setConnectErr(""); setConnectOpen(true); }}>
+                  Подключить Telegram
+                </button>
+              </>
+            )}
+          </div>
+        )}
+        {banner && <div className="tg-banner">{banner}</div>}
 
         {chats.length === 0 ? (
           <div className="card scn-empty">
@@ -314,6 +415,44 @@ export default function ChatsClient() {
           </div>
         )}
       </div>
+
+      {/* Модалка подключения Telegram */}
+      {connectOpen && (
+        <div className="modal-overlay" onClick={() => !connecting && setConnectOpen(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal__head">
+              <b>Подключить Telegram</b>
+              <button className="fn__x dark" onClick={() => !connecting && setConnectOpen(false)}>✕</button>
+            </div>
+            <p className="muted" style={{ marginTop: 10 }}>
+              Вставьте токен бота от <b>@BotFather</b>. Сервис проверит его и начнёт парсить чаты.
+            </p>
+            <div className="field">
+              <label className="label">Токен бота</label>
+              <input
+                className="input"
+                placeholder="123456789:AA..."
+                value={tokenInput}
+                onChange={(e) => setTokenInput(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && connectBot()}
+                autoFocus
+              />
+            </div>
+            <div className="tg-help">
+              ⚠ Telegram не даёт боту список всех чатов. Бот видит только те, куда его
+              добавили администратором. Добавьте бота в нужную группу/канал и напишите
+              туда сообщение — чат появится при парсинге.
+            </div>
+            {connectErr && <div className="ai-error">⚠ {connectErr}</div>}
+            <div className="row" style={{ justifyContent: "flex-end", gap: 10, marginTop: 16 }}>
+              <button className="btn" onClick={() => setConnectOpen(false)} disabled={connecting}>Отменить</button>
+              <button className="btn btn-primary" onClick={connectBot} disabled={connecting || !tokenInput.trim()}>
+                {connecting ? "Проверяю…" : "Подключить"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Модалка «Команда и доступы» */}
       {teamOpen && (

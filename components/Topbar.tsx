@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { IconGlobe, IconGear, IconChevron } from "./icons";
 import WorkspaceSwitcher from "./WorkspaceSwitcher";
 
@@ -19,7 +20,7 @@ export default function Topbar({ crumbs }: { crumbs: string[] }) {
         </div>
       )}
       <div className="topbar__spacer" />
-      <span className="trial-badge">🎁 Пробный период · 7 дней</span>
+      <Link href="/dashboard/billing" className="trial-badge">🎁 Пробный период · 7 дней</Link>
       <span className="balance-pill">0 ₽</span>
       <IconGlobe className="ico" />
       <IconGear className="ico" />
