@@ -3,23 +3,30 @@
 import { useEffect, useState } from "react";
 import { IconGear } from "./icons";
 import { useEsc } from "@/lib/useEsc";
-import { ACCENTS, Accent, Theme, loadAccent, saveAccent, loadTheme, saveTheme } from "@/lib/appPrefs";
+import { ACCENTS, Accent, Theme, loadAccent, saveAccent, loadTheme, saveTheme, loadHue, saveHue } from "@/lib/appPrefs";
 import { t } from "@/lib/i18n";
 
 export default function SettingsButton() {
   const [open, setOpen] = useState(false);
   const [accent, setAccent] = useState<Accent>("violet");
   const [theme, setTheme] = useState<Theme>("light");
+  const [hue, setHue] = useState(265);
 
   useEffect(() => {
     setAccent(loadAccent());
     setTheme(loadTheme());
+    setHue(loadHue());
   }, []);
   useEsc(open, () => setOpen(false));
 
   function pickAccent(a: Accent) {
     setAccent(a);
     saveAccent(a);
+  }
+  function pickHue(h: number) {
+    setHue(h);
+    setAccent("custom");
+    saveHue(h);
   }
   function pickTheme(v: Theme) {
     setTheme(v);
@@ -55,6 +62,22 @@ export default function SettingsButton() {
                   <span>{a.label}</span>
                 </button>
               ))}
+            </div>
+
+            <div className="set-label" style={{ marginTop: 16 }}>{t("settings.custom")}</div>
+            <div className="set-hue">
+              <span className="set-hue__swatch" style={{ background: `hsl(${hue} 72% 55%)` }}>
+                {accent === "custom" && "✓"}
+              </span>
+              <input
+                className="set-hue__range"
+                type="range"
+                min={0}
+                max={360}
+                value={hue}
+                onChange={(e) => pickHue(Number(e.target.value))}
+                aria-label={t("settings.custom")}
+              />
             </div>
 
             <div className="set-label" style={{ marginTop: 18 }}>{t("settings.mode")}</div>

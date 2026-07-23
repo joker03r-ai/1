@@ -96,7 +96,7 @@ export default function AssistantClient() {
             </p>
           </div>
           <button className="btn btn-ai" onClick={autoImprove}>
-            <IconSpark className="ico" /> Улучшить автоматически
+            <IconSpark className="ico" /> Заполнить автоматически
           </button>
         </div>
 
@@ -142,7 +142,7 @@ export default function AssistantClient() {
               style={{ minHeight: 110 }}
               value={a.role}
               onChange={(e) => patch({ role: e.target.value })}
-              placeholder="Опишите, кто такой ассистент и как отвечать. Или нажмите «Улучшить автоматически»."
+              placeholder="Опишите, кто такой ассистент и как отвечать. Или нажмите «Заполнить автоматически»."
             />
           </div>
 

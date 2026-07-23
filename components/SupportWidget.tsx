@@ -25,14 +25,32 @@ export default function SupportWidget() {
   const drag = useRef<{ sx: number; sy: number; ox: number; oy: number } | null>(null);
   const moved = useRef(false);
 
+  // Держим кнопку в пределах экрана — чтобы не «прыгала» и не уезжала за край.
+  function clamp(p: { x: number; y: number }): { x: number; y: number } {
+    const w = ref.current?.offsetWidth || 56;
+    const h = ref.current?.offsetHeight || 56;
+    return {
+      x: Math.max(6, Math.min(window.innerWidth - w - 6, p.x)),
+      y: Math.max(6, Math.min(window.innerHeight - h - 6, p.y)),
+    };
+  }
+
   useEffect(() => {
     setOnline(isOnline());
     const t = setInterval(() => setOnline(isOnline()), 60_000);
     try {
       const s = localStorage.getItem("sb_support_pos");
-      if (s) setPos(JSON.parse(s));
+      if (s) setPos(clamp(JSON.parse(s)));
     } catch {}
-    return () => clearInterval(t);
+    // При изменении размера окна возвращаем кнопку в видимую область.
+    function onResize() {
+      setPos((p) => (p ? clamp(p) : p));
+    }
+    window.addEventListener("resize", onResize);
+    return () => {
+      clearInterval(t);
+      window.removeEventListener("resize", onResize);
+    };
   }, []);
 
   function onMove(e: PointerEvent) {
@@ -71,9 +89,11 @@ export default function SupportWidget() {
     setText("");
   }
 
+  const openUp = pos ? (typeof window !== "undefined" && pos.y > window.innerHeight / 2) : true;
+
   return (
     <div
-      className="support"
+      className={`support${openUp ? " up" : " down"}`}
       ref={ref}
       style={pos ? { left: pos.x, top: pos.y, right: "auto", bottom: "auto" } : undefined}
     >
