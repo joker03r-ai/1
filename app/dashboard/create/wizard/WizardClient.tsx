@@ -70,13 +70,81 @@ const GOALS: Goal[] = [
   },
 ];
 
-const PLATFORMS = [
-  { id: "tg", label: "Telegram", emoji: "✈️" },
-  { id: "vk", label: "ВКонтакте", emoji: "🟦" },
-  { id: "wa", label: "WhatsApp", emoji: "🟢" },
-  { id: "max", label: "MAX", emoji: "🟣" },
-  { id: "site", label: "Сайт", emoji: "🌐" },
-  { id: "multi", label: "Несколько площадок", emoji: "🔗" },
+type Platform = { id: string; label: string; emoji: string; time: string; steps: string[] };
+
+const PLATFORMS: Platform[] = [
+  {
+    id: "tg",
+    label: "Telegram",
+    emoji: "✈️",
+    time: "≈ 2 минуты",
+    steps: [
+      "Откройте @BotFather в Telegram",
+      "Команда /newbot → задайте имя бота",
+      "Скопируйте выданный токен",
+      "Вставьте токен в разделе «Каналы»",
+    ],
+  },
+  {
+    id: "vk",
+    label: "ВКонтакте",
+    emoji: "🟦",
+    time: "≈ 5 минут",
+    steps: [
+      "Создайте сообщество ВКонтакте",
+      "Управление → Работа с API → создайте ключ доступа",
+      "Включите Long Poll API (последняя версия)",
+      "Вставьте ключ в разделе «Каналы»",
+    ],
+  },
+  {
+    id: "wa",
+    label: "WhatsApp",
+    emoji: "🟢",
+    time: "≈ 10 минут",
+    steps: [
+      "Понадобится WhatsApp Business API (через провайдера)",
+      "Получите номер и токен доступа",
+      "Укажите их в разделе «Интеграции»",
+      "Подтвердите номер по инструкции провайдера",
+    ],
+  },
+  {
+    id: "max",
+    label: "MAX",
+    emoji: "🟣",
+    time: "≈ 3 минуты",
+    steps: [
+      "Создайте бота в мессенджере MAX",
+      "Получите токен бота",
+      "Вставьте токен в разделе «Каналы»",
+      "Проверьте связь тестовым сообщением",
+    ],
+  },
+  {
+    id: "site",
+    label: "Сайт",
+    emoji: "🌐",
+    time: "≈ 2 минуты",
+    steps: [
+      "Откройте раздел «Каналы» → «Виджет для сайта»",
+      "Скопируйте код виджета",
+      "Вставьте его перед тегом </body> на сайте",
+      "Кнопка чата появится в углу страницы",
+    ],
+  },
+  {
+    id: "multi",
+    label: "Несколько площадок",
+    emoji: "🔗",
+    time: "по инструкции каждой",
+    steps: [
+      "Бот работает во всех каналах одновременно",
+      "Подключите каждую площадку по её инструкции",
+      "Один сценарий — все мессенджеры сразу",
+      "Диалоги и клиенты собираются в одном месте",
+    ],
+  },
 ];
 
 const TEMPLATES: Tmpl[] = [
@@ -259,7 +327,7 @@ export default function WizardClient() {
         {step === 1 && (
           <div className="wz-panel">
             <h1 className="h1 wz-h1">Где будет работать бот?</h1>
-            <p className="muted wz-sub">После создания покажем простую инструкцию подключения.</p>
+            <p className="muted wz-sub">Выберите площадку — покажем простую инструкцию подключения.</p>
             <div className="wz-cards">
               {PLATFORMS.map((p) => (
                 <button key={p.id} className={`wz-card${platform === p.id ? " on" : ""}`} onClick={() => setPlatform(p.id)} type="button">
@@ -268,6 +336,24 @@ export default function WizardClient() {
                 </button>
               ))}
             </div>
+
+            {platObj ? (
+              <div className="wz-connect">
+                <div className="wz-connect__head">
+                  <span className="wz-connect__emoji">{platObj.emoji}</span>
+                  <span>Как подключить «{platObj.label}»</span>
+                  <span className="wz-connect__time">{platObj.time}</span>
+                </div>
+                <ol className="wz-connect__steps">
+                  {platObj.steps.map((s, i) => (
+                    <li key={i}>{s}</li>
+                  ))}
+                </ol>
+                <div className="wz-connect__note">Подключение можно завершить после создания — в разделе «Каналы».</div>
+              </div>
+            ) : (
+              <div className="wz-hint">💡 Подсказка: выберите площадку — покажем пошаговую инструкцию подключения.</div>
+            )}
           </div>
         )}
 
