@@ -4,8 +4,9 @@ import { useState } from "react";
 import Link from "next/link";
 import Topbar from "@/components/Topbar";
 import { IconSpark, IconChevron } from "@/components/icons";
-import { STYLE_LABELS, AssistantStyle, KNOWLEDGE_OPTIONS, loadAssistant, saveAssistant } from "@/lib/assistant";
+import { STYLE_LABELS, AssistantStyle, KNOWLEDGE_OPTIONS, Assistant, saveAssistant } from "@/lib/assistant";
 import { uid, upsertScenario, Scenario } from "@/lib/scenarios";
+import { addBot } from "@/lib/bots";
 
 type Goal = { id: string; label: string; emoji: string; desc: string; prepares: string[] };
 type Tmpl = { id: string; label: string; emoji: string; desc: string; result: string; example: { me: boolean; text: string }[] };
@@ -350,13 +351,15 @@ export default function WizardClient() {
     setAsstKnows(false);
   }
 
-  function autoInstructions() {
-    setAsstKnows(true);
-    saveAssistant({
-      ...loadAssistant(),
+  // Собирает объект ассистента из текущих ответов мастера.
+  function buildAssistant(): Assistant {
+    return {
       name: asstName,
       style: asstStyle,
+      styleCustom: asstStyleCustom,
       knowledge: asstKnow,
+      forbidden: "",
+      examples: [],
       role:
         `Ты — ${asstName}, ИИ-ассистент компании «${biz.name || "—"}». ` +
         `Общайся ${styleText()}. ${biz.about ? "О компании: " + biz.about + ". " : ""}` +
@@ -364,7 +367,12 @@ export default function WizardClient() {
         `${asstKnow.length ? "Опирайся на источники: " + asstKnow.join(", ") + ". " : ""}` +
         `Помогай клиенту, отвечай на вопросы, предлагай оставить заявку и подсказывай следующий шаг. ` +
         `Не знаешь ответа — предложи связать с менеджером.`,
-    });
+    };
+  }
+
+  function autoInstructions() {
+    // Ассистент сохраняется при запуске под id созданного бота.
+    setAsstKnows(true);
   }
 
   // Приветствие бота в предпросмотре — первая реплика выбранного сценария.
@@ -428,6 +436,15 @@ export default function WizardClient() {
         updatedAt: Date.now(),
       };
       upsertScenario(s);
+      // Создаём бота и сохраняем его собственного ассистента.
+      const bot = addBot({
+        name: biz.name || `Бот: ${tmplObj?.label || goalObj?.label || "сценарий"}`,
+        goal: goalObj?.label,
+        platform: platObj?.label,
+        scenarioId: s.id,
+        status: "active",
+      });
+      saveAssistant(bot.id, buildAssistant());
       setBuiltId(s.id);
       setBuilding(false);
       setLaunched(true);

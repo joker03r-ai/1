@@ -2754,3 +2754,42 @@ a.docs-card:hover { box-shadow: var(--shadow); transform: translateY(-1px); bord
 .wz-launched { text-align: center; padding: 30px 20px 10px; animation: wzfade .25s ease; }
 .wz-launched__ico { font-size: 56px; line-height: 1; margin-bottom: 14px; }
 .wz-launched__actions { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; }
+
+/* ---------- Главная: выбор ботов ---------- */
+.home-bots { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; margin-bottom: 26px; }
+.home-bot { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border: 2px solid var(--line); border-radius: 14px; background: var(--panel); text-align: left; cursor: pointer; transition: border-color .15s, box-shadow .15s, transform .1s; position: relative; }
+.home-bot:hover { border-color: var(--violet-100); transform: translateY(-1px); }
+.home-bot.on { border-color: var(--violet); box-shadow: var(--shadow-violet); }
+.home-bot__ava { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; color: #fff; font-weight: 800; font-size: 14px; flex-shrink: 0; }
+.home-bot__body { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.home-bot__name { font-weight: 700; font-size: 14px; }
+.home-bot__meta { font-size: 12px; color: var(--ink-soft); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.home-bot__status { font-size: 11px; font-weight: 700; border-radius: 999px; padding: 3px 9px; }
+.home-bot__status.st-active { background: #eafaf0; color: #15a34a; }
+.home-bot__status.st-draft { background: #fff4e0; color: #b26a00; }
+.home-bot__status.st-off { background: var(--line-soft); color: var(--ink-soft); }
+.home-bot__pick { position: absolute; top: -9px; right: 12px; font-size: 10.5px; font-weight: 800; color: #fff; background: var(--violet); border-radius: 999px; padding: 2px 8px; }
+.home-bot--add { border-style: dashed; justify-content: center; color: var(--violet-700); font-weight: 700; }
+.home-bot--add .home-bot__addico { width: 40px; height: 40px; border-radius: 50%; background: var(--violet-050); display: grid; place-items: center; }
+:root[data-theme="dark"] .home-bot__status.st-active { background: #12291b; }
+:root[data-theme="dark"] .home-bot__status.st-draft { background: #2e2410; }
+
+/* ---------- ИИ-ассистент: выбор бота ---------- */
+.asst-bots { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 14px 0 16px; }
+.asst-bots__label { font-size: 13px; font-weight: 700; color: var(--ink-soft); margin-right: 4px; }
+.asst-bot { display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--line); background: var(--panel); border-radius: 999px; padding: 6px 12px 6px 6px; font-size: 13px; font-weight: 600; color: var(--ink); cursor: pointer; }
+.asst-bot.on { border-color: var(--violet); background: var(--violet-050); color: var(--violet-700); }
+.asst-bot__ava { width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; color: #fff; font-weight: 800; font-size: 10px; }
+.asst-bot--add { color: var(--violet-700); border-style: dashed; padding: 6px 14px; }
+
+/* ---------- Мои боты (список) ---------- */
+.bots-list { display: flex; flex-direction: column; gap: 10px; }
+.bots-row { display: flex; align-items: center; gap: 14px; padding: 14px 16px; flex-wrap: wrap; }
+.bots-row.cur { border-color: var(--violet); }
+.bots-badge { border: 0; border-radius: 999px; padding: 4px 12px; font-size: 12px; font-weight: 700; cursor: pointer; }
+.bots-badge.st-active { background: #eafaf0; color: #15a34a; }
+.bots-badge.st-draft { background: #fff4e0; color: #b26a00; }
+.bots-badge.st-off { background: var(--line-soft); color: var(--ink-soft); }
+.bots-cur { font-size: 12.5px; font-weight: 700; color: var(--violet-700); }
+:root[data-theme="dark"] .bots-badge.st-active { background: #12291b; }
+:root[data-theme="dark"] .bots-badge.st-draft { background: #2e2410; }

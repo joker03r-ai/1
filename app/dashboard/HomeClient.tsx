@@ -4,10 +4,17 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Topbar from "@/components/Topbar";
-import { IconSpark, IconChat, IconUsers, IconSend, IconStore } from "@/components/icons";
-import { loadUsers } from "@/lib/users";
+import { IconSpark, IconChat, IconUsers, IconSend, IconStore, IconBot, IconPlus } from "@/components/icons";
+import { loadUsers, avatarColor } from "@/lib/users";
 import { loadLabels } from "@/lib/stats";
 import { TEMPLATES, buildTemplate, upsertScenario, uid, Scenario } from "@/lib/scenarios";
+import { Bot, loadBots, getCurrentBotId, setCurrentBotId, STATUS_LABELS } from "@/lib/bots";
+
+function botInitials(name: string): string {
+  const p = name.trim().split(/\s+/).filter(Boolean);
+  if (!p.length) return "🤖";
+  return (p.length === 1 ? p[0].slice(0, 2) : p[0][0] + p[1][0]).toUpperCase();
+}
 
 // Подборка популярных шаблонов для главной.
 const FEATURED = ["sales-ai", "faq", "booking", "shop-order"];
@@ -25,14 +32,23 @@ export default function HomeClient() {
   const router = useRouter();
   const [users, setUsers] = useState(0);
   const [leads, setLeads] = useState(0);
+  const [bots, setBots] = useState<Bot[]>([]);
+  const [curBot, setCurBot] = useState<string>("");
 
   useEffect(() => {
     try {
       setUsers(loadUsers().length);
       const lead = loadLabels().find((l) => l.id === "sl_lead");
       setLeads(lead?.count || 0);
+      setBots(loadBots());
+      setCurBot(getCurrentBotId());
     } catch {}
   }, []);
+
+  function pickBot(id: string) {
+    setCurBot(id);
+    setCurrentBotId(id);
+  }
 
   const stats = [
     { n: "0", l: "Сообщений", sub: "за 7 дней", Icon: IconChat, cls: "s-msg" },
@@ -75,6 +91,34 @@ export default function HomeClient() {
           </div>
           <Link href="/dashboard/create" className="btn btn-primary btn-lg home-hero__cta">
             <IconSpark className="ico" /> Создать бота с помощью ИИ
+          </Link>
+        </div>
+
+        {/* Мои боты — выбор активного */}
+        <div className="home-row-head">
+          <div className="home-section-title">Мои боты · {bots.length}</div>
+          <Link href="/dashboard/bots" className="home-row-head__more">Все боты →</Link>
+        </div>
+        <div className="home-bots">
+          {bots.map((bt) => (
+            <button
+              key={bt.id}
+              className={`home-bot${bt.id === curBot ? " on" : ""}`}
+              onClick={() => pickBot(bt.id)}
+              type="button"
+            >
+              <span className="home-bot__ava" style={{ background: avatarColor(bt.id) }}>{botInitials(bt.name)}</span>
+              <span className="home-bot__body">
+                <span className="home-bot__name">{bt.name}</span>
+                <span className="home-bot__meta">{[bt.platform, bt.goal].filter(Boolean).join(" · ") || "Бот"}</span>
+              </span>
+              <span className={`home-bot__status st-${bt.status}`}>{STATUS_LABELS[bt.status]}</span>
+              {bt.id === curBot && <span className="home-bot__pick">Выбран ✓</span>}
+            </button>
+          ))}
+          <Link href="/dashboard/create" className="home-bot home-bot--add">
+            <span className="home-bot__addico"><IconPlus className="ico" /></span>
+            <span className="home-bot__name">Создать бота</span>
           </Link>
         </div>
 

@@ -29,13 +29,16 @@ export type QA = { q: string; a: string };
 export type Assistant = {
   name: string;
   style: AssistantStyle;
+  styleCustom?: string; // описание своего стиля
   role: string; // роль/инструкция
   knowledge: string[]; // источники знаний
   forbidden: string; // запрещённые темы
   examples: QA[];
 };
 
-const KEY = "sb_assistant";
+// Карта «id бота → ассистент». У каждого бота свой ассистент.
+const KEY = "sb_assistants";
+const LEGACY_KEY = "sb_assistant";
 
 export const DEFAULT_ASSISTANT: Assistant = {
   name: "Анна",
@@ -46,18 +49,36 @@ export const DEFAULT_ASSISTANT: Assistant = {
   examples: [],
 };
 
-export function loadAssistant(): Assistant {
-  if (typeof window === "undefined") return DEFAULT_ASSISTANT;
+function loadMap(): Record<string, Assistant> {
+  if (typeof window === "undefined") return {};
   try {
     const raw = localStorage.getItem(KEY);
-    return raw ? { ...DEFAULT_ASSISTANT, ...(JSON.parse(raw) as Assistant) } : DEFAULT_ASSISTANT;
+    const map = raw ? (JSON.parse(raw) as Record<string, Assistant>) : {};
+    // Разовая миграция старого единственного ассистента к боту по умолчанию.
+    if (!raw) {
+      const legacy = localStorage.getItem(LEGACY_KEY);
+      if (legacy) {
+        try {
+          map["bot_default"] = { ...DEFAULT_ASSISTANT, ...(JSON.parse(legacy) as Assistant) };
+          localStorage.setItem(KEY, JSON.stringify(map));
+        } catch {}
+      }
+    }
+    return map;
   } catch {
-    return DEFAULT_ASSISTANT;
+    return {};
   }
 }
 
-export function saveAssistant(a: Assistant) {
+export function loadAssistant(botId: string): Assistant {
+  const map = loadMap();
+  return map[botId] ? { ...DEFAULT_ASSISTANT, ...map[botId] } : { ...DEFAULT_ASSISTANT };
+}
+
+export function saveAssistant(botId: string, a: Assistant) {
   try {
-    localStorage.setItem(KEY, JSON.stringify(a));
+    const map = loadMap();
+    map[botId] = a;
+    localStorage.setItem(KEY, JSON.stringify(map));
   } catch {}
 }

@@ -1,33 +1,46 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import Topbar from "@/components/Topbar";
 import { IconSpark, IconPlus } from "@/components/icons";
 import {
   Assistant,
   AssistantStyle,
   STYLE_LABELS,
+  KNOWLEDGE_OPTIONS,
   loadAssistant,
   saveAssistant,
 } from "@/lib/assistant";
+import { Bot, loadBots, getCurrentBotId, setCurrentBotId } from "@/lib/bots";
+import { avatarColor } from "@/lib/users";
 
-const KNOWLEDGE_OPTIONS = [
-  "Сайт компании",
-  "PDF-файлы",
-  "Документы",
-  "Прайс-лист",
-  "Каталог товаров",
-  "Таблица",
-  "Ответы на частые вопросы",
-];
+function initials(name: string): string {
+  const p = name.trim().split(/\s+/).filter(Boolean);
+  if (!p.length) return "🤖";
+  return (p.length === 1 ? p[0].slice(0, 2) : p[0][0] + p[1][0]).toUpperCase();
+}
 
 export default function AssistantClient() {
+  const [bots, setBots] = useState<Bot[]>([]);
+  const [botId, setBotId] = useState<string>("");
   const [a, setA] = useState<Assistant | null>(null);
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
-    setA(loadAssistant());
+    const list = loadBots();
+    setBots(list);
+    const cur = getCurrentBotId() || list[0]?.id || "";
+    setBotId(cur);
+    setA(loadAssistant(cur));
   }, []);
+
+  function switchBot(id: string) {
+    setBotId(id);
+    setCurrentBotId(id);
+    setA(loadAssistant(id));
+    setSaved(false);
+  }
 
   if (!a) return null;
 
@@ -36,7 +49,7 @@ export default function AssistantClient() {
     setSaved(false);
   }
   function save() {
-    if (a) saveAssistant(a);
+    if (a && botId) saveAssistant(botId, a);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   }
@@ -85,6 +98,25 @@ export default function AssistantClient() {
           <button className="btn btn-ai" onClick={autoImprove}>
             <IconSpark className="ico" /> Улучшить автоматически
           </button>
+        </div>
+
+        {/* Выбор бота — у каждого бота свой ассистент */}
+        <div className="asst-bots">
+          <span className="asst-bots__label">Ассистент бота:</span>
+          {bots.map((bt) => (
+            <button
+              key={bt.id}
+              className={`asst-bot${bt.id === botId ? " on" : ""}`}
+              onClick={() => switchBot(bt.id)}
+              type="button"
+            >
+              <span className="asst-bot__ava" style={{ background: avatarColor(bt.id) }}>{initials(bt.name)}</span>
+              <span>{bt.name}</span>
+            </button>
+          ))}
+          <Link href="/dashboard/create" className="asst-bot asst-bot--add">
+            <IconPlus className="ico" /> Новый бот
+          </Link>
         </div>
 
         <div className="card asst-card">
