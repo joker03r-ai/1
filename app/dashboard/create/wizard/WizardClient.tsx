@@ -9,7 +9,7 @@ import { STYLE_LABELS, AssistantStyle, loadAssistant, saveAssistant } from "@/li
 import { uid, upsertScenario, Scenario } from "@/lib/scenarios";
 
 type Goal = { id: string; label: string; emoji: string; desc: string; prepares: string[] };
-type Tmpl = { id: string; label: string; emoji: string; result: string };
+type Tmpl = { id: string; label: string; emoji: string; desc: string; result: string; example: { me: boolean; text: string }[] };
 
 const GOALS: Goal[] = [
   {
@@ -148,16 +148,117 @@ const PLATFORMS: Platform[] = [
 ];
 
 const TEMPLATES: Tmpl[] = [
-  { id: "lead", label: "Получение заявки", emoji: "📥", result: "Соберёт имя и телефон, передаст менеджеру" },
-  { id: "consult", label: "Консультация клиента", emoji: "💡", result: "Ответит на вопросы и уточнит потребность" },
-  { id: "product", label: "Продажа товара", emoji: "🛒", result: "Покажет товар и оформит оплату" },
-  { id: "booking", label: "Запись на услугу", emoji: "📅", result: "Подберёт время и запишет клиента" },
-  { id: "faq", label: "Ответы на частые вопросы", emoji: "❓", result: "Отвечает на типовые вопросы сам" },
-  { id: "qualify", label: "Квалификация клиента", emoji: "🎯", result: "Задаст вопросы и оценит заявку" },
-  { id: "support", label: "Поддержка клиентов", emoji: "🛟", result: "Примет обращение и заведёт тикет" },
-  { id: "order", label: "Оформление заказа", emoji: "📦", result: "Соберёт заказ и данные доставки" },
-  { id: "magnet", label: "Выдача бесплатного материала", emoji: "🎁", result: "Проверит подписку и выдаст бонус" },
-  { id: "custom", label: "Индивидуальный сценарий", emoji: "✨", result: "Соберём под вашу задачу" },
+  {
+    id: "lead", label: "Получение заявки", emoji: "📥",
+    desc: "Приветствие, сбор имени и телефона, передача менеджеру.",
+    result: "Соберёт имя и телефон, передаст менеджеру",
+    example: [
+      { me: false, text: "Здравствуйте! Оставьте заявку — перезвоним. Как вас зовут?" },
+      { me: true, text: "Иван" },
+      { me: false, text: "Иван, оставьте номер телефона 📱" },
+      { me: true, text: "+7 900 000-00-00" },
+      { me: false, text: "Спасибо! Менеджер свяжется с вами в ближайшее время ✅" },
+    ],
+  },
+  {
+    id: "consult", label: "Консультация клиента", emoji: "💡",
+    desc: "Отвечает на вопросы и уточняет, что именно нужно клиенту.",
+    result: "Ответит на вопросы и уточнит потребность",
+    example: [
+      { me: true, text: "Подскажите по услугам" },
+      { me: false, text: "Конечно! Что вас интересует — маникюр, педикюр или уход?" },
+      { me: true, text: "Маникюр" },
+      { me: false, text: "Отлично! Классический — 1500 ₽, с покрытием — 2200 ₽. Записать вас?" },
+    ],
+  },
+  {
+    id: "product", label: "Продажа товара", emoji: "🛒",
+    desc: "Показывает товар, отвечает на вопросы и оформляет оплату.",
+    result: "Покажет товар и оформит оплату",
+    example: [
+      { me: true, text: "Хочу купить курс" },
+      { me: false, text: "Курс «Старт» — 4900 ₽: 12 уроков и обратная связь. Оформляем?" },
+      { me: true, text: "Да" },
+      { me: false, text: "Ссылка на оплату: pay.example/… После оплаты пришлю доступ 🎉" },
+    ],
+  },
+  {
+    id: "booking", label: "Запись на услугу", emoji: "📅",
+    desc: "Подбирает удобное время и записывает клиента на приём.",
+    result: "Подберёт время и запишет клиента",
+    example: [
+      { me: true, text: "Хочу записаться" },
+      { me: false, text: "На какую услугу и когда удобно? Есть Пн–Сб 10:00–20:00" },
+      { me: true, text: "Маникюр, суббота" },
+      { me: false, text: "Записала на субботу 14:00. Напомню за день до визита 🔔" },
+    ],
+  },
+  {
+    id: "faq", label: "Ответы на частые вопросы", emoji: "❓",
+    desc: "Распознаёт вопрос по смыслу и сразу даёт готовый ответ.",
+    result: "Отвечает на типовые вопросы сам",
+    example: [
+      { me: true, text: "Где вы находитесь?" },
+      { me: false, text: "Мы на ул. Пушкина, 10. Работаем Пн–Сб 10:00–20:00 🕙" },
+      { me: true, text: "А доставка есть?" },
+      { me: false, text: "Да, по городу за 1–2 дня. Оформить заказ?" },
+    ],
+  },
+  {
+    id: "qualify", label: "Квалификация клиента", emoji: "🎯",
+    desc: "Задаёт вопросы и оценивает, насколько заявка целевая.",
+    result: "Задаст вопросы и оценит заявку",
+    example: [
+      { me: false, text: "Пара вопросов, чтобы подобрать решение. Какой бюджет?" },
+      { me: true, text: "До 50 000 ₽" },
+      { me: false, text: "Когда планируете начать?" },
+      { me: true, text: "В этом месяце" },
+      { me: false, text: "Отлично, вы наш клиент! Передаю менеджеру 🔥" },
+    ],
+  },
+  {
+    id: "support", label: "Поддержка клиентов", emoji: "🛟",
+    desc: "Принимает обращение, уточняет детали и заводит тикет.",
+    result: "Примет обращение и заведёт тикет",
+    example: [
+      { me: true, text: "Не приходит заказ" },
+      { me: false, text: "Сожалею! Назовите номер заказа — проверю статус." },
+      { me: true, text: "№10234" },
+      { me: false, text: "Завёл обращение №58, специалист ответит в течение часа 🛟" },
+    ],
+  },
+  {
+    id: "order", label: "Оформление заказа", emoji: "📦",
+    desc: "Собирает состав заказа и данные доставки.",
+    result: "Соберёт заказ и данные доставки",
+    example: [
+      { me: true, text: "Хочу заказать 2 пиццы" },
+      { me: false, text: "Принял: 2 пиццы. Укажите адрес доставки 📍" },
+      { me: true, text: "ул. Ленина, 5" },
+      { me: false, text: "Итого 1290 ₽, доставим за 40 минут. Подтверждаете?" },
+    ],
+  },
+  {
+    id: "magnet", label: "Выдача бесплатного материала", emoji: "🎁",
+    desc: "Проверяет подписку на канал и выдаёт бонус подписчикам.",
+    result: "Проверит подписку и выдаст бонус",
+    example: [
+      { me: true, text: "Хочу гайд" },
+      { me: false, text: "Подпишитесь на канал @example и нажмите «Проверить»." },
+      { me: true, text: "Проверить" },
+      { me: false, text: "Подписка есть! Ваш бонус: example.com/gift 🎁" },
+    ],
+  },
+  {
+    id: "custom", label: "Индивидуальный сценарий", emoji: "✨",
+    desc: "Соберём структуру под вашу задачу по описанию из мастера.",
+    result: "Соберём под вашу задачу",
+    example: [
+      { me: false, text: "Здравствуйте! Я бот вашей компании 🤖" },
+      { me: false, text: "Дальше — ваши шаги: вопросы, кнопки, действия и передача менеджеру." },
+      { me: false, text: "Опишите задачу — соберём сценарий именно под неё." },
+    ],
+  },
 ];
 
 const STEPS = ["Цель", "Площадка", "О бизнесе", "Сценарий", "Ассистент", "Запуск"];
@@ -182,6 +283,9 @@ export default function WizardClient() {
   // Автозаполнение карточки бизнеса по сайту.
   const [analyzing, setAnalyzing] = useState(false);
   const [analyzeMsg, setAnalyzeMsg] = useState<{ ok: boolean; text: string } | null>(null);
+
+  // Предпросмотр примера сценария (шаг «Сценарий»).
+  const [preview, setPreview] = useState<Tmpl | null>(null);
 
   const goalObj = GOALS.find((g) => g.id === goal);
   const platObj = PLATFORMS.find((p) => p.id === platform);
@@ -475,13 +579,21 @@ export default function WizardClient() {
             <p className="muted wz-sub">Его можно доработать в редакторе после создания.</p>
             <div className="wz-tmpls">
               {TEMPLATES.map((t) => (
-                <button key={t.id} className={`wz-tmpl${tmpl === t.id ? " on" : ""}`} onClick={() => setTmpl(t.id)} type="button">
-                  <span className="wz-tmpl__emoji">{t.emoji}</span>
-                  <span>
-                    <span className="wz-tmpl__label">{t.label}</span>
-                    <span className="wz-tmpl__res">{t.result}</span>
-                  </span>
-                </button>
+                <div key={t.id} className={`wz-tmpl2${tmpl === t.id ? " on" : ""}`}>
+                  <div className="wz-tmpl2__head">
+                    <span className="wz-tmpl2__emoji">{t.emoji}</span>
+                    <span className="wz-tmpl2__label">{t.label}</span>
+                    {tmpl === t.id && <span className="wz-tmpl2__check">✓</span>}
+                  </div>
+                  <div className="wz-tmpl2__desc">{t.desc}</div>
+                  <div className="wz-tmpl2__res"><span className="wz-tmpl2__reslabel">Результат:</span> {t.result}</div>
+                  <div className="wz-tmpl2__actions">
+                    <button className="btn btn-primary btn-sm" onClick={() => setTmpl(t.id)} type="button">
+                      {tmpl === t.id ? "Выбрано ✓" : "Использовать"}
+                    </button>
+                    <button className="btn btn-sm" onClick={() => setPreview(t)} type="button">Посмотреть пример</button>
+                  </div>
+                </div>
               ))}
             </div>
           </div>
@@ -573,6 +685,33 @@ export default function WizardClient() {
           )}
         </div>
       </div>
+
+      {/* Пример сценария */}
+      {preview && (
+        <div className="modal-overlay" onClick={() => setPreview(null)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 440 }}>
+            <div className="modal__head">
+              <b>{preview.emoji} {preview.label}</b>
+              <button className="fn__x dark" onClick={() => setPreview(null)}>✕</button>
+            </div>
+            <p className="muted" style={{ margin: "10px 0 4px" }}>{preview.desc}</p>
+            <div className="wz-exchat">
+              {preview.example.map((m, i) => (
+                <div key={i} className={`wz-msg${m.me ? " me" : ""}`}>{m.text}</div>
+              ))}
+            </div>
+            <div className="row" style={{ justifyContent: "flex-end", gap: 10, marginTop: 16 }}>
+              <button className="btn" onClick={() => setPreview(null)}>Закрыть</button>
+              <button
+                className="btn btn-primary"
+                onClick={() => { setTmpl(preview.id); setPreview(null); }}
+              >
+                Использовать этот сценарий
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

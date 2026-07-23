@@ -2731,3 +2731,17 @@ a.docs-card:hover { box-shadow: var(--shadow); transform: translateY(-1px); bord
 :root[data-theme="dark"] .wz-autofill__msg.ok { background: #12291b; color: #4ade80; }
 :root[data-theme="dark"] .wz-autofill__msg.err { background: #2e1717; color: #f87171; }
 @media (max-width: 600px) { .wz-autofill__row { flex-direction: column; } }
+
+/* ---------- Мастер: карточки сценариев с двумя кнопками ---------- */
+.wz-tmpl2 { display: flex; flex-direction: column; gap: 8px; padding: 16px; border: 2px solid var(--line); border-radius: 14px; background: var(--panel); transition: border-color .15s, box-shadow .15s; }
+.wz-tmpl2.on { border-color: var(--violet); box-shadow: var(--shadow-violet); }
+.wz-tmpl2__head { display: flex; align-items: center; gap: 10px; }
+.wz-tmpl2__emoji { font-size: 22px; }
+.wz-tmpl2__label { font-weight: 700; font-size: 14px; flex: 1; }
+.wz-tmpl2__check { width: 20px; height: 20px; border-radius: 50%; background: var(--violet); color: #fff; font-size: 12px; font-weight: 800; display: grid; place-items: center; }
+.wz-tmpl2__desc { font-size: 12.5px; color: var(--ink-soft); line-height: 1.45; flex: 1; }
+.wz-tmpl2__res { font-size: 12.5px; color: var(--ink); }
+.wz-tmpl2__reslabel { font-weight: 700; color: var(--violet-700); }
+.wz-tmpl2__actions { display: flex; gap: 8px; margin-top: 4px; }
+.wz-tmpl2__actions .btn { flex: 1; }
+.wz-exchat { display: flex; flex-direction: column; gap: 8px; background: var(--line-soft); border: 1px solid var(--line); border-radius: 12px; padding: 14px; margin-top: 8px; }
