@@ -71,6 +71,7 @@ export default function HomeClient() {
       nodes,
       edges,
       updatedAt: Date.now(),
+      botId: getCurrentBotId() || undefined,
     };
     upsertScenario(s);
     router.push(`/dashboard/scenarios/${s.id}`);

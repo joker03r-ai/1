@@ -5,6 +5,7 @@ import Topbar from "@/components/Topbar";
 import { useEsc } from "@/lib/useEsc";
 import { BotUser, loadUsers, saveUsers, avatarColor } from "@/lib/users";
 import { loadTeam, currentMember, canManage } from "@/lib/team";
+import BotFilter, { initialBotFilter } from "@/components/BotFilter";
 import {
   Variable,
   loadVariables,
@@ -33,12 +34,14 @@ export default function UsersClient() {
   const [creating, setCreating] = useState(false);
   const [canEdit, setCanEdit] = useState(false);
   const [confirm, setConfirm] = useState<BotUser | null>(null);
+  const [botFilter, setBotFilter] = useState("all");
 
   useEffect(() => {
     setUsers(loadUsers());
     setVars(loadVariables());
     const team = loadTeam();
     setCanEdit(canManage(currentMember(team).role));
+    setBotFilter(initialBotFilter());
   }, []);
 
   const filtered = useMemo(() => {
@@ -48,9 +51,10 @@ export default function UsersClient() {
         u.name.toLowerCase().includes(q.toLowerCase()) ||
         u.username.toLowerCase().includes(q.toLowerCase());
       const okCh = channel === "Все" || u.channel === channel;
-      return okQ && okCh;
+      const okBot = botFilter === "all" || (u.botId || "bot_default") === botFilter;
+      return okQ && okCh && okBot;
     });
-  }, [users, q, channel]);
+  }, [users, q, channel, botFilter]);
 
   // Показываем как колонки только пользовательские переменные.
   const cols = vars.filter((v) => v.scope === "user");
@@ -70,11 +74,12 @@ export default function UsersClient() {
 
   return (
     <>
-      <Topbar crumbs={["Основной проект", "Пользователи"]} />
+      <Topbar crumbs={["Основной проект", "Клиенты"]} />
       <div className="content">
+        <BotFilter value={botFilter} onChange={setBotFilter} />
         <div className="row" style={{ justifyContent: "space-between", marginBottom: 6 }}>
           <div>
-            <h1 className="h1" style={{ marginBottom: 2 }}>Пользователи</h1>
+            <h1 className="h1" style={{ marginBottom: 2 }}>Клиенты</h1>
             <p className="muted" style={{ margin: 0 }}>
               Каждый написавший боту попадает сюда. Значения переменных собираются в
               сценариях и видны рядом с пользователем.

@@ -1,8 +1,8 @@
-import Link from "next/link";
 import { IconChevron } from "./icons";
 import WorkspaceSwitcher from "./WorkspaceSwitcher";
 import SettingsButton from "./SettingsButton";
 import LangSwitcher from "./LangSwitcher";
+import TrialBadge from "./TrialBadge";
 
 export default function Topbar({ crumbs }: { crumbs: string[] }) {
   // Первый элемент («Основной проект») отдаём переключателю кабинета/проекта,
@@ -22,7 +22,7 @@ export default function Topbar({ crumbs }: { crumbs: string[] }) {
         </div>
       )}
       <div className="topbar__spacer" />
-      <Link href="/dashboard/billing" className="trial-badge">🎁 Пробный период · 7 дней</Link>
+      <TrialBadge />
       <span className="balance-pill">0 ₽</span>
       <LangSwitcher />
       <SettingsButton />

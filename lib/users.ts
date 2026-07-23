@@ -8,6 +8,7 @@ export type BotUser = {
   firstSeen: string; // дата
   values: Record<string, string>; // значения переменных по имени
   blocked?: boolean; // заблокирован администратором
+  botId?: string; // к какому боту относится клиент
 };
 
 // Детерминированный цвет аватара по имени — чтобы у каждого был стабильный оттенок.
@@ -21,11 +22,11 @@ export function avatarColor(seed: string): string {
 const KEY = "sb_users";
 
 const SEED: BotUser[] = [
-  { id: "u1", name: "Игорь Раскатов", username: "@raskatov", channel: "Telegram", firstSeen: "24.06", values: { Телефон: "89112223344" } },
-  { id: "u2", name: "Анна Ким", username: "@anna_kim", channel: "ВКонтакте", firstSeen: "24.06", values: { Телефон: "89055671020" } },
-  { id: "u3", name: "Дмитрий Волков", username: "@dvolkov", channel: "Telegram", firstSeen: "23.06", values: {} },
-  { id: "u4", name: "Мария П.", username: "maria_p", channel: "WhatsApp", firstSeen: "23.06", values: { Телефон: "89261234567" } },
-  { id: "u5", name: "Гость", username: "site-8842", channel: "Сайт", firstSeen: "22.06", values: {} },
+  { id: "u1", name: "Игорь Раскатов", username: "@raskatov", channel: "Telegram", firstSeen: "24.06", values: { Телефон: "89112223344" }, botId: "bot_default" },
+  { id: "u2", name: "Анна Ким", username: "@anna_kim", channel: "ВКонтакте", firstSeen: "24.06", values: { Телефон: "89055671020" }, botId: "bot_default" },
+  { id: "u3", name: "Дмитрий Волков", username: "@dvolkov", channel: "Telegram", firstSeen: "23.06", values: {}, botId: "bot_default" },
+  { id: "u4", name: "Мария П.", username: "maria_p", channel: "WhatsApp", firstSeen: "23.06", values: { Телефон: "89261234567" }, botId: "bot_default" },
+  { id: "u5", name: "Гость", username: "site-8842", channel: "Сайт", firstSeen: "22.06", values: {}, botId: "bot_default" },
 ];
 
 export function loadUsers(): BotUser[] {

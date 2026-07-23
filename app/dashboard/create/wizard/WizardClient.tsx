@@ -435,7 +435,6 @@ export default function WizardClient() {
         edges: data.edges || [],
         updatedAt: Date.now(),
       };
-      upsertScenario(s);
       // Создаём бота и сохраняем его собственного ассистента.
       const bot = addBot({
         name: biz.name || `Бот: ${tmplObj?.label || goalObj?.label || "сценарий"}`,
@@ -444,6 +443,8 @@ export default function WizardClient() {
         scenarioId: s.id,
         status: "active",
       });
+      s.botId = bot.id;
+      upsertScenario(s);
       saveAssistant(bot.id, buildAssistant());
       setBuiltId(s.id);
       setBuilding(false);

@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Topbar from "@/components/Topbar";
+import BotFilter, { initialBotFilter } from "@/components/BotFilter";
+import { getCurrentBotId } from "@/lib/bots";
 import { useEsc } from "@/lib/useEsc";
 import {
   Scenario,
@@ -73,6 +75,7 @@ export default function ScenariosClient() {
   const [tab, setTab] = useState<"scenarios" | "reactions">("scenarios");
   const [q, setQ] = useState("");
   const [menu, setMenu] = useState<string | null>(null);
+  const [botFilter, setBotFilter] = useState<string>("all");
 
   const [aiOpen, setAiOpen] = useState(false);
   const [aiPrompt, setAiPrompt] = useState("");
@@ -83,6 +86,7 @@ export default function ScenariosClient() {
   useEffect(() => {
     setList(loadScenarios());
     setFolders(loadFolders());
+    setBotFilter(initialBotFilter());
   }, []);
   useEsc(creating, () => setCreating(false));
   useEsc(catalog, () => setCatalog(false));
@@ -122,6 +126,7 @@ export default function ScenariosClient() {
         edges: data.edges || [],
         updatedAt: Date.now(),
         folderId: activeFolder !== "all" && activeFolder !== "none" ? activeFolder : undefined,
+        botId: botFilter !== "all" ? botFilter : (getCurrentBotId() || undefined),
       };
       upsertScenario(s);
       router.push(`/dashboard/scenarios/${s.id}`);
@@ -156,6 +161,7 @@ export default function ScenariosClient() {
       edges,
       updatedAt: Date.now(),
       folderId: activeFolder !== "all" && activeFolder !== "none" ? activeFolder : undefined,
+        botId: botFilter !== "all" ? botFilter : (getCurrentBotId() || undefined),
     };
     upsertScenario(s);
     router.push(`/dashboard/scenarios/${s.id}`);
@@ -241,6 +247,8 @@ export default function ScenariosClient() {
   const countFor = (fid: string) => list.filter((s) => s.folderId === fid).length;
 
   const filtered = list.filter((s) => {
+    const sBot = s.botId || "bot_default";
+    if (botFilter !== "all" && sBot !== botFilter) return false;
     if (activeFolder === "none" && s.folderId) return false;
     if (activeFolder !== "all" && activeFolder !== "none" && s.folderId !== activeFolder) return false;
     return !q || s.name.toLowerCase().includes(q.toLowerCase());
@@ -252,6 +260,7 @@ export default function ScenariosClient() {
     <>
       <Topbar crumbs={["Основной проект", "Сценарии"]} />
       <div className="content" style={{ maxWidth: 1280 }}>
+        <BotFilter value={botFilter} onChange={setBotFilter} />
         {/* Вкладки + основные кнопки */}
         <div className="scn-head">
           <div className="tabs" style={{ border: 0, margin: 0 }}>

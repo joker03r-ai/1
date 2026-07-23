@@ -106,6 +106,8 @@ export type Scenario = {
   similarityThreshold?: number;
   // Папка, в которой лежит сценарий (пусто — «Без папки»).
   folderId?: string;
+  // Бот, которому принадлежит сценарий (для фильтрации по активному боту).
+  botId?: string;
 };
 
 export type ScenarioFolder = { id: string; name: string; createdAt: number };
@@ -257,6 +259,7 @@ export type Template = {
 
 export const TEMPLATE_CATEGORIES = [
   "Все",
+  "Профессии и ниши",
   "Для магазина и кафе",
   "Для салонов и студий",
   "Для онлайн-школ",
@@ -265,6 +268,35 @@ export const TEMPLATE_CATEGORIES = [
   "Шаблоны AI-ботов",
   "Рецепты",
   "Мои шаблоны",
+];
+
+// Сценарии под конкретные профессии/ниши. greeting — первое сообщение бота,
+// mode — «запись» (booking) или «заявка» (lead) как триггер и текст ответа.
+export const PROFESSIONS: { id: string; name: string; emoji: string; greeting: string; mode: "booking" | "lead" }[] = [
+  { id: "prof_dentist", name: "Стоматология", emoji: "🦷", mode: "booking", greeting: "Здравствуйте! Запишем вас к стоматологу. Какая услуга нужна и когда удобно прийти?" },
+  { id: "prof_clinic", name: "Медцентр / клиника", emoji: "🏥", mode: "booking", greeting: "Здравствуйте! Поможем записаться к врачу. К какому специалисту и на какую дату вас записать?" },
+  { id: "prof_vet", name: "Ветеринарная клиника", emoji: "🐾", mode: "booking", greeting: "Здравствуйте! Запишем вашего питомца на приём. Что беспокоит и когда удобно прийти?" },
+  { id: "prof_lawyer", name: "Юридические услуги", emoji: "⚖️", mode: "lead", greeting: "Здравствуйте! Опишите кратко вашу ситуацию — юрист подготовит консультацию. Оставьте контакт для связи." },
+  { id: "prof_autoservice", name: "Автосервис", emoji: "🔧", mode: "booking", greeting: "Здравствуйте! Запишем ваш автомобиль на сервис. Марка, что нужно сделать и когда вам удобно?" },
+  { id: "prof_autoschool", name: "Автошкола", emoji: "🚗", mode: "lead", greeting: "Здравствуйте! Расскажем о категориях, сроках и стоимости обучения. Оставьте контакт — подберём группу." },
+  { id: "prof_realtor", name: "Недвижимость / риелтор", emoji: "🏠", mode: "lead", greeting: "Здравствуйте! Подберём объект под ваш запрос. Что ищете (аренда/покупка, район, бюджет)? Оставьте контакт." },
+  { id: "prof_fitness", name: "Фитнес-клуб / тренер", emoji: "💪", mode: "booking", greeting: "Здравствуйте! Запишем на тренировку или пробное занятие. Какая цель и когда удобно начать?" },
+  { id: "prof_beauty", name: "Салон красоты / барбершоп", emoji: "💈", mode: "booking", greeting: "Здравствуйте! Запишем вас к мастеру. Какая услуга и на какое время вас записать?" },
+  { id: "prof_nails", name: "Ногтевой сервис", emoji: "💅", mode: "booking", greeting: "Здравствуйте! Запишем на маникюр/педикюр. Что хотите сделать и когда вам удобно?" },
+  { id: "prof_spa", name: "Массаж / SPA", emoji: "💆", mode: "booking", greeting: "Здравствуйте! Запишем на массаж или SPA-программу. Что выбираете и на какую дату?" },
+  { id: "prof_tutor", name: "Репетитор / курсы", emoji: "📚", mode: "lead", greeting: "Здравствуйте! Подберём программу и расписание. Какой предмет/уровень интересует? Оставьте контакт." },
+  { id: "prof_psych", name: "Психолог", emoji: "🧠", mode: "booking", greeting: "Здравствуйте! Запишем на консультацию (очно или онлайн). Что вас беспокоит и когда удобно?" },
+  { id: "prof_restaurant", name: "Кафе / ресторан", emoji: "🍽️", mode: "lead", greeting: "Здравствуйте! Забронируем стол или примем заказ. Сколько гостей, на какое время? Или оформить доставку?" },
+  { id: "prof_delivery", name: "Доставка еды", emoji: "🍔", mode: "lead", greeting: "Здравствуйте! Оформим заказ на доставку. Что желаете и по какому адресу привезти?" },
+  { id: "prof_flowers", name: "Доставка цветов", emoji: "💐", mode: "lead", greeting: "Здравствуйте! Соберём и доставим букет. Повод, бюджет и адрес доставки? Оставьте контакт." },
+  { id: "prof_travel", name: "Турагентство", emoji: "✈️", mode: "lead", greeting: "Здравствуйте! Подберём тур под ваш бюджет. Направление, даты, количество человек? Оставьте контакт." },
+  { id: "prof_photo", name: "Фотограф / видеограф", emoji: "📷", mode: "booking", greeting: "Здравствуйте! Обсудим съёмку и забронируем дату. Какой формат съёмки и когда планируете?" },
+  { id: "prof_cleaning", name: "Клининг", emoji: "🧹", mode: "lead", greeting: "Здравствуйте! Рассчитаем уборку. Тип помещения, площадь и удобная дата? Оставьте контакт." },
+  { id: "prof_repair", name: "Ремонт / строительство", emoji: "🏗️", mode: "lead", greeting: "Здравствуйте! Подготовим смету. Опишите объект и работы — оставьте контакт, мастер свяжется." },
+  { id: "prof_event", name: "Праздники / event", emoji: "🎉", mode: "lead", greeting: "Здравствуйте! Организуем ваш праздник. Формат, дата и количество гостей? Оставьте контакт." },
+  { id: "prof_smm", name: "SMM / маркетинг", emoji: "📈", mode: "lead", greeting: "Здравствуйте! Подберём услуги продвижения. Какая задача и бюджет? Оставьте контакт — пришлём предложение." },
+  { id: "prof_accountant", name: "Бухгалтер / аутсорсинг", emoji: "🧾", mode: "lead", greeting: "Здравствуйте! Поможем с бухгалтерией. Форма бизнеса и какие услуги нужны? Оставьте контакт." },
+  { id: "prof_water", name: "Доставка воды", emoji: "💧", mode: "lead", greeting: "Здравствуйте! Оформим доставку воды. Сколько бутылей и по какому адресу привезти?" },
 ];
 
 export const TEMPLATES: Template[] = [
@@ -285,6 +317,17 @@ export const TEMPLATES: Template[] = [
   { id: "comments-game", name: "Игра в комментариях", category: "Рецепты", description: "Бот отвечает на комментарии под постом случайным предсказанием. Реакция на «Новый комментарий» + блок «Рандом».", uses: 1567, emoji: "🎯" },
   { id: "faq", name: "Ответы на частые вопросы", category: "Шаблоны AI-ботов", description: "Готовые цепочки на частые вопросы: адрес, доставка, график, ассортимент, оплата. Режим «Похоже на» распознаёт смысл.", uses: 1234, emoji: "❓" },
   { id: "get-phone", name: "Получение телефона", category: "Рецепты", description: "Бот запрашивает телефон, проверяет формат и переспрашивает при ошибке. Кнопка «Отправить телефон» для Telegram.", uses: 2140, emoji: "📱" },
+  ...PROFESSIONS.map((p) => ({
+    id: p.id,
+    name: p.name,
+    category: "Профессии и ниши",
+    description:
+      p.mode === "booking"
+        ? "Бот записывает клиента: приветствие, сбор контакта, уведомление менеджеру и подтверждение записи."
+        : "Бот собирает заявку: приветствие, сбор контакта, уведомление менеджеру и подтверждение.",
+    uses: 300 + ((p.id.length * 37) % 900),
+    emoji: p.emoji,
+  })),
 ];
 
 // Собирает полный флоу для шаблона. Для вебинарных шаблонов —
@@ -304,6 +347,7 @@ function buildTemplateRaw(templateId: string): { nodes: FlowNode[]; edges: Edge[
   if (templateId === "faq") return buildFAQ();
   if (templateId === "get-phone") return buildGetPhone();
   if (templateId === "leadmagnet") return buildLeadMagnet();
+  if (templateId.startsWith("prof_")) return buildProfession(templateId);
   if (templateId !== "webinar-simple" && templateId !== "webinar-funnel") {
     return starterNodes();
   }
@@ -323,6 +367,30 @@ function buildTemplateRaw(templateId: string): { nodes: FlowNode[]; edges: Edge[
       { id: uid("e"), from: hello.id, to: save.id },
       { id: uid("e"), from: save.id, to: gsheet.id },
       { id: uid("e"), from: gsheet.id, to: notify.id },
+      { id: uid("e"), from: notify.id, to: reply.id },
+    ],
+  };
+}
+
+// Сценарий под профессию: приветствие → сбор контакта → менеджеру → подтверждение.
+function buildProfession(id: string): { nodes: FlowNode[]; edges: Edge[] } {
+  const p = PROFESSIONS.find((x) => x.id === id);
+  const greeting = p?.greeting || "Здравствуйте! Оставьте заявку — мы свяжемся с вами.";
+  const booking = p?.mode === "booking";
+  const trigger = booking ? "запись" : "заявка";
+  const start: FlowNode = { id: uid(), kind: "event_start", x: 470, y: 40, title: "Первое сообщение и старт бота" };
+  const on: FlowNode = { id: uid(), kind: "event_message", x: 120, y: 40, title: `Если ввели «${trigger}»`, text: trigger, match: "contains" };
+  const hello: FlowNode = { id: uid(), kind: "action_message", x: 120, y: 250, title: "Отправить сообщение", text: greeting };
+  const save: FlowNode = { id: uid(), kind: "action_process", x: 120, y: 440, title: "Обработать сообщение", varName: "Контакт", useTemplate: false };
+  const notify: FlowNode = { id: uid(), kind: "action_manager", x: 120, y: 640, title: "Написать менеджеру", text: `Новая ${booking ? "запись" : "заявка"} от %first_name% (%Контакт%).`, managers: [], channelTarget: "all", forwardUser: true };
+  const reply: FlowNode = { id: uid(), kind: "action_message", x: 120, y: 860, title: "Отправить сообщение", text: booking ? "Спасибо! Мы подтвердим запись и напомним о визите 🔔" : "Спасибо! Заявка принята — менеджер свяжется с вами в ближайшее время ✅" };
+  return {
+    nodes: [start, on, hello, save, notify, reply],
+    edges: [
+      { id: uid("e"), from: start.id, to: hello.id },
+      { id: uid("e"), from: on.id, to: hello.id },
+      { id: uid("e"), from: hello.id, to: save.id },
+      { id: uid("e"), from: save.id, to: notify.id },
       { id: uid("e"), from: notify.id, to: reply.id },
     ],
   };

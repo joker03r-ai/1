@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Topbar from "@/components/Topbar";
 import { StatLabel, loadLabels, seriesFromMessageTimes, Point } from "@/lib/stats";
 import { loadUsers } from "@/lib/users";
+import BotFilter, { initialBotFilter } from "@/components/BotFilter";
 import { loadChats } from "@/lib/tgchats";
 
 const CHANNEL_COLORS: Record<string, string> = {
@@ -21,10 +22,12 @@ export default function StatsClient() {
   const [days, setDays] = useState(30);
   const [users, setUsers] = useState<ReturnType<typeof loadUsers>>([]);
   const [msgTimes, setMsgTimes] = useState<number[]>([]);
+  const [botFilter, setBotFilter] = useState("all");
 
   useEffect(() => {
     setLabels(loadLabels());
     setUsers(loadUsers());
+    setBotFilter(initialBotFilter());
     // Реальные метки времени всех сообщений из спарсенных чатов.
     const times: number[] = [];
     loadChats().forEach((c) => c.messages.forEach((m) => times.push(m.ts)));
@@ -50,15 +53,21 @@ export default function StatsClient() {
   // Есть ли реальная активность (сообщения/события), а не просто записи в базе.
   const hasData = msgTimes.length > 0 || labelsTotal > 0;
 
+  // Клиенты выбранного бота (для разбивки по каналам).
+  const botUsers = useMemo(
+    () => users.filter((u) => botFilter === "all" || (u.botId || "bot_default") === botFilter),
+    [users, botFilter]
+  );
+
   // Разбивка пользователей по каналам.
   const channels = useMemo(() => {
     const map: Record<string, number> = {};
-    users.forEach((u) => (map[u.channel] = (map[u.channel] || 0) + 1));
-    const totalU = users.length || 1;
+    botUsers.forEach((u) => (map[u.channel] = (map[u.channel] || 0) + 1));
+    const totalU = botUsers.length || 1;
     return Object.entries(map)
       .map(([name, count]) => ({ name, count, pct: Math.round((count / totalU) * 100) }))
       .sort((a, b) => b.count - a.count);
-  }, [users]);
+  }, [botUsers]);
 
   // Воронка из меток статистики.
   const funnel = useMemo(() => {
@@ -82,9 +91,10 @@ export default function StatsClient() {
 
   return (
     <>
-      <Topbar crumbs={["Основной проект", "Статистика"]} />
+      <Topbar crumbs={["Основной проект", "Аналитика"]} />
       <div className="content">
-        <h1 className="h1" style={{ marginBottom: 2 }}>Статистика</h1>
+        <BotFilter value={botFilter} onChange={setBotFilter} />
+        <h1 className="h1" style={{ marginBottom: 2 }}>Аналитика</h1>
         <p className="muted" style={{ marginTop: 0 }}>
           Реальные показатели кабинета: активность из спарсенных чатов и метки событий.
         </p>

@@ -19,6 +19,7 @@ import {
 } from "./icons";
 import { t } from "@/lib/i18n";
 import { Lang, loadLang } from "@/lib/appPrefs";
+import { trialDaysLeft, daysWord, TRIAL_DAYS } from "@/lib/trial";
 import SidebarFoot from "./SidebarFoot";
 
 // Основные разделы (максимум семь) — по принципу простого меню.
@@ -44,11 +45,13 @@ export default function Sidebar() {
   const path = usePathname();
   const [collapsed, setCollapsed] = useState(true);
   const [lang, setLang] = useState<Lang>("ru");
+  const [days, setDays] = useState(TRIAL_DAYS);
 
   useEffect(() => {
     const v = localStorage.getItem("sb_sidebar_collapsed");
     if (v !== null) setCollapsed(v === "1");
     setLang(loadLang());
+    setDays(trialDaysLeft());
   }, []);
 
   function toggle() {
@@ -107,8 +110,18 @@ export default function Sidebar() {
       {!collapsed && (
         <>
           <div className="sidebar__promo">
-            <div className="title">{t("brand.trial", lang)}</div>
-            <div className="sub">{t("brand.trialLeft", lang)}</div>
+            <div className="promo-top">
+              <span className="promo-gift">🎁</span>
+              <div>
+                <div className="title">{t("brand.trial", lang)}</div>
+                <div className="sub">
+                  {days > 0
+                    ? `${lang === "en" ? "Left" : "Осталось"} ${days} ${lang === "en" ? "day(s)" : daysWord(days)} · ${lang === "en" ? "all features" : "все функции"}`
+                    : lang === "en" ? "Trial ended" : "Пробный период завершён"}
+                </div>
+              </div>
+            </div>
+            <div className="promo-bar"><span style={{ width: `${(days / TRIAL_DAYS) * 100}%` }} /></div>
             <Link href="/dashboard/billing" className="promo-btn">{t("brand.choosePlan", lang)}</Link>
           </div>
           <SidebarFoot />
