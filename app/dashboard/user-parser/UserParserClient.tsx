@@ -40,7 +40,7 @@ export default function UserParserClient() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
 
-  const [tab, setTab] = useState<"users" | "chats">("chats");
+  const [tab, setTab] = useState<"users" | "chats" | "messages">("chats");
 
   // Парсер пользователей
   const [chats, setChats] = useState("");
@@ -62,6 +62,18 @@ export default function UserParserClient() {
   const [cNote, setCNote] = useState("");
   const [cBusy, setCBusy] = useState(false);
 
+  // Парсер по сообщениям (для чатов со скрытым списком участников)
+  const [mmChats, setMmChats] = useState("");
+  const [mmMsgLimit, setMmMsgLimit] = useState(1000);
+  const [mmDays, setMmDays] = useState(30);
+  const [mmKwInput, setMmKwInput] = useState("");
+  const [mmKeywords, setMmKeywords] = useState<string[]>([]);
+  const [mmProt, setMmProt] = useState<"conservative" | "balanced" | "aggressive">("balanced");
+  const [mmFilters, setMmFilters] = useState<Record<string, boolean>>({ skipBots: true, skipDeleted: true, skipScam: true, onlyUsername: false, onlyPhoto: false, onlyPremium: false, includeReplies: true, includeForwarded: false });
+  const [mmUsers, setMmUsers] = useState<ParsedUser[]>([]);
+  const [mmNote, setMmNote] = useState("");
+  const [mmBusy, setMmBusy] = useState(false);
+
   useEffect(() => {
     const saved = loadMt();
     setMt(saved);
@@ -69,6 +81,7 @@ export default function UserParserClient() {
     try {
       const u = localStorage.getItem("sb_parsed_users"); if (u) setUsers(JSON.parse(u));
       const c = localStorage.getItem("sb_found_chats"); if (c) setFoundChats(JSON.parse(c));
+      const mu = localStorage.getItem("sb_parsed_msg_users"); if (mu) setMmUsers(JSON.parse(mu));
     } catch {}
   }, []);
 
@@ -177,6 +190,40 @@ export default function UserParserClient() {
     setCNote(`Скопировано ссылок: ${foundChats.filter((c) => c.link).length}`);
   }
 
+  // ---- Пользователи по сообщениям (скрытый список) ----
+  function addMmKeyword(w?: string) {
+    const v = (w ?? mmKwInput).trim();
+    if (!v) return;
+    if (!mmKeywords.includes(v)) setMmKeywords((k) => [...k, v]);
+    setMmKwInput("");
+  }
+  async function runMessages() {
+    setErr("");
+    const list = mmChats.split(/[\n,]/).map((s) => s.trim()).filter(Boolean);
+    if (!list.length) { setErr("Укажите хотя бы один чат"); return; }
+    setMmBusy(true); setMmNote("");
+    try {
+      const r = await fetch("/api/telegram/mtproto/parse-messages", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ apiId, apiHash, session: sess, chats: list, msgLimit: mmMsgLimit, days: mmDays, keywords: mmKeywords, protection: mmProt, filters: mmFilters }) });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error || "Ошибка парсинга");
+      setMmUsers(d.users || []); setMmNote(d.note || "");
+      try { localStorage.setItem("sb_parsed_msg_users", JSON.stringify(d.users || [])); } catch {}
+    } catch (e: any) { setErr(e?.message || "Не удалось спарсить"); }
+    finally { setMmBusy(false); }
+  }
+  function exportMm(fmt: "csv" | "json") {
+    if (!mmUsers.length) return;
+    if (fmt === "json") return download("users-by-messages.json", JSON.stringify(mmUsers, null, 2), "application/json");
+    const head = "username,name,premium,photo,bot";
+    const rows = mmUsers.map((u) => [u.username, `"${u.name.replace(/"/g, '""')}"`, u.premium, u.hasPhoto, u.bot].join(","));
+    download("users-by-messages.csv", [head, ...rows].join("\n"), "text/csv");
+  }
+  function copyMmLinks() {
+    const links = mmUsers.filter((u) => u.username).map((u) => "https://t.me/" + u.username.replace(/^@/, "")).join("\n");
+    navigator.clipboard?.writeText(links);
+    setMmNote(`Скопировано ссылок: ${mmUsers.filter((u) => u.username).length}`);
+  }
+
   return (
     <>
       <Topbar crumbs={["Основной проект", "Парсер Telegram"]} />
@@ -198,6 +245,13 @@ export default function UserParserClient() {
               api_id и api_hash — на <b>my.telegram.org</b> → API development tools. Вход
               даёт полный доступ к аккаунту, сессия хранится в этом браузере.
             </p>
+            <div className="tg-help" style={{ marginBottom: 12 }}>
+              📱 <b>Какой телефон вводить?</b> Это номер вашего <b>Telegram-аккаунта</b>,
+              через который идёт парсинг (тот же, под которым вы получили api_id/api_hash на
+              my.telegram.org). Рекомендуем <b>отдельный аккаунт</b>, а не основной: при
+              активном парсинге Telegram может ограничить номер. Купить/зарегистрировать
+              запасной аккаунт можно на обычную или виртуальную SIM.
+            </div>
             {step === "creds" && (
               <div className="up-login__grid">
                 <div className="field"><label className="label">api_id</label><input className="input" value={apiId} onChange={(e) => setApiId(e.target.value)} placeholder="1234567" /></div>
@@ -227,6 +281,7 @@ export default function UserParserClient() {
             <div className="tabs" style={{ marginBottom: 16 }}>
               <button className={`tab${tab === "chats" ? " active" : ""}`} onClick={() => setTab("chats")}>Чаты по ключевым словам</button>
               <button className={`tab${tab === "users" ? " active" : ""}`} onClick={() => setTab("users")}>Пользователи из чатов</button>
+              <button className={`tab${tab === "messages" ? " active" : ""}`} onClick={() => setTab("messages")}>По сообщениям (скрытые)</button>
             </div>
 
             {tab === "chats" ? (
@@ -326,7 +381,7 @@ export default function UserParserClient() {
                   )}
                 </div>
               </div>
-            ) : (
+            ) : tab === "users" ? (
               <div className="up-layout">
                 <div className="card up-settings">
                   <div className="field">
@@ -373,6 +428,108 @@ export default function UserParserClient() {
                   ) : (
                     <div className="up-list">
                       {users.map((u) => (
+                        <div className="up-user" key={u.id}>
+                          <div className="part-ava">{u.name.slice(0, 1)}</div>
+                          <div className="part-body"><div className="part-name">{u.name}</div><div className="part-user">{u.username || "без юзернейма"}</div></div>
+                          <div className="up-badges">
+                            {u.premium && <span className="up-badge prem">Premium</span>}
+                            {u.hasPhoto && <span className="up-badge">фото</span>}
+                            {u.bot && <span className="up-badge bot">бот</span>}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="up-layout">
+                <div className="card up-settings">
+                  <div className="ai-tips" style={{ marginTop: 0 }}>
+                    🔓 Собирает авторов сообщений — работает даже когда <b>список участников скрыт</b>, но чат открыт.
+                  </div>
+
+                  <div className="field">
+                    <label className="label">🛡️ AI-защита аккаунта</label>
+                    <div className="prot-row">
+                      {([["conservative", "Консервативный", "макс. защита"], ["balanced", "Сбалансированный", "рекомендуем"], ["aggressive", "Агрессивный", "макс. скорость"]] as const).map(([k, t, s]) => (
+                        <button key={k} className={`prot-opt${mmProt === k ? " on" : ""}`} onClick={() => setMmProt(k)}>
+                          <b>{t}</b><span>{s}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="field">
+                    <label className="label">Список чатов (ссылки или @username, по одному в строке)</label>
+                    <textarea className="textarea" style={{ minHeight: 80 }} value={mmChats} onChange={(e) => setMmChats(e.target.value)} placeholder={"@channel\nhttps://t.me/xxx/chat"} />
+                  </div>
+
+                  <div className="up-range" style={{ gridTemplateColumns: "1fr 1fr" }}>
+                    <div className="field" style={{ margin: 0 }}>
+                      <label className="label">Лимит сообщений</label>
+                      <input className="input" type="number" min={1} max={100000} value={mmMsgLimit} onChange={(e) => setMmMsgLimit(Number(e.target.value) || 1000)} />
+                    </div>
+                    <div className="field" style={{ margin: 0 }}>
+                      <label className="label">За сколько дней (0 = всё время)</label>
+                      <input className="input" type="number" min={0} value={mmDays} onChange={(e) => setMmDays(Number(e.target.value) || 0)} />
+                    </div>
+                  </div>
+
+                  <div className="field">
+                    <label className="label">Ключевые слова в сообщениях <span className="intg-opt">— необязательно</span></label>
+                    <div className="kw-input">
+                      <input className="input" value={mmKwInput} onChange={(e) => setMmKwInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && addMmKeyword()} placeholder="какой криптокошелёк…" />
+                      <button className="btn btn-sm" onClick={() => addMmKeyword()}>+ Добавить</button>
+                    </div>
+                    {mmKeywords.length > 0 && (
+                      <div className="kw-chips">
+                        {mmKeywords.map((k) => (<span className="kw-chip" key={k}>{k}<button onClick={() => setMmKeywords((ks) => ks.filter((x) => x !== k))}>✕</button></span>))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="up-filters">
+                    <div className="up-filters__col">
+                      <div className="up-filters__label">Базовые</div>
+                      {[["skipBots", "Пропустить ботов"], ["skipDeleted", "Пропустить удалённых"], ["skipScam", "Пропустить scam/заблок."]].map(([k, l]) => (
+                        <label key={k} className="up-check"><input type="checkbox" checked={!!mmFilters[k]} onChange={(e) => setMmFilters((v) => ({ ...v, [k]: e.target.checked }))} />{l}</label>
+                      ))}
+                    </div>
+                    <div className="up-filters__col">
+                      <div className="up-filters__label">Профиль</div>
+                      {[["onlyUsername", "Только с юзернеймом"], ["onlyPhoto", "Только с фото"], ["onlyPremium", "Только Premium"]].map(([k, l]) => (
+                        <label key={k} className="up-check"><input type="checkbox" checked={!!mmFilters[k]} onChange={(e) => setMmFilters((v) => ({ ...v, [k]: e.target.checked }))} />{l}</label>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="up-filters__label" style={{ marginTop: 4 }}>Дополнительно</div>
+                  <div className="up-filters">
+                    <label className="up-check"><input type="checkbox" checked={!!mmFilters.includeReplies} onChange={(e) => setMmFilters((v) => ({ ...v, includeReplies: e.target.checked }))} />Учитывать ответы</label>
+                    <label className="up-check"><input type="checkbox" checked={!!mmFilters.includeForwarded} onChange={(e) => setMmFilters((v) => ({ ...v, includeForwarded: e.target.checked }))} />Учитывать пересланные</label>
+                  </div>
+
+                  {err && <div className="ai-error">⚠ {err}</div>}
+                  <button className="btn btn-ai" style={{ width: "100%", marginTop: 12 }} onClick={runMessages} disabled={mmBusy || !mmChats.trim()}>{mmBusy ? "Анализирую сообщения…" : "🚀 Начать парсинг"}</button>
+                </div>
+
+                <div className="card up-results">
+                  <div className="up-results__head">
+                    <b>Пользователи {mmUsers.length > 0 && <span className="up-count">{mmUsers.length}</span>}</b>
+                    {mmUsers.length > 0 && (
+                      <div className="row" style={{ gap: 8 }}>
+                        <button className="btn btn-sm" onClick={copyMmLinks}>Ссылки</button>
+                        <button className="btn btn-sm" onClick={() => exportMm("csv")}>CSV</button>
+                        <button className="btn btn-sm" onClick={() => exportMm("json")}>JSON</button>
+                      </div>
+                    )}
+                  </div>
+                  {mmNote && <div className="tg-banner" style={{ margin: "10px 0" }}>{mmNote}</div>}
+                  {mmUsers.length === 0 ? (
+                    <div className="ch-empty"><div className="ch-empty__ico">🔓</div><div className="ch-empty__title">Пока нет собранных пользователей</div><p>Укажите чаты со скрытым списком, настройте фильтры и запустите парсинг по сообщениям.</p></div>
+                  ) : (
+                    <div className="up-list">
+                      {mmUsers.map((u) => (
                         <div className="up-user" key={u.id}>
                           <div className="part-ava">{u.name.slice(0, 1)}</div>
                           <div className="part-body"><div className="part-name">{u.name}</div><div className="part-user">{u.username || "без юзернейма"}</div></div>
