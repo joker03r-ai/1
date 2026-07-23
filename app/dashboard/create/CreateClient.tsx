@@ -13,8 +13,8 @@ export default function CreateClient() {
   const [mode, setMode] = useState<Mode>("ai");
 
   function start() {
-    // Быстрый режим ведёт к AI-сборщику сценария; ручной — в визуальный редактор.
-    if (mode === "ai") router.push("/dashboard/scenarios?ai=1");
+    // Быстрый режим ведёт в пошаговый мастер; ручной — в визуальный редактор.
+    if (mode === "ai") router.push("/dashboard/create/wizard");
     else router.push("/dashboard/scenarios");
   }
 
