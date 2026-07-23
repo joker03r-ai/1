@@ -2717,3 +2717,17 @@ a.docs-card:hover { box-shadow: var(--shadow); transform: translateY(-1px); bord
 .wz-connect__steps li { position: relative; padding-left: 34px; font-size: 13.5px; color: var(--ink); line-height: 1.45; counter-increment: wzc; }
 .wz-connect__steps li::before { content: counter(wzc); position: absolute; left: 0; top: -1px; width: 24px; height: 24px; border-radius: 50%; background: var(--violet-050); color: var(--violet-700); font-size: 12px; font-weight: 800; display: grid; place-items: center; }
 .wz-connect__note { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line-soft); font-size: 12.5px; color: var(--ink-soft); }
+
+/* ---------- Мастер: автозаполнение по сайту (шаг «О бизнесе») ---------- */
+.wz-autofill { border: 1px solid var(--violet-100); background: var(--violet-050); border-radius: 14px; padding: 14px 16px; margin-bottom: 18px; max-width: 640px; }
+.wz-autofill__row { display: flex; gap: 10px; }
+.wz-autofill__field { flex: 1; display: flex; align-items: center; gap: 8px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 0 12px; min-width: 0; }
+.wz-autofill__ico { color: var(--violet-700); flex-shrink: 0; }
+.wz-autofill__inp { flex: 1; min-width: 0; border: 0; background: none; padding: 11px 0; font-size: 14px; color: var(--ink); outline: none; }
+.wz-autofill__hint { font-size: 12px; color: var(--violet-700); margin-top: 8px; font-weight: 600; }
+.wz-autofill__msg { margin-top: 10px; font-size: 13px; font-weight: 600; border-radius: 9px; padding: 8px 12px; }
+.wz-autofill__msg.ok { background: #eafaf0; color: #15803d; }
+.wz-autofill__msg.err { background: #fdecec; color: #dc2626; }
+:root[data-theme="dark"] .wz-autofill__msg.ok { background: #12291b; color: #4ade80; }
+:root[data-theme="dark"] .wz-autofill__msg.err { background: #2e1717; color: #f87171; }
+@media (max-width: 600px) { .wz-autofill__row { flex-direction: column; } }

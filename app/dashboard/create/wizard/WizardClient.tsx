@@ -179,6 +179,10 @@ export default function WizardClient() {
   const [testInput, setTestInput] = useState("");
   const [testLog, setTestLog] = useState<{ me: boolean; text: string }[]>([]);
 
+  // Автозаполнение карточки бизнеса по сайту.
+  const [analyzing, setAnalyzing] = useState(false);
+  const [analyzeMsg, setAnalyzeMsg] = useState<{ ok: boolean; text: string } | null>(null);
+
   const goalObj = GOALS.find((g) => g.id === goal);
   const platObj = PLATFORMS.find((p) => p.id === platform);
   const tmplObj = TEMPLATES.find((t) => t.id === tmpl);
@@ -193,6 +197,41 @@ export default function WizardClient() {
 
   function patchBiz(p: Partial<typeof biz>) {
     setBiz((b) => ({ ...b, ...p }));
+  }
+
+  async function fillFromSite() {
+    const url = biz.site.trim();
+    if (!url || analyzing) return;
+    setAnalyzing(true);
+    setAnalyzeMsg(null);
+    try {
+      const res = await fetch("/api/analyze-site", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ url }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.data) throw new Error(data.error || "Не удалось прочитать сайт");
+      const d = data.data as Partial<typeof biz>;
+      // Заполняем только пустые поля, чтобы не затирать введённое вручную.
+      setBiz((b) => ({
+        name: b.name || d.name || "",
+        about: b.about || d.about || "",
+        products: b.products || d.products || "",
+        clients: b.clients || d.clients || "",
+        contacts: b.contacts || d.contacts || "",
+        schedule: b.schedule || d.schedule || "",
+        site: b.site,
+      }));
+      setAnalyzeMsg({
+        ok: true,
+        text: data.source === "claude" ? "Готово! Поля заполнены по сайту — проверьте и поправьте." : "Заполнили основное по сайту. Остальное добавьте вручную.",
+      });
+    } catch (e: any) {
+      setAnalyzeMsg({ ok: false, text: e?.message || "Не удалось прочитать сайт. Заполните поля вручную." });
+    } finally {
+      setAnalyzing(false);
+    }
   }
 
   function autoInstructions() {
@@ -362,6 +401,34 @@ export default function WizardClient() {
           <div className="wz-panel">
             <h1 className="h1 wz-h1">Расскажите о бизнесе</h1>
             <p className="muted wz-sub">Чем подробнее — тем точнее бот и ассистент. Обязательно только название.</p>
+
+            {/* Автозаполнение по сайту */}
+            <div className="wz-autofill">
+              <div className="wz-autofill__row">
+                <div className="wz-autofill__field">
+                  <span className="wz-autofill__ico"><IconSpark className="ico" /></span>
+                  <input
+                    className="wz-autofill__inp"
+                    value={biz.site}
+                    onChange={(e) => patchBiz({ site: e.target.value })}
+                    onKeyDown={(e) => e.key === "Enter" && fillFromSite()}
+                    placeholder="Вставьте ссылку на сайт или соцсети…"
+                  />
+                </div>
+                <button className="btn btn-ai" onClick={fillFromSite} disabled={analyzing || !biz.site.trim()} type="button">
+                  {analyzing ? "Анализируем сайт…" : "Заполнить автоматически по сайту"}
+                </button>
+              </div>
+              <div className="wz-autofill__hint">
+                ИИ прочитает сайт и заполнит поля ниже — вам останется проверить и поправить.
+              </div>
+              {analyzeMsg && (
+                <div className={`wz-autofill__msg${analyzeMsg.ok ? " ok" : " err"}`}>
+                  {analyzeMsg.ok ? "✓ " : "⚠ "}{analyzeMsg.text}
+                </div>
+              )}
+            </div>
+
             <div className="wz-form">
               <div className="field">
                 <label className="label">Название компании *</label>
@@ -396,9 +463,6 @@ export default function WizardClient() {
                   <label className="label">Сайт или соцсети</label>
                   <input className="input" value={biz.site} onChange={(e) => patchBiz({ site: e.target.value })} placeholder="https://…" />
                 </div>
-              </div>
-              <div className="hint">
-                💡 На сервере ИИ может проанализировать сайт из поля выше и заполнить описание сам — укажите ссылку.
               </div>
             </div>
           </div>
