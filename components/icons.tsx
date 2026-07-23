@@ -104,3 +104,31 @@ export const IconUserParse = base(
     <path d="M21 20l-1.8-1.8" />
   </>
 );
+export const IconHome = base(
+  <>
+    <path d="M3 11l9-7 9 7" />
+    <path d="M5 10v10h14V10" />
+    <path d="M10 20v-6h4v6" />
+  </>
+);
+export const IconSpark = base(
+  <>
+    <path d="M12 3l1.8 4.6L18 9.4l-4.2 1.8L12 16l-1.8-4.8L6 9.4l4.2-1.8z" />
+    <path d="M18 15l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z" />
+  </>
+);
+export const IconTeam = base(
+  <>
+    <circle cx="9" cy="8" r="3" />
+    <path d="M3 20a6 6 0 0 1 12 0" />
+    <path d="M16 6.5a3 3 0 0 1 0 5.8" />
+    <path d="M17 14.2A6 6 0 0 1 21 20" />
+  </>
+);
+export const IconHelp = base(
+  <>
+    <circle cx="12" cy="12" r="9" />
+    <path d="M9.5 9.5a2.5 2.5 0 0 1 3.9-2c1.6 1 1 3-.9 3.5-.6.2-1 .8-1 1.5" />
+    <path d="M12 17h.01" />
+  </>
+);

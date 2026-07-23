@@ -4,36 +4,40 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
+  IconHome,
   IconBot,
   IconFlow,
-  IconCloud,
-  IconSend,
-  IconChat,
+  IconSpark,
   IconUsers,
-  IconStore,
+  IconSend,
   IconChart,
   IconPlug,
-  IconDoc,
-  IconChannels,
-  IconUserParse,
+  IconTeam,
+  IconGear,
+  IconHelp,
+  IconPlus,
 } from "./icons";
 import { t } from "@/lib/i18n";
 import { Lang, loadLang } from "@/lib/appPrefs";
 import SidebarFoot from "./SidebarFoot";
 
-const NAV = [
+// Основные разделы (максимум семь) — по принципу простого меню.
+const MAIN = [
+  { href: "/dashboard", key: "nav.home", Icon: IconHome, exact: true },
   { href: "/dashboard/bots", key: "nav.bots", Icon: IconBot },
   { href: "/dashboard/scenarios", key: "nav.scenarios", Icon: IconFlow },
-  { href: "/dashboard/nocode", key: "nav.nocode", Icon: IconCloud },
-  { href: "/dashboard/mailings", key: "nav.mailings", Icon: IconSend },
-  { href: "/dashboard/chats", key: "nav.chats", Icon: IconChat },
-  { href: "/dashboard/user-parser", key: "nav.parser", Icon: IconUserParse },
-  { href: "/dashboard/users", key: "nav.users", Icon: IconUsers },
-  { href: "/dashboard/shops", key: "nav.shops", Icon: IconStore },
-  { href: "/dashboard/stats", key: "nav.stats", Icon: IconChart },
+  { href: "/dashboard/assistant", key: "nav.assistant", Icon: IconSpark },
+  { href: "/dashboard/users", key: "nav.clients", Icon: IconUsers },
+  { href: "/dashboard/mailings", key: "nav.promo", Icon: IconSend },
+  { href: "/dashboard/stats", key: "nav.analytics", Icon: IconChart },
+];
+
+// Дополнительные разделы — внизу меню.
+const SECONDARY = [
   { href: "/dashboard/integrations", key: "nav.integrations", Icon: IconPlug },
-  { href: "/dashboard/channels", key: "nav.channels", Icon: IconChannels },
-  { href: "/dashboard/docs", key: "nav.docs", Icon: IconDoc },
+  { href: "/dashboard/team", key: "nav.team", Icon: IconTeam },
+  { href: "/dashboard/billing", key: "nav.settings", Icon: IconGear },
+  { href: "/dashboard/docs", key: "nav.help", Icon: IconHelp },
 ];
 
 export default function Sidebar() {
@@ -55,6 +59,22 @@ export default function Sidebar() {
     });
   }
 
+  function renderItem({ href, key, Icon, exact }: { href: string; key: string; Icon: any; exact?: boolean }) {
+    const active = exact ? path === href : path === href || path.startsWith(href + "/");
+    const label = t(key, lang);
+    return (
+      <Link
+        key={href}
+        href={href}
+        className={`nav-item${active ? " active" : ""}`}
+        title={collapsed ? label : undefined}
+      >
+        <Icon className="ico" />
+        {!collapsed && <span>{label}</span>}
+      </Link>
+    );
+  }
+
   return (
     <aside className={`sidebar${collapsed ? " collapsed" : ""}`}>
       <div className="sidebar__top">
@@ -69,22 +89,19 @@ export default function Sidebar() {
         )}
       </div>
 
+      <Link
+        href="/dashboard/create"
+        className={`sidebar__cta${collapsed ? " collapsed" : ""}`}
+        title={collapsed ? t("brand.createAi", lang) : undefined}
+      >
+        <IconPlus className="ico" />
+        {!collapsed && <span>{t("brand.createAi", lang)}</span>}
+      </Link>
+
       <nav className="sidebar__nav">
-        {NAV.map(({ href, key, Icon }) => {
-          const active = path === href || path.startsWith(href + "/");
-          const label = t(key, lang);
-          return (
-            <Link
-              key={href}
-              href={href}
-              className={`nav-item${active ? " active" : ""}`}
-              title={collapsed ? label : undefined}
-            >
-              <Icon className="ico" />
-              {!collapsed && <span>{label}</span>}
-            </Link>
-          );
-        })}
+        {MAIN.map(renderItem)}
+        <div className="sidebar__divider" />
+        {SECONDARY.map(renderItem)}
       </nav>
 
       {!collapsed && (
@@ -95,7 +112,6 @@ export default function Sidebar() {
             <Link href="/dashboard/billing" className="promo-btn">{t("brand.choosePlan", lang)}</Link>
           </div>
           <SidebarFoot />
-          {/* стили и модалки чипов «Заказать бота» / «Партнёры» — в SidebarFoot */}
         </>
       )}
     </aside>

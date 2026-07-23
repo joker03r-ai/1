@@ -6,8 +6,17 @@ import { Lang, loadLang } from "./appPrefs";
 type Dict = Record<string, { ru: string; en: string }>;
 
 export const STR: Dict = {
-  "nav.bots": { ru: "BotPilot AI", en: "BotPilot AI" },
+  "nav.home": { ru: "Главная", en: "Home" },
+  "nav.bots": { ru: "Мои боты", en: "My bots" },
   "nav.scenarios": { ru: "Сценарии", en: "Scenarios" },
+  "nav.assistant": { ru: "ИИ-ассистент", en: "AI assistant" },
+  "nav.clients": { ru: "Клиенты", en: "Clients" },
+  "nav.promo": { ru: "Рассылки и продвижение", en: "Broadcasts & promotion" },
+  "nav.analytics": { ru: "Аналитика", en: "Analytics" },
+  "nav.team": { ru: "Команда", en: "Team" },
+  "nav.settings": { ru: "Настройки", en: "Settings" },
+  "nav.help": { ru: "Помощь", en: "Help" },
+
   "nav.nocode": { ru: "Nocode Cloud", en: "Nocode Cloud" },
   "nav.mailings": { ru: "Рассылки", en: "Broadcasts" },
   "nav.chats": { ru: "Чаты", en: "Chats" },
@@ -18,6 +27,8 @@ export const STR: Dict = {
   "nav.integrations": { ru: "Интеграции", en: "Integrations" },
   "nav.channels": { ru: "Каналы", en: "Channels" },
   "nav.docs": { ru: "Документация", en: "Documentation" },
+
+  "brand.createAi": { ru: "Создать бота с помощью ИИ", en: "Create a bot with AI" },
 
   "brand.trial": { ru: "🎁 Пробный период", en: "🎁 Free trial" },
   "brand.trialLeft": { ru: "Осталось 7 дней · все функции", en: "7 days left · all features" },

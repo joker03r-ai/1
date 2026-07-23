@@ -35,7 +35,7 @@ export default function AuthClient() {
     if (tab === "register") {
       setStep("cabinet");
     } else {
-      router.push("/dashboard/bots");
+      router.push("/dashboard");
     }
   }
 
@@ -48,7 +48,7 @@ export default function AuthClient() {
         JSON.stringify({ company: company || "Мой кабинет", subdomain: sub })
       );
     } catch {}
-    router.push("/dashboard/bots");
+    router.push("/dashboard");
   }
 
   return (

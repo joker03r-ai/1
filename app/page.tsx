@@ -44,7 +44,7 @@ export default function Landing() {
           <a href="#features">Возможности</a>
           <a href="#features">Тарифы</a>
           <a href="#features">Кейсы</a>
-          <Link href="/dashboard/bots">Документация</Link>
+          <Link href="/dashboard/docs">Документация</Link>
         </div>
         <div className="lp__nav-spacer" />
         <Link href="/auth" className="btn">Войти</Link>
@@ -67,7 +67,7 @@ export default function Landing() {
           <Link href="/auth?mode=register" className="btn btn-primary btn-lg">
             Попробовать бесплатно
           </Link>
-          <Link href="/dashboard/bots" className="btn btn-lg">
+          <Link href="/dashboard" className="btn btn-lg">
             Смотреть демо кабинета
           </Link>
         </div>

@@ -2531,3 +2531,85 @@ a.docs-card:hover { box-shadow: var(--shadow); transform: translateY(-1px); bord
 .acc-badge.froz { background: #eef1f5; color: #64748b; }
 .acc-badge.block { background: #fdecec; color: #ef4444; }
 @media (max-width: 720px) { .acc-stats { grid-template-columns: repeat(2, 1fr); } }
+
+/* ============ Новая структура меню + этап 1 ============ */
+
+/* Главная кнопка «Создать бота с помощью ИИ» */
+.sidebar__cta {
+  display: flex; align-items: center; gap: 10px;
+  margin: 4px 12px 10px; padding: 11px 14px;
+  border-radius: 12px; background: var(--grad); color: #fff;
+  font-weight: 700; font-size: 13.5px; box-shadow: var(--shadow-violet);
+  transition: transform .1s, box-shadow .15s;
+}
+.sidebar__cta:hover { transform: translateY(-1px); }
+.sidebar__cta.collapsed { justify-content: center; padding: 11px 0; margin: 4px 10px 10px; }
+.sidebar__cta .ico { width: 18px; height: 18px; }
+
+.sidebar__divider { height: 1px; background: var(--line); margin: 10px 14px; }
+.sidebar.collapsed .sidebar__divider { margin: 10px 12px; }
+
+/* ---------- Главная ---------- */
+.home-hero {
+  display: flex; align-items: center; justify-content: space-between; gap: 20px;
+  padding: 22px 24px; border-radius: var(--radius-lg);
+  background: linear-gradient(135deg, var(--violet-050), var(--bg-tint));
+  border: 1px solid var(--line); margin-bottom: 20px; flex-wrap: wrap;
+}
+.home-hero__cta { white-space: nowrap; }
+.home-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 26px; }
+.home-stat { display: flex; align-items: center; gap: 12px; padding: 16px; border: 1px solid var(--line); border-radius: 14px; background: var(--panel); }
+.home-stat__ico { width: 40px; height: 40px; border-radius: 11px; display: grid; place-items: center; background: var(--violet-050); color: var(--violet-700); flex-shrink: 0; }
+.home-stat__n { font-size: 24px; font-weight: 800; line-height: 1.1; }
+.home-stat__l { font-size: 12.5px; color: var(--ink-soft); }
+.home-section-title { font-size: 15px; font-weight: 800; margin: 4px 0 14px; }
+.home-quick { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; margin-bottom: 26px; }
+.home-quick__card { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 14px; background: var(--panel); transition: border-color .15s, transform .1s, box-shadow .15s; }
+.home-quick__card:hover { border-color: var(--violet); transform: translateY(-1px); box-shadow: var(--shadow); }
+.home-quick__ico { width: 38px; height: 38px; border-radius: 10px; display: grid; place-items: center; background: var(--violet-050); color: var(--violet-700); flex-shrink: 0; }
+.home-quick__label { font-weight: 700; font-size: 14px; }
+.home-quick__desc { font-size: 12px; color: var(--ink-soft); }
+.home-recs { border: 1px solid var(--line); border-radius: 14px; background: var(--panel); padding: 8px 16px; max-width: 720px; }
+.home-rec { display: flex; align-items: flex-start; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--line-soft); font-size: 14px; }
+.home-rec:last-of-type { border-bottom: 0; }
+.home-rec__n { width: 24px; height: 24px; border-radius: 50%; background: var(--violet-050); color: var(--violet-700); font-weight: 800; font-size: 12px; display: grid; place-items: center; flex-shrink: 0; }
+.home-rec__more { display: inline-block; margin: 12px 0 6px; color: var(--violet-700); font-weight: 700; font-size: 13.5px; }
+@media (max-width: 860px) { .home-stats { grid-template-columns: repeat(2, 1fr); } }
+
+/* ---------- Создать бота (выбор режима) ---------- */
+.create-head { margin-bottom: 22px; }
+.create-modes { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; max-width: 780px; }
+.create-mode { position: relative; text-align: left; display: flex; flex-direction: column; gap: 8px; padding: 22px; border: 2px solid var(--line); border-radius: 16px; background: var(--panel); cursor: pointer; transition: border-color .15s, box-shadow .15s; }
+.create-mode:hover { border-color: var(--violet-100); }
+.create-mode.on { border-color: var(--violet); box-shadow: var(--shadow-violet); }
+.create-mode__badge { position: absolute; top: 14px; right: 14px; font-size: 11px; font-weight: 800; color: #fff; background: var(--violet); border-radius: 999px; padding: 3px 10px; }
+.create-mode__ico { width: 46px; height: 46px; border-radius: 13px; display: grid; place-items: center; background: var(--grad); color: #fff; margin-bottom: 4px; }
+.create-mode__ico.gray { background: var(--line-soft); color: var(--ink-soft); }
+.create-mode__title { font-size: 17px; font-weight: 800; }
+.create-mode__desc { font-size: 13.5px; color: var(--ink-soft); line-height: 1.5; }
+.create-mode__list { margin: 6px 0 0; padding-left: 18px; font-size: 13px; color: var(--ink-soft); line-height: 1.7; }
+.create-foot { margin-top: 22px; max-width: 780px; }
+@media (max-width: 720px) { .create-modes { grid-template-columns: 1fr; } }
+
+/* ---------- ИИ-ассистент ---------- */
+.asst-card { padding: 22px; max-width: 760px; display: flex; flex-direction: column; gap: 4px; }
+.asst-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.asst-know { display: flex; flex-wrap: wrap; gap: 8px; }
+.asst-chip { border: 1px solid var(--line); background: var(--panel); border-radius: 999px; padding: 7px 13px; font-size: 13px; font-weight: 600; color: var(--ink-soft); cursor: pointer; transition: border-color .15s, background .15s, color .15s; }
+.asst-chip.on { border-color: var(--violet); background: var(--violet-050); color: var(--violet-700); }
+.asst-ex { display: grid; grid-template-columns: 1fr 1fr auto; gap: 8px; margin-top: 8px; align-items: center; }
+.asst-ex__x { border: 1px solid var(--line); background: var(--panel); border-radius: 8px; width: 34px; height: 34px; color: var(--ink-soft); cursor: pointer; }
+.asst-ex__x:hover { border-color: #f0736b; color: #ef4444; }
+@media (max-width: 640px) { .asst-grid { grid-template-columns: 1fr; } .asst-ex { grid-template-columns: 1fr auto; } }
+
+/* ---------- Команда ---------- */
+.team-list { display: flex; flex-direction: column; gap: 10px; }
+.team-row { display: flex; align-items: center; gap: 14px; padding: 14px 16px; }
+.team-role { min-width: 200px; }
+.team-role__hint { font-size: 11.5px; color: var(--ink-faint); margin-top: 3px; }
+.team-badge { display: inline-block; border-radius: 999px; padding: 4px 12px; font-size: 12px; font-weight: 700; }
+.team-badge.owner { background: var(--violet-050); color: var(--violet-700); }
+.team-badge.admin { background: #eaf1ff; color: #2b6ef6; }
+.team-badge.operator { background: var(--line-soft); color: var(--ink-soft); }
+:root[data-theme="dark"] .team-badge.admin { background: #16233d; }
+@media (max-width: 640px) { .team-role { min-width: 130px; } }
