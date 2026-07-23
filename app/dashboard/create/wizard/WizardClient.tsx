@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Topbar from "@/components/Topbar";
 import { IconSpark, IconChevron } from "@/components/icons";
-import { STYLE_LABELS, AssistantStyle, loadAssistant, saveAssistant } from "@/lib/assistant";
+import { STYLE_LABELS, AssistantStyle, KNOWLEDGE_OPTIONS, loadAssistant, saveAssistant } from "@/lib/assistant";
 import { uid, upsertScenario, Scenario } from "@/lib/scenarios";
 
 type Goal = { id: string; label: string; emoji: string; desc: string; prepares: string[] };
@@ -273,6 +273,8 @@ export default function WizardClient() {
   const [tmpl, setTmpl] = useState<string>("");
   const [asstName, setAsstName] = useState("Анна");
   const [asstStyle, setAsstStyle] = useState<AssistantStyle>("friendly");
+  const [asstStyleCustom, setAsstStyleCustom] = useState("");
+  const [asstKnow, setAsstKnow] = useState<string[]>([]);
   const [asstKnows, setAsstKnows] = useState(false);
 
   const [building, setBuilding] = useState(false);
@@ -338,17 +340,30 @@ export default function WizardClient() {
     }
   }
 
+  function styleText(): string {
+    if (asstStyle === "custom") return asstStyleCustom.trim() || "в вашем стиле";
+    return STYLE_LABELS[asstStyle].toLowerCase();
+  }
+
+  function toggleKnow(k: string) {
+    setAsstKnow((cur) => (cur.includes(k) ? cur.filter((x) => x !== k) : [...cur, k]));
+    setAsstKnows(false);
+  }
+
   function autoInstructions() {
     setAsstKnows(true);
     saveAssistant({
       ...loadAssistant(),
       name: asstName,
       style: asstStyle,
+      knowledge: asstKnow,
       role:
         `Ты — ${asstName}, ИИ-ассистент компании «${biz.name || "—"}». ` +
-        `Общайся ${STYLE_LABELS[asstStyle].toLowerCase()}. ${biz.about ? "О компании: " + biz.about + ". " : ""}` +
-        `${biz.products ? "Товары и услуги: " + biz.products + ". " : ""}Помогай клиенту, отвечай на вопросы, ` +
-        `предлагай оставить заявку и подсказывай следующий шаг. Не знаешь ответа — предложи связать с менеджером.`,
+        `Общайся ${styleText()}. ${biz.about ? "О компании: " + biz.about + ". " : ""}` +
+        `${biz.products ? "Товары и услуги: " + biz.products + ". " : ""}` +
+        `${asstKnow.length ? "Опирайся на источники: " + asstKnow.join(", ") + ". " : ""}` +
+        `Помогай клиенту, отвечай на вопросы, предлагай оставить заявку и подсказывай следующий шаг. ` +
+        `Не знаешь ответа — предложи связать с менеджером.`,
     });
   }
 
@@ -603,26 +618,65 @@ export default function WizardClient() {
         {step === 4 && (
           <div className="wz-panel">
             <h1 className="h1 wz-h1">Настройте ИИ-ассистента</h1>
-            <p className="muted wz-sub">Как его зовут и как он общается. Инструкции создадутся автоматически.</p>
-            <div className="wz-form">
-              <div className="wz-form__row">
-                <div className="field">
-                  <label className="label">Как зовут ассистента?</label>
-                  <input className="input" value={asstName} onChange={(e) => setAsstName(e.target.value)} placeholder="Анна, Алекс, SmartBot" />
-                </div>
-                <div className="field">
-                  <label className="label">Как он должен общаться?</label>
-                  <select className="select" value={asstStyle} onChange={(e) => setAsstStyle(e.target.value as AssistantStyle)}>
-                    {(Object.keys(STYLE_LABELS) as AssistantStyle[]).map((s) => (
-                      <option key={s} value={s}>{STYLE_LABELS[s]}</option>
-                    ))}
-                  </select>
-                </div>
+            <p className="muted wz-sub">Пара простых полей — остальное соберётся автоматически.</p>
+
+            <div className="wz-form" style={{ maxWidth: 680 }}>
+              <div className="field">
+                <label className="label">Как зовут ассистента?</label>
+                <input className="input" style={{ maxWidth: 320 }} value={asstName} onChange={(e) => setAsstName(e.target.value)} placeholder="Например: Анна, Алекс, SmartBot" />
               </div>
+
+              <div className="field">
+                <label className="label">Как он должен общаться?</label>
+                <div className="asst-know">
+                  {(Object.keys(STYLE_LABELS) as AssistantStyle[]).map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      className={`asst-chip${asstStyle === s ? " on" : ""}`}
+                      onClick={() => { setAsstStyle(s); setAsstKnows(false); }}
+                    >
+                      {asstStyle === s ? "✓ " : ""}{STYLE_LABELS[s]}
+                    </button>
+                  ))}
+                </div>
+                {asstStyle === "custom" && (
+                  <input
+                    className="input"
+                    style={{ marginTop: 10, maxWidth: 420 }}
+                    value={asstStyleCustom}
+                    onChange={(e) => { setAsstStyleCustom(e.target.value); setAsstKnows(false); }}
+                    placeholder="Опишите свой стиль: например «тепло, с юмором, на «ты»»"
+                  />
+                )}
+              </div>
+
+              <div className="field">
+                <label className="label">Что ассистент должен знать?</label>
+                <div className="asst-know">
+                  {KNOWLEDGE_OPTIONS.map((k) => (
+                    <button
+                      key={k}
+                      type="button"
+                      className={`asst-chip${asstKnow.includes(k) ? " on" : ""}`}
+                      onClick={() => toggleKnow(k)}
+                    >
+                      {asstKnow.includes(k) ? "✓ " : "+ "}{k}
+                    </button>
+                  ))}
+                </div>
+                <div className="hint">Отметьте источники — на сервере ассистент обучится на них.</div>
+              </div>
+
               <button className="btn btn-ai" onClick={autoInstructions} type="button">
                 <IconSpark className="ico" /> Создать инструкции автоматически
               </button>
-              {asstKnows && <div className="hint" style={{ color: "var(--green)" }}>✓ Инструкции и роль ассистента подготовлены.</div>}
+              {asstKnows && (
+                <div className="wz-asst-done">
+                  ✓ Готово! Ассистент <b>{asstName}</b> будет общаться «{styleText()}»
+                  {asstKnow.length > 0 && <> и опираться на: {asstKnow.join(", ")}</>}.
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -638,7 +692,7 @@ export default function WizardClient() {
               <div className="wz-sum"><span>Площадка</span><b>{platObj?.label || "—"}</b></div>
               <div className="wz-sum"><span>Компания</span><b>{biz.name || "—"}</b></div>
               <div className="wz-sum"><span>Сценарий</span><b>{tmplObj?.label || "—"}</b></div>
-              <div className="wz-sum"><span>Ассистент</span><b>{asstName} · {STYLE_LABELS[asstStyle]}</b></div>
+              <div className="wz-sum"><span>Ассистент</span><b>{asstName} · {asstStyle === "custom" ? (asstStyleCustom.trim() || "свой стиль") : STYLE_LABELS[asstStyle]}</b></div>
             </div>
 
             <div className="wz-preview">

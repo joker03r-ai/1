@@ -1,7 +1,7 @@
 // Настройки ИИ-ассистента: роль, стиль общения, база знаний, ограничения, примеры.
 // Хранится в localStorage (демо без бэкенда). На реальном сервере это уходит в модель.
 
-export type AssistantStyle = "friendly" | "professional" | "short" | "detailed" | "sales" | "consultant";
+export type AssistantStyle = "friendly" | "professional" | "short" | "detailed" | "sales" | "consultant" | "custom";
 
 export const STYLE_LABELS: Record<AssistantStyle, string> = {
   friendly: "Дружелюбно",
@@ -10,7 +10,19 @@ export const STYLE_LABELS: Record<AssistantStyle, string> = {
   detailed: "Подробно",
   sales: "Как менеджер по продажам",
   consultant: "Как консультант",
+  custom: "Свой вариант",
 };
+
+// Источники знаний, которые можно подключить ассистенту.
+export const KNOWLEDGE_OPTIONS = [
+  "Сайт",
+  "PDF-файлы",
+  "Документы",
+  "Прайс-лист",
+  "Каталог товаров",
+  "Таблица",
+  "Ответы на частые вопросы",
+];
 
 export type QA = { q: string; a: string };
 
