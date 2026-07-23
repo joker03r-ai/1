@@ -2326,3 +2326,23 @@ a.docs-card:hover { box-shadow: var(--shadow); transform: translateY(-1px); bord
 .prot-opt span { font-size: 10.5px; color: var(--ink-faint); }
 .prot-opt.on { border-color: var(--violet); background: var(--violet-050); }
 .prot-opt.on b { color: var(--violet-700); }
+
+/* Прогрев аккаунтов */
+.warm-block { border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; margin-bottom: 12px; background: #fff; }
+.warm-block__title { font-weight: 700; font-size: 13.5px; margin-bottom: 10px; }
+.warm-limits { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 8px; }
+.warm-sessions { display: flex; flex-wrap: wrap; gap: 6px; }
+.warm-sess {
+  border: 1px solid var(--line); background: #fff; color: var(--ink-soft); border-radius: 8px;
+  padding: 6px 12px; font-size: 12.5px; font-weight: 600; cursor: pointer;
+}
+.warm-sess.on { background: var(--violet); color: #fff; border-color: transparent; }
+.warm-bar { height: 10px; border-radius: 999px; background: var(--line); overflow: hidden; margin: 6px 0 4px; }
+.warm-bar span { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg, #f97316, #ec4899); transition: width .4s; }
+.warm-bar__label { font-size: 12px; font-weight: 700; color: var(--ink-soft); margin-bottom: 8px; }
+.warm-log {
+  background: #12101c; border-radius: 10px; padding: 12px; max-height: 520px; overflow-y: auto;
+  font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; line-height: 1.7;
+}
+.warm-log__line { color: #b9b4e0; white-space: pre-wrap; }
+@media (max-width: 720px) { .warm-limits { grid-template-columns: 1fr 1fr; } }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Topbar from "@/components/Topbar";
 import { MtSession, loadMt, saveMt, clearMt } from "@/lib/tgchats";
 
@@ -40,7 +40,7 @@ export default function UserParserClient() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
 
-  const [tab, setTab] = useState<"users" | "chats" | "messages">("chats");
+  const [tab, setTab] = useState<"users" | "chats" | "messages" | "warm">("chats");
 
   // Парсер пользователей
   const [chats, setChats] = useState("");
@@ -73,6 +73,28 @@ export default function UserParserClient() {
   const [mmUsers, setMmUsers] = useState<ParsedUser[]>([]);
   const [mmNote, setMmNote] = useState("");
   const [mmBusy, setMmBusy] = useState(false);
+
+  // Прогрев аккаунтов
+  const [wFrom, setWFrom] = useState(18);
+  const [wTo, setWTo] = useState(19);
+  const [wTz, setWTz] = useState("UTC+3 (Москва)");
+  const [wBreaks, setWBreaks] = useState(true);
+  const [wIntensity, setWIntensity] = useState<"careful" | "normal" | "aggressive">("careful");
+  const [wAutoAdapt, setWAutoAdapt] = useState(true);
+  const [wActHour, setWActHour] = useState(5);
+  const [wActDay, setWActDay] = useState(15);
+  const [wJoinDay, setWJoinDay] = useState(1);
+  const [wMsgDay, setWMsgDay] = useState(3);
+  const [wProgressive, setWProgressive] = useState(true);
+  const [wSession, setWSession] = useState("30 мин");
+  const [wActions, setWActions] = useState<Record<string, boolean>>({
+    readChannels: true, viewProfiles: true, typing: true, polls: true, archive: true, mute: true,
+    reactions: false, stories: false, joinGroups: false, dialogs: false, trust: false,
+  });
+  const [wTargets, setWTargets] = useState("");
+  const [wRunning, setWRunning] = useState(false);
+  const [wProgress, setWProgress] = useState(0);
+  const [wLog, setWLog] = useState<string[]>([]);
 
   useEffect(() => {
     const saved = loadMt();
@@ -224,16 +246,47 @@ export default function UserParserClient() {
     setMmNote(`Скопировано ссылок: ${mmUsers.filter((u) => u.username).length}`);
   }
 
+  // ---- Прогрев аккаунтов (демо-симуляция; боевой прогрев идёт на сервере) ----
+  const warmTimer = useRef<any>(null);
+  const ACTION_LOG: Record<string, string> = {
+    readChannels: "читает случайные каналы", viewProfiles: "просматривает профили",
+    typing: "имитирует набор текста", polls: "голосует в опросе", archive: "архивирует чат",
+    mute: "отключает звук в чате", reactions: "ставит реакцию 👍", stories: "смотрит сторис",
+    joinGroups: "вступает в группу", dialogs: "пишет короткий диалог", trust: "повышает доверие",
+  };
+  function stopWarm() {
+    if (warmTimer.current) clearInterval(warmTimer.current);
+    warmTimer.current = null;
+    setWRunning(false);
+  }
+  function startWarm() {
+    stopWarm();
+    setWRunning(true); setWProgress(0);
+    const acc = mt?.user ? (mt.user.startsWith("@") ? mt.user : "@" + mt.user) : "аккаунт";
+    setWLog([`⚙ Запуск прогрева · окно ${wFrom}:00–${wTo}:00 ${wTz}`, `Интенсивность: ${wIntensity === "careful" ? "Осторожный" : wIntensity === "normal" ? "Нормальный" : "Агрессивный"} · лимит ${wActHour}/час`]);
+    const acts = Object.keys(wActions).filter((k) => wActions[k]);
+    let p = 0;
+    warmTimer.current = setInterval(() => {
+      p += Math.round(6 + Math.random() * 8);
+      const act = acts[Math.floor(Math.random() * acts.length)] || "readChannels";
+      setWLog((l) => [...l.slice(-40), `${new Date().toLocaleTimeString("ru-RU")} · ${acc} ${ACTION_LOG[act]}`]);
+      if (p >= 100) { p = 100; setWProgress(100); stopWarm(); setWLog((l) => [...l, "✅ Сессия прогрева завершена. Аккаунт вёл себя естественно."]); }
+      else setWProgress(p);
+    }, 700);
+  }
+  useEffect(() => () => stopWarm(), []);
+  const toggleAct = (k: string) => setWActions((v) => ({ ...v, [k]: !v[k] }));
+
   return (
     <>
-      <Topbar crumbs={["Основной проект", "Парсер Telegram"]} />
+      <Topbar crumbs={["Основной проект", "Парсер и прогрев"]} />
       <div className="content" style={{ maxWidth: 1180 }}>
         <div className="ch-head">
           <div>
-            <h1 className="h1" style={{ marginBottom: 2 }}>Парсер Telegram</h1>
-            <p className="muted" style={{ margin: 0, maxWidth: 660 }}>
-              Соберите базу под продвижение: находите целевые чаты по ключевым словам и
-              собирайте аудиторию из открытых чатов. Экспорт в TXT / CSV / JSON.
+            <h1 className="h1" style={{ marginBottom: 2 }}>Парсер и прогрев Telegram</h1>
+            <p className="muted" style={{ margin: 0, maxWidth: 680 }}>
+              Соберите базу под продвижение (парсер чатов и пользователей) и безопасно
+              прогрейте аккаунты, чтобы их не замораживали. Экспорт в TXT / CSV / JSON.
             </p>
           </div>
         </div>
@@ -282,6 +335,7 @@ export default function UserParserClient() {
               <button className={`tab${tab === "chats" ? " active" : ""}`} onClick={() => setTab("chats")}>Чаты по ключевым словам</button>
               <button className={`tab${tab === "users" ? " active" : ""}`} onClick={() => setTab("users")}>Пользователи из чатов</button>
               <button className={`tab${tab === "messages" ? " active" : ""}`} onClick={() => setTab("messages")}>По сообщениям (скрытые)</button>
+              <button className={`tab${tab === "warm" ? " active" : ""}`} onClick={() => setTab("warm")}>🔥 Прогрев аккаунтов</button>
             </div>
 
             {tab === "chats" ? (
@@ -442,7 +496,7 @@ export default function UserParserClient() {
                   )}
                 </div>
               </div>
-            ) : (
+            ) : tab === "messages" ? (
               <div className="up-layout">
                 <div className="card up-settings">
                   <div className="ai-tips" style={{ marginTop: 0 }}>
@@ -540,6 +594,101 @@ export default function UserParserClient() {
                           </div>
                         </div>
                       ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="up-layout">
+                <div className="card up-settings">
+                  <div className="ai-tips" style={{ marginTop: 0 }}>
+                    🔥 Прогрев — постепенное «оживление» аккаунта (чтение, реакции, навигация), чтобы Telegram не заморозил его перед рассылками.
+                  </div>
+
+                  <div className="warm-block">
+                    <div className="warm-block__title">🗓️ Расписание активности</div>
+                    <div className="up-range" style={{ gridTemplateColumns: "1fr 1fr 1.4fr" }}>
+                      <div className="field" style={{ margin: 0 }}><label className="label">Активность с (ч)</label><input className="input" type="number" min={0} max={23} value={wFrom} onChange={(e) => setWFrom(Number(e.target.value) || 0)} /></div>
+                      <div className="field" style={{ margin: 0 }}><label className="label">до (ч)</label><input className="input" type="number" min={0} max={23} value={wTo} onChange={(e) => setWTo(Number(e.target.value) || 0)} /></div>
+                      <div className="field" style={{ margin: 0 }}><label className="label">Таймзона</label>
+                        <select className="role-select" style={{ width: "100%" }} value={wTz} onChange={(e) => setWTz(e.target.value)}>
+                          {["UTC+3 (Москва)", "UTC+2 (Киев)", "UTC+5 (Екб)", "UTC+0 (Лондон)"].map((t) => <option key={t}>{t}</option>)}
+                        </select>
+                      </div>
+                    </div>
+                    <label className="up-check" style={{ marginTop: 8 }}><input type="checkbox" checked={wBreaks} onChange={(e) => setWBreaks(e.target.checked)} />Случайные перерывы (естественнее)</label>
+                  </div>
+
+                  <div className="warm-block">
+                    <div className="warm-block__title">⚡ Интенсивность прогрева</div>
+                    <div className="prot-row">
+                      {([["careful", "Осторожный", "новые 0–7 дней"], ["normal", "Нормальный", "прогретые 7–30"], ["aggressive", "Агрессивный", "старые 30+ дней"]] as const).map(([k, t, s]) => (
+                        <button key={k} className={`prot-opt${wIntensity === k ? " on" : ""}`} onClick={() => setWIntensity(k)}><b>{t}</b><span>{s}</span></button>
+                      ))}
+                    </div>
+                    <label className="up-check" style={{ marginTop: 8 }}><input type="checkbox" checked={wAutoAdapt} onChange={(e) => setWAutoAdapt(e.target.checked)} />Автоадаптация по стадии аккаунта</label>
+                  </div>
+
+                  <div className="warm-block">
+                    <div className="warm-block__title">🛡️ Лимиты безопасности</div>
+                    <div className="warm-limits">
+                      <div className="field" style={{ margin: 0 }}><label className="label">Действий/час</label><input className="input" type="number" value={wActHour} onChange={(e) => setWActHour(Number(e.target.value) || 0)} /></div>
+                      <div className="field" style={{ margin: 0 }}><label className="label">Действий/день</label><input className="input" type="number" value={wActDay} onChange={(e) => setWActDay(Number(e.target.value) || 0)} /></div>
+                      <div className="field" style={{ margin: 0 }}><label className="label">Вступлений/день</label><input className="input" type="number" value={wJoinDay} onChange={(e) => setWJoinDay(Number(e.target.value) || 0)} /></div>
+                      <div className="field" style={{ margin: 0 }}><label className="label">Сообщений/день</label><input className="input" type="number" value={wMsgDay} onChange={(e) => setWMsgDay(Number(e.target.value) || 0)} /></div>
+                    </div>
+                    <label className="up-check" style={{ marginTop: 8 }}><input type="checkbox" checked={wProgressive} onChange={(e) => setWProgressive(e.target.checked)} />Прогрессивное увеличение (день 1: 30% → день 7: 100%)</label>
+                  </div>
+
+                  <div className="warm-block">
+                    <div className="warm-block__title">⏱️ Длительность сеанса</div>
+                    <div className="warm-sessions">
+                      {["30 мин", "1 час", "2 часа", "8 часов", "1 день", "3 дня", "7 дней"].map((s) => (
+                        <button key={s} className={`warm-sess${wSession === s ? " on" : ""}`} onClick={() => setWSession(s)}>{s}</button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="warm-block">
+                    <div className="warm-block__title">🎬 Действия прогрева</div>
+                    <div className="up-filters">
+                      <div className="up-filters__col">
+                        <div className="up-filters__label">Безопасные (рекомендуем)</div>
+                        {[["readChannels", "Читать каналы"], ["viewProfiles", "Просмотр профилей"], ["typing", "Симуляция печати"], ["polls", "Голосовать в опросах"], ["archive", "Архивировать чаты"], ["mute", "Отключать звук"]].map(([k, l]) => (
+                          <label key={k} className="up-check"><input type="checkbox" checked={!!wActions[k]} onChange={() => toggleAct(k)} />{l}</label>
+                        ))}
+                      </div>
+                      <div className="up-filters__col">
+                        <div className="up-filters__label">Усиленные (позже)</div>
+                        {[["reactions", "Реакции 👍❤️🔥"], ["stories", "Просмотр сторис"], ["joinGroups", "Вступать в группы"], ["dialogs", "Диалоги между аккаунтами"], ["trust", "Повышение доверия"]].map(([k, l]) => (
+                          <label key={k} className="up-check"><input type="checkbox" checked={!!wActions[k]} onChange={() => toggleAct(k)} />{l}</label>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="field">
+                    <label className="label">Целевые группы/каналы <span className="intg-opt">— необязательно, лучше позже</span></label>
+                    <textarea className="textarea" style={{ minHeight: 60 }} value={wTargets} onChange={(e) => setWTargets(e.target.value)} placeholder={"@myChannel\nhttps://t.me/myGroup"} />
+                  </div>
+
+                  <div className="tg-help">На старте держите «Осторожный» режим и минимум действий: аккаунт должен вести себя как обычный человек, а не как спамер.</div>
+                  {wRunning ? (
+                    <button className="btn" style={{ width: "100%", marginTop: 12, color: "#ef4444" }} onClick={stopWarm}>■ Остановить прогрев</button>
+                  ) : (
+                    <button className="btn btn-ai" style={{ width: "100%", marginTop: 12 }} onClick={startWarm}>🔥 Запустить прогрев</button>
+                  )}
+                </div>
+
+                <div className="card up-results">
+                  <div className="up-results__head"><b>Прогрев по времени</b>{wRunning && <span className="ch-status">● работает</span>}</div>
+                  <div className="warm-bar"><span style={{ width: `${wProgress}%` }} /></div>
+                  <div className="warm-bar__label">{wProgress}%{wRunning ? " · сессия идёт…" : wProgress === 100 ? " · завершено" : ""}</div>
+                  {wLog.length === 0 ? (
+                    <div className="ch-empty"><div className="ch-empty__ico">🔥</div><div className="ch-empty__title">Прогрев не запущен</div><p>Настройте расписание, интенсивность и действия, затем запустите прогрев.</p></div>
+                  ) : (
+                    <div className="warm-log">
+                      {wLog.map((l, i) => <div key={i} className="warm-log__line">{l}</div>)}
                     </div>
                   )}
                 </div>

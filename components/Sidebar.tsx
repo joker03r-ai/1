@@ -24,7 +24,7 @@ const NAV = [
   { href: "/dashboard/nocode", label: "Nocode Cloud", Icon: IconCloud },
   { href: "/dashboard/mailings", label: "Рассылки", Icon: IconSend },
   { href: "/dashboard/chats", label: "Чаты", Icon: IconChat },
-  { href: "/dashboard/user-parser", label: "Парсер Telegram", Icon: IconUserParse },
+  { href: "/dashboard/user-parser", label: "Парсер и прогрев", Icon: IconUserParse },
   { href: "/dashboard/users", label: "Пользователи", Icon: IconUsers },
   { href: "/dashboard/shops", label: "Магазины", Icon: IconStore },
   { href: "/dashboard/stats", label: "Статистика", Icon: IconChart },
