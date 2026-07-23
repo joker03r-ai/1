@@ -1,5 +1,6 @@
 import Sidebar from "@/components/Sidebar";
 import SupportWidget from "@/components/SupportWidget";
+import PrefsInit from "@/components/PrefsInit";
 
 export default function DashboardLayout({
   children,
@@ -8,6 +9,7 @@ export default function DashboardLayout({
 }) {
   return (
     <div className="app">
+      <PrefsInit />
       <Sidebar />
       <div className="main">{children}</div>
       <SupportWidget />

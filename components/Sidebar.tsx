@@ -17,29 +17,33 @@ import {
   IconChannels,
   IconUserParse,
 } from "./icons";
+import { t } from "@/lib/i18n";
+import { Lang, loadLang } from "@/lib/appPrefs";
 
 const NAV = [
-  { href: "/dashboard/bots", label: "BotPilot AI", Icon: IconBot },
-  { href: "/dashboard/scenarios", label: "Сценарии", Icon: IconFlow },
-  { href: "/dashboard/nocode", label: "Nocode Cloud", Icon: IconCloud },
-  { href: "/dashboard/mailings", label: "Рассылки", Icon: IconSend },
-  { href: "/dashboard/chats", label: "Чаты", Icon: IconChat },
-  { href: "/dashboard/user-parser", label: "Парсер и прогрев", Icon: IconUserParse },
-  { href: "/dashboard/users", label: "Пользователи", Icon: IconUsers },
-  { href: "/dashboard/shops", label: "Магазины", Icon: IconStore },
-  { href: "/dashboard/stats", label: "Статистика", Icon: IconChart },
-  { href: "/dashboard/integrations", label: "Интеграции", Icon: IconPlug },
-  { href: "/dashboard/channels", label: "Каналы", Icon: IconChannels },
-  { href: "/dashboard/docs", label: "Документация", Icon: IconDoc },
+  { href: "/dashboard/bots", key: "nav.bots", Icon: IconBot },
+  { href: "/dashboard/scenarios", key: "nav.scenarios", Icon: IconFlow },
+  { href: "/dashboard/nocode", key: "nav.nocode", Icon: IconCloud },
+  { href: "/dashboard/mailings", key: "nav.mailings", Icon: IconSend },
+  { href: "/dashboard/chats", key: "nav.chats", Icon: IconChat },
+  { href: "/dashboard/user-parser", key: "nav.parser", Icon: IconUserParse },
+  { href: "/dashboard/users", key: "nav.users", Icon: IconUsers },
+  { href: "/dashboard/shops", key: "nav.shops", Icon: IconStore },
+  { href: "/dashboard/stats", key: "nav.stats", Icon: IconChart },
+  { href: "/dashboard/integrations", key: "nav.integrations", Icon: IconPlug },
+  { href: "/dashboard/channels", key: "nav.channels", Icon: IconChannels },
+  { href: "/dashboard/docs", key: "nav.docs", Icon: IconDoc },
 ];
 
 export default function Sidebar() {
   const path = usePathname();
   const [collapsed, setCollapsed] = useState(true);
+  const [lang, setLang] = useState<Lang>("ru");
 
   useEffect(() => {
     const v = localStorage.getItem("sb_sidebar_collapsed");
     if (v !== null) setCollapsed(v === "1");
+    setLang(loadLang());
   }, []);
 
   function toggle() {
@@ -65,8 +69,9 @@ export default function Sidebar() {
       </div>
 
       <nav className="sidebar__nav">
-        {NAV.map(({ href, label, Icon }) => {
+        {NAV.map(({ href, key, Icon }) => {
           const active = path === href || path.startsWith(href + "/");
+          const label = t(key, lang);
           return (
             <Link
               key={href}
@@ -84,13 +89,13 @@ export default function Sidebar() {
       {!collapsed && (
         <>
           <div className="sidebar__promo">
-            <div className="title">🎁 Пробный период</div>
-            <div className="sub">Осталось 7 дней · все функции</div>
-            <Link href="/dashboard/billing" className="promo-btn">Выбрать тариф</Link>
+            <div className="title">{t("brand.trial", lang)}</div>
+            <div className="sub">{t("brand.trialLeft", lang)}</div>
+            <Link href="/dashboard/billing" className="promo-btn">{t("brand.choosePlan", lang)}</Link>
           </div>
           <div className="sidebar__foot">
-            <div className="chip">Заказать бота</div>
-            <div className="chip">Партнёры</div>
+            <div className="chip">{t("brand.orderBot", lang)}</div>
+            <div className="chip">{t("brand.partners", lang)}</div>
           </div>
         </>
       )}

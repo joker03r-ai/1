@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 // Рабочие часы техподдержки: ежедневно 9:00–21:00.
 const WORK_START = 9;
@@ -19,11 +19,51 @@ export default function SupportWidget() {
   const [online, setOnline] = useState(true);
   const [text, setText] = useState("");
 
+  // Перетаскивание виджета мышью.
+  const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
+  const ref = useRef<HTMLDivElement>(null);
+  const drag = useRef<{ sx: number; sy: number; ox: number; oy: number } | null>(null);
+  const moved = useRef(false);
+
   useEffect(() => {
     setOnline(isOnline());
     const t = setInterval(() => setOnline(isOnline()), 60_000);
+    try {
+      const s = localStorage.getItem("sb_support_pos");
+      if (s) setPos(JSON.parse(s));
+    } catch {}
     return () => clearInterval(t);
   }, []);
+
+  function onMove(e: PointerEvent) {
+    if (!drag.current) return;
+    const dx = e.clientX - drag.current.sx;
+    const dy = e.clientY - drag.current.sy;
+    if (Math.abs(dx) + Math.abs(dy) > 4) moved.current = true;
+    const w = ref.current?.offsetWidth || 56;
+    const h = ref.current?.offsetHeight || 56;
+    const nx = Math.max(6, Math.min(window.innerWidth - w - 6, drag.current.ox + dx));
+    const ny = Math.max(6, Math.min(window.innerHeight - h - 6, drag.current.oy + dy));
+    setPos({ x: nx, y: ny });
+  }
+  function onUp() {
+    window.removeEventListener("pointermove", onMove);
+    window.removeEventListener("pointerup", onUp);
+    drag.current = null;
+    setPos((p) => {
+      if (p) try { localStorage.setItem("sb_support_pos", JSON.stringify(p)); } catch {}
+      return p;
+    });
+    setTimeout(() => (moved.current = false), 0);
+  }
+  function onDown(e: React.PointerEvent) {
+    const rect = ref.current?.getBoundingClientRect();
+    if (!rect) return;
+    moved.current = false;
+    drag.current = { sx: e.clientX, sy: e.clientY, ox: rect.left, oy: rect.top };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+  }
 
   function submit() {
     if (!text.trim()) return;
@@ -32,10 +72,14 @@ export default function SupportWidget() {
   }
 
   return (
-    <div className="support">
+    <div
+      className="support"
+      ref={ref}
+      style={pos ? { left: pos.x, top: pos.y, right: "auto", bottom: "auto" } : undefined}
+    >
       {open && (
         <div className="support__panel" role="dialog" aria-label="Техподдержка BotPilot">
-          <div className="support__head">
+          <div className="support__head" onPointerDown={onDown} style={{ cursor: "grab" }}>
             <button
               className="support__collapse"
               onClick={() => setOpen(false)}
@@ -146,11 +190,14 @@ export default function SupportWidget() {
 
       <button
         className="support__launcher"
+        onPointerDown={onDown}
         onClick={() => {
+          if (moved.current) return; // был перетаскиванием, не открываем
           setOpen((v) => !v);
           setMode("menu");
         }}
-        aria-label="Техподдержка"
+        aria-label="Техподдержка · перетащите, чтобы переместить"
+        title="Перетащите, чтобы переместить"
       >
         {open ? "✕" : "💬"}
         {!open && online && <span className="support__badge" />}

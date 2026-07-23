@@ -40,7 +40,13 @@ export default function UserParserClient() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
 
-  const [tab, setTab] = useState<"users" | "chats" | "messages" | "warm">("chats");
+  const [tab, setTab] = useState<"accounts" | "users" | "chats" | "messages" | "warm">("accounts");
+
+  // Менеджер аккаунтов
+  type Acc = { id: string; name: string; phone: string; status: "active" | "working" | "quarantine" | "frozen" | "blocked" };
+  const [accounts, setAccounts] = useState<Acc[]>([]);
+  const [accName, setAccName] = useState("");
+  const [accPhone, setAccPhone] = useState("");
 
   // Парсер пользователей
   const [chats, setChats] = useState("");
@@ -104,6 +110,7 @@ export default function UserParserClient() {
       const u = localStorage.getItem("sb_parsed_users"); if (u) setUsers(JSON.parse(u));
       const c = localStorage.getItem("sb_found_chats"); if (c) setFoundChats(JSON.parse(c));
       const mu = localStorage.getItem("sb_parsed_msg_users"); if (mu) setMmUsers(JSON.parse(mu));
+      const ac = localStorage.getItem("sb_tg_accounts"); if (ac) setAccounts(JSON.parse(ac));
     } catch {}
   }, []);
 
@@ -277,16 +284,36 @@ export default function UserParserClient() {
   useEffect(() => () => stopWarm(), []);
   const toggleAct = (k: string) => setWActions((v) => ({ ...v, [k]: !v[k] }));
 
+  // ---- Менеджер аккаунтов ----
+  const ACC_STATUS: Record<Acc["status"], { label: string; cls: string }> = {
+    active: { label: "Активен", cls: "act" }, working: { label: "В работе", cls: "work" },
+    quarantine: { label: "Карантин", cls: "quar" }, frozen: { label: "Заморожен", cls: "froz" },
+    blocked: { label: "Заблокирован", cls: "block" },
+  };
+  function saveAccs(list: Acc[]) { setAccounts(list); try { localStorage.setItem("sb_tg_accounts", JSON.stringify(list)); } catch {} }
+  function addAccount() {
+    const n = accName.trim(), ph = accPhone.trim();
+    if (!n || !ph) return;
+    saveAccs([...accounts, { id: "a_" + Math.random().toString(36).slice(2, 8), name: n, phone: ph, status: "active" }]);
+    setAccName(""); setAccPhone("");
+  }
+  function delAccount(id: string) { saveAccs(accounts.filter((a) => a.id !== id)); }
+  function cycleStatus(id: string) {
+    const order: Acc["status"][] = ["active", "working", "quarantine", "frozen", "blocked"];
+    saveAccs(accounts.map((a) => a.id === id ? { ...a, status: order[(order.indexOf(a.status) + 1) % order.length] } : a));
+  }
+  const accCount = (s: Acc["status"]) => accounts.filter((a) => a.status === s).length;
+
   return (
     <>
-      <Topbar crumbs={["Основной проект", "Парсер и прогрев"]} />
+      <Topbar crumbs={["Основной проект", "Продвижение"]} />
       <div className="content" style={{ maxWidth: 1180 }}>
         <div className="ch-head">
           <div>
-            <h1 className="h1" style={{ marginBottom: 2 }}>Парсер и прогрев Telegram</h1>
+            <h1 className="h1" style={{ marginBottom: 2 }}>Продвижение</h1>
             <p className="muted" style={{ margin: 0, maxWidth: 680 }}>
-              Соберите базу под продвижение (парсер чатов и пользователей) и безопасно
-              прогрейте аккаунты, чтобы их не замораживали. Экспорт в TXT / CSV / JSON.
+              Всё для роста: менеджер аккаунтов, парсер чатов и пользователей и безопасный
+              прогрев аккаунтов. Экспорт баз в TXT / CSV / JSON.
             </p>
           </div>
         </div>
@@ -332,13 +359,53 @@ export default function UserParserClient() {
             </div>
 
             <div className="tabs" style={{ marginBottom: 16 }}>
+              <button className={`tab${tab === "accounts" ? " active" : ""}`} onClick={() => setTab("accounts")}>👤 Аккаунты</button>
               <button className={`tab${tab === "chats" ? " active" : ""}`} onClick={() => setTab("chats")}>Чаты по ключевым словам</button>
               <button className={`tab${tab === "users" ? " active" : ""}`} onClick={() => setTab("users")}>Пользователи из чатов</button>
               <button className={`tab${tab === "messages" ? " active" : ""}`} onClick={() => setTab("messages")}>По сообщениям (скрытые)</button>
               <button className={`tab${tab === "warm" ? " active" : ""}`} onClick={() => setTab("warm")}>🔥 Прогрев аккаунтов</button>
             </div>
 
-            {tab === "chats" ? (
+            {tab === "accounts" ? (
+              <div className="card" style={{ padding: 20 }}>
+                <div className="acc-stats">
+                  {(["active", "working", "quarantine", "frozen", "blocked"] as const).map((s) => (
+                    <div className={`acc-stat ${ACC_STATUS[s].cls}`} key={s}>
+                      <div className="acc-stat__n">{accCount(s)}</div>
+                      <div className="acc-stat__l">{ACC_STATUS[s].label}</div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="acc-import">
+                  <input className="input" placeholder="Имя аккаунта" value={accName} onChange={(e) => setAccName(e.target.value)} />
+                  <input className="input" placeholder="+79001234567" value={accPhone} onChange={(e) => setAccPhone(e.target.value)} />
+                  <button className="btn btn-primary" onClick={addAccount} disabled={!accName.trim() || !accPhone.trim()}>+ Добавить аккаунт</button>
+                  <button className="btn" title="Импорт tdata / session+json — на боевом сервере" onClick={() => alert("Импорт tdata / session+json выполняется на сервере с загруженными файлами аккаунтов.")}>📥 Импорт tdata/session</button>
+                </div>
+
+                {accounts.length === 0 ? (
+                  <div className="ch-empty"><div className="ch-empty__ico">👤</div><div className="ch-empty__title">Аккаунтов пока нет</div><p>Добавьте аккаунты для парсинга и прогрева. Несколько аккаунтов распределяют нагрузку и снижают риск блокировок.</p></div>
+                ) : (
+                  <div className="acc-list">
+                    {accounts.map((a) => (
+                      <div className="acc-row" key={a.id}>
+                        <div className="part-ava">{a.name.slice(0, 1)}</div>
+                        <div className="part-body">
+                          <div className="part-name">{a.name}</div>
+                          <div className="part-user">{a.phone}</div>
+                        </div>
+                        <button className={`acc-badge ${ACC_STATUS[a.status].cls}`} onClick={() => cycleStatus(a.id)} title="Клик — сменить статус">{ACC_STATUS[a.status].label}</button>
+                        <button className="scn-kebab" title="Удалить" onClick={() => delAccount(a.id)}>✕</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div className="tg-help" style={{ marginTop: 14 }}>
+                  Импорт аккаунтов через tdata или session+json выполняется на сервере. Здесь — управление списком и статусами; статус можно переключать кликом по бейджу.
+                </div>
+              </div>
+            ) : tab === "chats" ? (
               <div className="up-layout">
                 <div className="card up-settings">
                   <div className="field">
