@@ -15,6 +15,7 @@ import {
   IconPlug,
   IconDoc,
   IconChannels,
+  IconUserParse,
 } from "./icons";
 
 const NAV = [
@@ -23,6 +24,7 @@ const NAV = [
   { href: "/dashboard/nocode", label: "Nocode Cloud", Icon: IconCloud },
   { href: "/dashboard/mailings", label: "Рассылки", Icon: IconSend },
   { href: "/dashboard/chats", label: "Чаты", Icon: IconChat },
+  { href: "/dashboard/user-parser", label: "Парсер пользователей", Icon: IconUserParse },
   { href: "/dashboard/users", label: "Пользователи", Icon: IconUsers },
   { href: "/dashboard/shops", label: "Магазины", Icon: IconStore },
   { href: "/dashboard/stats", label: "Статистика", Icon: IconChart },

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Topbar from "@/components/Topbar";
+import { ChannelIcon } from "@/components/ChannelIcon";
 import { useEsc } from "@/lib/useEsc";
 import {
   PLATFORMS,
@@ -66,6 +67,18 @@ export default function ChannelsClient() {
     <>
       <Topbar crumbs={["Основной проект", "Каналы"]} />
       <div className="content" style={{ maxWidth: 1280 }}>
+        <div className="ch-head">
+          <div>
+            <h1 className="h1" style={{ marginBottom: 2 }}>Каналы</h1>
+            <p className="muted" style={{ margin: 0 }}>
+              Подключите бота к мессенджерам и соцсетям — напрямую или через JivoChat /
+              Wazzup24 — и привяжите к каналу сценарий.
+            </p>
+          </div>
+          {channels.length > 0 && (
+            <span className="ch-count-pill">Подключено: {channels.length}</span>
+          )}
+        </div>
         <div className="ch-grid">
           {/* Левая колонка — создать канал */}
           <div className="ch-panel">
@@ -78,7 +91,7 @@ export default function ChannelsClient() {
                   <div className="ch-tiles">
                     {items.map((p) => (
                       <button key={p.id} className="ch-tile" onClick={() => openSetup(p)} title={p.label}>
-                        <span className="ch-tile__ico" style={{ background: p.color }}>{p.emoji}</span>
+                        <span className="ch-tile__ico" style={{ background: p.color }}><ChannelIcon label={p.label} /></span>
                         <span className="ch-tile__label">{p.label}</span>
                         {p.isNew && <span className="ch-tile__new">new</span>}
                       </button>
@@ -104,7 +117,7 @@ export default function ChannelsClient() {
                   const p = platformById(c.platformId);
                   return (
                     <div className="ch-item" key={c.id}>
-                      <span className="ch-tile__ico" style={{ background: p?.color || "#6c5ce7" }}>{p?.emoji || "💬"}</span>
+                      <span className="ch-tile__ico" style={{ background: p?.color || "#6c5ce7" }}><ChannelIcon label={p?.label || "чат"} /></span>
                       <div className="ch-item__body">
                         <div className="ch-item__name">{c.name}</div>
                         <div className="ch-item__sub">
@@ -139,7 +152,7 @@ export default function ChannelsClient() {
         <div className="modal-overlay" onClick={() => setSetup(null)}>
           <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 440 }}>
             <div className="modal__head">
-              <b><span className="ch-tile__ico sm" style={{ background: setup.color }}>{setup.emoji}</span> {setup.label}</b>
+              <b><span className="ch-tile__ico sm" style={{ background: setup.color }}><ChannelIcon label={setup.label} /></span> {setup.label}</b>
               <button className="fn__x dark" onClick={() => setSetup(null)}>✕</button>
             </div>
             <p className="muted" style={{ marginTop: 8 }}>

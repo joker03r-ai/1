@@ -12,6 +12,8 @@ const TOC = [
   { id: "ai", label: "Сборка сценария ИИ" },
   { id: "recipes", label: "Готовые рецепты" },
   { id: "payments", label: "Оплата и интеграции" },
+  { id: "channels", label: "Каналы" },
+  { id: "parser", label: "Парсер пользователей" },
   { id: "settings", label: "Подключение и настройка" },
   { id: "faq", label: "Частые вопросы" },
 ];
@@ -95,6 +97,7 @@ const SECTIONS = [
   { icon: "📊", name: "Статистика", href: "/dashboard/stats", desc: "Метки событий и графики по дням." },
   { icon: "🔌", name: "Интеграции", href: "/dashboard/integrations", desc: "Платёжные системы, CRM, Google Таблицы." },
   { icon: "📡", name: "Каналы", href: "/dashboard/channels", desc: "Подключение бота к Telegram, VK, WhatsApp, Instagram и др." },
+  { icon: "🎯", name: "Парсер пользователей", href: "/dashboard/user-parser", desc: "Сбор базы аудитории из открытых Telegram-чатов с фильтрами." },
 ];
 
 const BLOCKS = [
@@ -310,6 +313,54 @@ export default function DocsClient() {
               </div>
               <Link href="/dashboard/integrations" className="btn btn-primary" style={{ display: "inline-block" }}>
                 Открыть интеграции
+              </Link>
+            </section>
+
+            <section id="channels" className="docs-section">
+              <div className="section-title">Каналы</div>
+              <p className="muted" style={{ marginTop: 0, maxWidth: 640 }}>
+                Раздел <b>«Каналы»</b> подключает бота к мессенджерам и соцсетям — не только
+                к Telegram. Слева выбираете платформу, вводите токен/ключ, справа появляется
+                подключённый канал, которому можно назначить сценарий.
+              </p>
+              <div className="docs-sub">Способы подключения</div>
+              <ol className="docs-oli">
+                <li><b>Напрямую</b>: Telegram, ВКонтакте, WhatsApp, Одноклассники, Viber, Avito, Веб-виджет.</li>
+                <li><b>Через JivoChat</b>: Telegram, ВКонтакте, Viber, WhatsApp, Instagram, Avito, Facebook, Одноклассники.</li>
+                <li><b>Через Wazzup24</b>: WhatsApp (API и обычный), Instagram, Telegram, Avito.</li>
+              </ol>
+              <p className="docs-p">
+                Для Telegram — токен бота от @BotFather; для ВКонтакте — ключ доступа
+                сообщества; для коннекторов (JivoChat / Wazzup24) — их API-ключ. У каждого
+                канала в списке есть выбор сценария и кнопка «открыть».
+              </p>
+              <Link href="/dashboard/channels" className="btn btn-primary" style={{ display: "inline-block" }}>
+                Открыть «Каналы»
+              </Link>
+            </section>
+
+            <section id="parser" className="docs-section">
+              <div className="section-title">Парсер пользователей</div>
+              <p className="muted" style={{ marginTop: 0, maxWidth: 640 }}>
+                Раздел <b>«Парсер пользователей»</b> собирает базу аудитории из открытых
+                Telegram-чатов: участники с фильтрами по профилю и активности, экспорт в
+                CSV / JSON.
+              </p>
+              <div className="docs-sub">Как пользоваться</div>
+              <ol className="docs-oli">
+                <li>Войдите по Telegram-аккаунту: api_id и api_hash с <b>my.telegram.org</b> → API development tools, затем телефон → код (и пароль 2FA, если включён).</li>
+                <li>Вставьте ссылки на чаты/@username — по одному в строке.</li>
+                <li>Задайте лимит участников и фильтры: пропустить ботов / удалённых, только с юзернеймом / фото / Premium.</li>
+                <li>«🚀 Запустить парсинг» — соберётся список пользователей. Скопируйте ссылки или выгрузите в CSV / JSON.</li>
+              </ol>
+              <div className="docs-callout">
+                Ограничения: парсинг участников работает только для чатов с <b>открытым</b>
+                списком участников. Если список скрыт админом — собрать аудиторию нельзя.
+                Вход даёт полный доступ к аккаунту (сессия хранится в браузере). Соблюдайте
+                правила Telegram и законы о персональных данных — парсите ответственно.
+              </div>
+              <Link href="/dashboard/user-parser" className="btn btn-ai" style={{ display: "inline-block" }}>
+                Открыть «Парсер пользователей»
               </Link>
             </section>
 

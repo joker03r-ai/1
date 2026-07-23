@@ -2248,3 +2248,49 @@ a.docs-card:hover { box-shadow: var(--shadow); transform: translateY(-1px); bord
   border-color: var(--violet); background: var(--violet-100); color: var(--violet-700);
   box-shadow: 0 0 0 3px var(--violet-050);
 }
+
+/* Каналы: дизайнерские иконки и шапка */
+.ch-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 18px; flex-wrap: wrap; }
+.ch-count-pill {
+  background: #eafaf0; color: #15803d; border: 1px solid #bfe9cd; border-radius: 999px;
+  padding: 7px 14px; font-size: 13px; font-weight: 700; white-space: nowrap;
+}
+.ch-tile__ico { overflow: hidden; box-shadow: 0 3px 8px -2px rgba(23,24,38,.25); }
+.ch-tile__ico svg { display: block; }
+.ch-mono { color: #fff; font-weight: 800; font-size: 15px; letter-spacing: .02em; }
+.ch-tile__ico.sm .ch-mono { font-size: 11px; }
+
+/* Каналы: дизайнерские иконки и шапка */
+.ch-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 18px; flex-wrap: wrap; }
+.ch-count-pill {
+  background: #eafaf0; color: #15803d; border: 1px solid #bfe9cd; border-radius: 999px;
+  padding: 7px 14px; font-size: 13px; font-weight: 700; white-space: nowrap;
+}
+.ch-tile__ico { overflow: hidden; box-shadow: 0 3px 8px -2px rgba(23,24,38,.25); }
+.ch-tile__ico svg { display: block; }
+.ch-mono { color: #fff; font-weight: 800; font-size: 15px; letter-spacing: .02em; }
+.ch-tile__ico.sm .ch-mono { font-size: 11px; }
+
+/* ===== Парсер пользователей ===== */
+.up-login { padding: 22px; max-width: 720px; }
+.up-login__title { font-weight: 800; font-size: 16px; margin-bottom: 6px; }
+.up-login__grid { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; }
+.up-login__grid .field { flex: 1; min-width: 160px; margin: 0; }
+.up-layout { display: grid; grid-template-columns: 420px 1fr; gap: 16px; align-items: start; }
+.up-settings, .up-results { padding: 18px 20px; }
+.up-two { display: grid; grid-template-columns: 1fr; gap: 12px; margin: 4px 0 12px; }
+.up-filters { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 8px 0; }
+.up-filters__label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--ink-faint); margin-bottom: 8px; }
+.up-check { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink); padding: 4px 0; cursor: pointer; }
+.up-check input { width: 15px; height: 15px; accent-color: var(--violet); }
+.up-results__head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.up-count { background: var(--violet-100); color: var(--violet-700); border-radius: 999px; padding: 1px 9px; font-size: 12px; font-weight: 800; margin-left: 6px; }
+.up-list { display: flex; flex-direction: column; gap: 4px; max-height: 560px; overflow-y: auto; margin-top: 10px; }
+.up-user { display: flex; align-items: center; gap: 12px; padding: 9px 8px; border-radius: 10px; }
+.up-user:hover { background: var(--line-soft); }
+.up-badges { display: flex; gap: 6px; flex-wrap: wrap; }
+.up-badge { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: var(--line-soft); color: var(--ink-soft); }
+.up-badge.prem { background: #fff4e0; color: #b26a00; }
+.up-badge.bot { background: #eef; color: #55f; }
+
+@media (max-width: 900px) { .up-layout { grid-template-columns: 1fr; } }

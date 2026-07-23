@@ -96,3 +96,11 @@ export const IconChannels = base(
     <path d="M4 9v6M8 7v10M12 5v14M16 8v8M20 10v4" />
   </>
 );
+export const IconUserParse = base(
+  <>
+    <circle cx="10" cy="8" r="3.2" />
+    <path d="M4 19a6 6 0 0 1 10-3.3" />
+    <circle cx="17" cy="16" r="3" />
+    <path d="M21 20l-1.8-1.8" />
+  </>
+);
