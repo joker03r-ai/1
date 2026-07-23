@@ -65,6 +65,8 @@ export default function ScenariosClient() {
   const [folderName, setFolderName] = useState("");
   const [renaming, setRenaming] = useState<{ kind: "folder" | "scenario"; id: string; name: string } | null>(null);
   const [renameVal, setRenameVal] = useState("");
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [dropTarget, setDropTarget] = useState<string | null>(null); // folderId | "none"
   const [name, setName] = useState("Новый сценарий");
   const [allChannels, setAllChannels] = useState(true);
   const [cat, setCat] = useState("Все");
@@ -163,6 +165,29 @@ export default function ScenariosClient() {
     e.stopPropagation();
     if (!confirm("Удалить сценарий?")) return;
     deleteScenario(id);
+    setList(loadScenarios());
+  }
+
+  function duplicate(id: string) {
+    const s = list.find((x) => x.id === id);
+    if (!s) return;
+    const copy: Scenario = {
+      ...JSON.parse(JSON.stringify(s)),
+      id: uid("s"),
+      name: `${s.name} (копия)`,
+      published: false,
+      updatedAt: Date.now(),
+    };
+    upsertScenario(copy);
+    setList(loadScenarios());
+    setMenu(null);
+  }
+
+  // Перетаскивание сценария в папку.
+  function onDrop(folderId?: string) {
+    if (dragId) moveScenarioToFolder(dragId, folderId);
+    setDragId(null);
+    setDropTarget(null);
     setList(loadScenarios());
   }
 
@@ -274,7 +299,7 @@ export default function ScenariosClient() {
           </div>
         </div>
 
-        {/* Папки-фильтры */}
+        {/* Папки-фильтры (можно перетаскивать сценарии на папку) */}
         {tab === "scenarios" && folders.length > 0 && (
           <div className="scn-folders">
             <button
@@ -286,10 +311,13 @@ export default function ScenariosClient() {
             {folders.map((f) => (
               <button
                 key={f.id}
-                className={`scn-folder-chip${activeFolder === f.id ? " on" : ""}`}
+                className={`scn-folder-chip${activeFolder === f.id ? " on" : ""}${dropTarget === f.id ? " drop" : ""}`}
                 onClick={() => setActiveFolder(f.id)}
                 onDoubleClick={() => openRename("folder", f.id, f.name)}
-                title="Двойной клик — переименовать"
+                title="Двойной клик — переименовать · перетащите сюда сценарий"
+                onDragOver={(e) => { if (dragId) { e.preventDefault(); setDropTarget(f.id); } }}
+                onDragLeave={() => setDropTarget((t) => (t === f.id ? null : t))}
+                onDrop={(e) => { e.preventDefault(); onDrop(f.id); }}
               >
                 📁 {f.name} <span className="scn-folder-count">{countFor(f.id)}</span>
                 <span
@@ -304,14 +332,15 @@ export default function ScenariosClient() {
                 </span>
               </button>
             ))}
-            {ungroupedCount > 0 && (
-              <button
-                className={`scn-folder-chip${activeFolder === "none" ? " on" : ""}`}
-                onClick={() => setActiveFolder("none")}
-              >
-                Без папки <span className="scn-folder-count">{ungroupedCount}</span>
-              </button>
-            )}
+            <button
+              className={`scn-folder-chip${activeFolder === "none" ? " on" : ""}${dropTarget === "none" ? " drop" : ""}`}
+              onClick={() => setActiveFolder("none")}
+              onDragOver={(e) => { if (dragId) { e.preventDefault(); setDropTarget("none"); } }}
+              onDragLeave={() => setDropTarget((t) => (t === "none" ? null : t))}
+              onDrop={(e) => { e.preventDefault(); onDrop(undefined); }}
+            >
+              Без папки <span className="scn-folder-count">{ungroupedCount}</span>
+            </button>
           </div>
         )}
 
@@ -356,8 +385,16 @@ export default function ScenariosClient() {
                 {filtered.map((s) => {
                   const folder = folders.find((f) => f.id === s.folderId);
                   return (
-                    <tr key={s.id} onClick={() => router.push(`/dashboard/scenarios/${s.id}`)}>
-                      <td onClick={(e) => e.stopPropagation()}>
+                    <tr
+                      key={s.id}
+                      className={dragId === s.id ? "dragging" : ""}
+                      draggable
+                      onDragStart={(e) => { setDragId(s.id); e.dataTransfer.effectAllowed = "move"; }}
+                      onDragEnd={() => { setDragId(null); setDropTarget(null); }}
+                      onClick={() => router.push(`/dashboard/scenarios/${s.id}`)}
+                    >
+                      <td onClick={(e) => e.stopPropagation()} className="scn-drag" title="Перетащите в папку">
+                        <span className="scn-grip">⠿</span>
                         <input type="checkbox" />
                       </td>
                       <td className="scn-name">
@@ -383,6 +420,7 @@ export default function ScenariosClient() {
                           <div className="scn-menu" onMouseLeave={() => setMenu(null)}>
                             <div className="scn-menu__item" onClick={() => router.push(`/dashboard/scenarios/${s.id}`)}>Открыть</div>
                             <div className="scn-menu__item" onClick={() => openRename("scenario", s.id, s.name)}>Переименовать</div>
+                            <div className="scn-menu__item" onClick={() => duplicate(s.id)}>Дублировать</div>
                             <div className="scn-menu__label">Переместить в папку</div>
                             {folders.length === 0 && (
                               <div className="scn-menu__hint">Сначала создайте папку</div>

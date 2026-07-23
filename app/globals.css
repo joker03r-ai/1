@@ -1666,8 +1666,10 @@ table.tariff tr:last-child td {
 
 .scn-table-wrap {
   background: #fff; border: 1px solid var(--line); border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-sm); overflow: hidden;
+  box-shadow: var(--shadow-sm); overflow: visible;
 }
+.scn-table thead th:first-child { border-top-left-radius: var(--radius-lg); }
+.scn-table thead th:last-child { border-top-right-radius: var(--radius-lg); }
 .scn-table { width: 100%; border-collapse: collapse; }
 .scn-table thead th {
   text-align: left; font-size: 12.5px; font-weight: 600; color: var(--ink-soft);
@@ -2236,3 +2238,13 @@ a.docs-card:hover { box-shadow: var(--shadow); transform: translateY(-1px); bord
 .ch-open { border: 0; background: none; color: var(--violet-600); font-weight: 700; font-size: 12.5px; cursor: pointer; }
 
 @media (max-width: 900px) { .ch-grid { grid-template-columns: 1fr; } }
+
+/* Перетаскивание сценариев и дроп в папку */
+.scn-table tbody tr.dragging { opacity: .45; }
+.scn-drag { white-space: nowrap; }
+.scn-grip { color: var(--ink-faint); cursor: grab; margin-right: 6px; font-size: 13px; user-select: none; }
+.scn-table tbody tr:hover .scn-grip { color: var(--ink-soft); }
+.scn-folder-chip.drop {
+  border-color: var(--violet); background: var(--violet-100); color: var(--violet-700);
+  box-shadow: 0 0 0 3px var(--violet-050);
+}

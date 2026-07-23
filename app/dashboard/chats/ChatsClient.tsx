@@ -311,11 +311,13 @@ export default function ChatsClient() {
   }
 
   function saveRole(id: string, role: Role) {
+    if (!manage) return;
     updateMember(id, { role });
     setTeam(loadTeam());
   }
 
   function addTeamMember() {
+    if (!manage) return;
     const name = nName.trim();
     if (!name) return;
     addMember({ name, username: nUser.trim() || undefined, role: nRole, chatAccess: [] });
@@ -326,7 +328,7 @@ export default function ChatsClient() {
   }
 
   function delMember(id: string) {
-    if (id === "me") return;
+    if (!manage || id === "me") return;
     if (!confirm("Удалить участника из команды?")) return;
     removeMember(id);
     setTeam(loadTeam());
@@ -703,6 +705,12 @@ export default function ChatsClient() {
               Роли определяют, что человек видит. Роль «Оператор» — доступ к чатам выдаётся
               на вкладке «Доступ» внутри чата.
             </p>
+            {!manage && (
+              <div className="tg-help">
+                🔒 Добавлять, удалять участников и менять роли может только владелец или
+                администратор. Сейчас вы просматриваете как «{ROLE_LABELS[viewer.role]}».
+              </div>
+            )}
 
             <div className="team-list">
               {team.map((m) => (
@@ -714,31 +722,35 @@ export default function ChatsClient() {
                   </div>
                   {m.role === "owner" ? (
                     <span className="tg-badge creator">👑 Владелец</span>
-                  ) : (
+                  ) : manage ? (
                     <select className="role-select" value={m.role} onChange={(e) => saveRole(m.id, e.target.value as Role)}>
                       <option value="admin">Администратор</option>
                       <option value="operator">Оператор</option>
                     </select>
+                  ) : (
+                    <span className="tg-badge member">{ROLE_LABELS[m.role]}</span>
                   )}
-                  {m.id !== "me" && (
+                  {manage && m.id !== "me" && (
                     <button className="scn-kebab" title="Удалить" onClick={() => delMember(m.id)}>✕</button>
                   )}
                 </div>
               ))}
             </div>
 
-            <div className="team-add">
-              <div className="team-add__title">Добавить в команду</div>
-              <div className="team-add__row">
-                <input className="input" placeholder="Имя" value={nName} onChange={(e) => setNName(e.target.value)} />
-                <input className="input" placeholder="@username" value={nUser} onChange={(e) => setNUser(e.target.value)} />
-                <select className="role-select" value={nRole} onChange={(e) => setNRole(e.target.value as Role)}>
-                  <option value="admin">Администратор</option>
-                  <option value="operator">Оператор</option>
-                </select>
-                <button className="btn btn-primary" onClick={addTeamMember} disabled={!nName.trim()}>Добавить</button>
+            {manage && (
+              <div className="team-add">
+                <div className="team-add__title">Добавить в команду</div>
+                <div className="team-add__row">
+                  <input className="input" placeholder="Имя" value={nName} onChange={(e) => setNName(e.target.value)} />
+                  <input className="input" placeholder="@username" value={nUser} onChange={(e) => setNUser(e.target.value)} />
+                  <select className="role-select" value={nRole} onChange={(e) => setNRole(e.target.value as Role)}>
+                    <option value="admin">Администратор</option>
+                    <option value="operator">Оператор</option>
+                  </select>
+                  <button className="btn btn-primary" onClick={addTeamMember} disabled={!nName.trim()}>Добавить</button>
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
       )}
