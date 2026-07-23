@@ -5,14 +5,26 @@ import Topbar from "@/components/Topbar";
 import { MtSession, loadMt, saveMt, clearMt } from "@/lib/tgchats";
 
 type ParsedUser = { id: string; name: string; username: string; premium: boolean; hasPhoto: boolean; bot: boolean };
+type FoundChat = { id: string; title: string; username: string; link: string; members: number; type: string; keyword: string };
 
-const FILTERS: { key: string; label: string; group: "base" | "profile" }[] = [
+const USER_FILTERS: { key: string; label: string; group: "base" | "profile" }[] = [
   { key: "skipBots", label: "Пропустить ботов", group: "base" },
   { key: "skipDeleted", label: "Пропустить удалённых", group: "base" },
   { key: "onlyUsername", label: "Только с юзернеймом", group: "profile" },
   { key: "onlyPhoto", label: "Только с фото", group: "profile" },
   { key: "onlyPremium", label: "Только Premium", group: "profile" },
 ];
+
+// Простые AI-подсказки окончаний/комбинаций для ключевых слов.
+const SUGGEST = ["новости", "чат", "россия", "2025", "2026", "official", "trade", "premium"];
+
+function download(name: string, content: string, type: string) {
+  const blob = new Blob([content], { type });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = name; a.click();
+  URL.revokeObjectURL(url);
+}
 
 export default function UserParserClient() {
   const [mt, setMt] = useState<MtSession | null>(null);
@@ -28,25 +40,35 @@ export default function UserParserClient() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
 
+  const [tab, setTab] = useState<"users" | "chats">("chats");
+
+  // Парсер пользователей
   const [chats, setChats] = useState("");
-  const [limit, setLimit] = useState(1000);
+  const [uLimit, setULimit] = useState(1000);
   const [filters, setFilters] = useState<Record<string, boolean>>({ skipBots: true, skipDeleted: true, onlyUsername: false, onlyPhoto: false, onlyPremium: false });
   const [users, setUsers] = useState<ParsedUser[]>([]);
-  const [note, setNote] = useState("");
-  const [parsing, setParsing] = useState(false);
+  const [uNote, setUNote] = useState("");
+  const [uBusy, setUBusy] = useState(false);
+
+  // Парсер чатов по ключевым словам
+  const [kwInput, setKwInput] = useState("");
+  const [keywords, setKeywords] = useState<string[]>([]);
+  const [endings, setEndings] = useState<string[]>([]);
+  const [endInput, setEndInput] = useState("");
+  const [minM, setMinM] = useState(100);
+  const [maxM, setMaxM] = useState(100000);
+  const [cLimit, setCLimit] = useState(100);
+  const [foundChats, setFoundChats] = useState<FoundChat[]>([]);
+  const [cNote, setCNote] = useState("");
+  const [cBusy, setCBusy] = useState(false);
 
   useEffect(() => {
     const saved = loadMt();
     setMt(saved);
-    if (saved) {
-      setApiId(saved.apiId);
-      setApiHash(saved.apiHash);
-      setSess(saved.session);
-      setStep("ready");
-    }
+    if (saved) { setApiId(saved.apiId); setApiHash(saved.apiHash); setSess(saved.session); setStep("ready"); }
     try {
-      const u = localStorage.getItem("sb_parsed_users");
-      if (u) setUsers(JSON.parse(u));
+      const u = localStorage.getItem("sb_parsed_users"); if (u) setUsers(JSON.parse(u));
+      const c = localStorage.getItem("sb_found_chats"); if (c) setFoundChats(JSON.parse(c));
     } catch {}
   }, []);
 
@@ -60,7 +82,6 @@ export default function UserParserClient() {
     } catch (e: any) { setErr(e?.message || "Не удалось отправить код"); }
     finally { setBusy(false); }
   }
-
   async function signIn() {
     setErr(""); setBusy(true);
     try {
@@ -73,65 +94,103 @@ export default function UserParserClient() {
     } catch (e: any) { setErr(e?.message || "Не удалось войти"); }
     finally { setBusy(false); }
   }
-
   function logout() {
     if (!confirm("Выйти из аккаунта Telegram?")) return;
     clearMt(); setMt(null); setStep("creds"); setSess(""); setNeedPass(false); setCode(""); setPass("");
   }
 
-  async function run() {
+  // ---- Пользователи ----
+  async function runUsers() {
     setErr("");
     const list = chats.split(/[\n,]/).map((s) => s.trim()).filter(Boolean);
     if (!list.length) { setErr("Укажите хотя бы один чат"); return; }
-    setParsing(true); setNote("");
+    setUBusy(true); setUNote("");
     try {
-      const r = await fetch("/api/telegram/mtproto/parse-users", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ apiId, apiHash, session: sess, chats: list, limit, filters }) });
+      const r = await fetch("/api/telegram/mtproto/parse-users", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ apiId, apiHash, session: sess, chats: list, limit: uLimit, filters }) });
       const d = await r.json();
       if (!r.ok) throw new Error(d.error || "Ошибка парсинга");
-      setUsers(d.users || []);
-      setNote(d.note || "");
+      setUsers(d.users || []); setUNote(d.note || "");
       try { localStorage.setItem("sb_parsed_users", JSON.stringify(d.users || [])); } catch {}
     } catch (e: any) { setErr(e?.message || "Не удалось спарсить"); }
-    finally { setParsing(false); }
+    finally { setUBusy(false); }
   }
-
-  function exportFile(fmt: "csv" | "json") {
+  function exportUsers(fmt: "csv" | "json") {
     if (!users.length) return;
-    let content = "", type = "", ext = fmt;
-    if (fmt === "json") { content = JSON.stringify(users, null, 2); type = "application/json"; }
-    else {
-      const head = "username,name,premium,photo,bot";
-      const rows = users.map((u) => [u.username, `"${u.name.replace(/"/g, '""')}"`, u.premium, u.hasPhoto, u.bot].join(","));
-      content = [head, ...rows].join("\n"); type = "text/csv";
-    }
-    const blob = new Blob([content], { type });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url; a.download = `parsed-users.${ext}`; a.click();
-    URL.revokeObjectURL(url);
+    if (fmt === "json") return download("users.json", JSON.stringify(users, null, 2), "application/json");
+    const head = "username,name,premium,photo,bot";
+    const rows = users.map((u) => [u.username, `"${u.name.replace(/"/g, '""')}"`, u.premium, u.hasPhoto, u.bot].join(","));
+    download("users.csv", [head, ...rows].join("\n"), "text/csv");
   }
-
-  function copyLinks() {
+  function copyUserLinks() {
     const links = users.filter((u) => u.username).map((u) => "https://t.me/" + u.username.replace(/^@/, "")).join("\n");
     navigator.clipboard?.writeText(links);
-    setNote(`Скопировано ссылок: ${users.filter((u) => u.username).length}`);
+    setUNote(`Скопировано ссылок: ${users.filter((u) => u.username).length}`);
+  }
+
+  // ---- Чаты по ключевым словам ----
+  function addKeyword(w?: string) {
+    const v = (w ?? kwInput).trim();
+    if (!v) return;
+    if (!keywords.includes(v)) setKeywords((k) => [...k, v]);
+    setKwInput("");
+  }
+  function addEnding(w?: string) {
+    const v = (w ?? endInput).trim();
+    if (!v) return;
+    if (!endings.includes(v)) setEndings((e) => [...e, v]);
+    setEndInput("");
+  }
+  // Комбинации: базовое слово + каждое окончание («крипто новости», «крипто 2025»…).
+  function buildQueries(): string[] {
+    const out = new Set<string>();
+    keywords.forEach((k) => {
+      out.add(k);
+      endings.forEach((e) => out.add(`${k} ${e}`));
+    });
+    return [...out];
+  }
+  async function runChats() {
+    setErr("");
+    const qs = buildQueries();
+    if (!qs.length) { setErr("Добавьте хотя бы одно ключевое слово"); return; }
+    setCBusy(true); setCNote("");
+    try {
+      const r = await fetch("/api/telegram/mtproto/search-chats", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ apiId, apiHash, session: sess, keywords: qs, limit: cLimit, minMembers: minM, maxMembers: maxM }) });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error || "Ошибка поиска");
+      setFoundChats(d.chats || []); setCNote(d.note || "");
+      try { localStorage.setItem("sb_found_chats", JSON.stringify(d.chats || [])); } catch {}
+    } catch (e: any) { setErr(e?.message || "Не удалось найти чаты"); }
+    finally { setCBusy(false); }
+  }
+  function exportChats(fmt: "txt" | "csv" | "json") {
+    if (!foundChats.length) return;
+    if (fmt === "txt") return download("chats-links.txt", foundChats.filter((c) => c.link).map((c) => c.link).join("\n"), "text/plain");
+    if (fmt === "json") return download("chats.json", JSON.stringify(foundChats, null, 2), "application/json");
+    const head = "title,username,link,members,type,keyword";
+    const rows = foundChats.map((c) => [`"${c.title.replace(/"/g, '""')}"`, c.username, c.link, c.members, c.type, c.keyword].join(","));
+    download("chats.csv", [head, ...rows].join("\n"), "text/csv");
+  }
+  function copyChatLinks() {
+    const links = foundChats.filter((c) => c.link).map((c) => c.link).join("\n");
+    navigator.clipboard?.writeText(links);
+    setCNote(`Скопировано ссылок: ${foundChats.filter((c) => c.link).length}`);
   }
 
   return (
     <>
-      <Topbar crumbs={["Основной проект", "Парсер пользователей"]} />
+      <Topbar crumbs={["Основной проект", "Парсер Telegram"]} />
       <div className="content" style={{ maxWidth: 1180 }}>
         <div className="ch-head">
           <div>
-            <h1 className="h1" style={{ marginBottom: 2 }}>Парсер пользователей</h1>
-            <p className="muted" style={{ margin: 0, maxWidth: 640 }}>
-              Соберите базу аудитории из открытых Telegram-чатов конкурентов: участники с
-              фильтрами по активности и профилю, экспорт в CSV / JSON.
+            <h1 className="h1" style={{ marginBottom: 2 }}>Парсер Telegram</h1>
+            <p className="muted" style={{ margin: 0, maxWidth: 660 }}>
+              Соберите базу под продвижение: находите целевые чаты по ключевым словам и
+              собирайте аудиторию из открытых чатов. Экспорт в TXT / CSV / JSON.
             </p>
           </div>
         </div>
 
-        {/* Аккаунт */}
         {step !== "ready" ? (
           <div className="card up-login">
             <div className="up-login__title">🔐 Вход по Telegram-аккаунту</div>
@@ -158,97 +217,178 @@ export default function UserParserClient() {
             {err && <div className="ai-error">⚠ {err}</div>}
           </div>
         ) : (
-          <div className="up-layout">
-            {/* Настройки парсинга */}
-            <div className="card up-settings">
-              <div className="tg-conn live" style={{ marginBottom: 14 }}>
-                <span className="tg-conn__dot" />
-                <span>Аккаунт подключён{mt?.user ? ` · ${mt.user.startsWith("@") ? mt.user : "@" + mt.user}` : ""}</span>
-                <button className="tg-conn__link" onClick={logout}>Выйти</button>
-              </div>
-
-              <div className="field">
-                <label className="label">Список чатов (ссылки или @username, по одному в строке)</label>
-                <textarea className="textarea" style={{ minHeight: 96 }} value={chats} onChange={(e) => setChats(e.target.value)} placeholder={"@target_chat\nhttps://t.me/competitor_chat"} />
-              </div>
-
-              <div className="up-two">
-                <div className="field" style={{ margin: 0 }}>
-                  <label className="label">Лимит участников</label>
-                  <input className="input" type="number" min={1} max={100000} value={limit} onChange={(e) => setLimit(Number(e.target.value) || 1000)} />
-                </div>
-              </div>
-
-              <div className="up-filters">
-                <div className="up-filters__col">
-                  <div className="up-filters__label">Базовые фильтры</div>
-                  {FILTERS.filter((f) => f.group === "base").map((f) => (
-                    <label key={f.key} className="up-check">
-                      <input type="checkbox" checked={!!filters[f.key]} onChange={(e) => setFilters((v) => ({ ...v, [f.key]: e.target.checked }))} />
-                      {f.label}
-                    </label>
-                  ))}
-                </div>
-                <div className="up-filters__col">
-                  <div className="up-filters__label">Фильтры профиля</div>
-                  {FILTERS.filter((f) => f.group === "profile").map((f) => (
-                    <label key={f.key} className="up-check">
-                      <input type="checkbox" checked={!!filters[f.key]} onChange={(e) => setFilters((v) => ({ ...v, [f.key]: e.target.checked }))} />
-                      {f.label}
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              <div className="tg-help">
-                Парсинг работает для чатов с открытым списком участников. Если список скрыт —
-                соберите аудиторию по сообщениям (в разделе «Чаты»).
-              </div>
-              {err && <div className="ai-error">⚠ {err}</div>}
-              <button className="btn btn-ai" style={{ width: "100%", marginTop: 12 }} onClick={run} disabled={parsing || !chats.trim()}>
-                {parsing ? "Парсинг…" : "🚀 Запустить парсинг"}
-              </button>
+          <>
+            <div className="tg-conn live" style={{ marginBottom: 14 }}>
+              <span className="tg-conn__dot" />
+              <span>Аккаунт подключён{mt?.user ? ` · ${mt.user.startsWith("@") ? mt.user : "@" + mt.user}` : ""}</span>
+              <button className="tg-conn__link" onClick={logout}>Выйти</button>
             </div>
 
-            {/* Результаты */}
-            <div className="card up-results">
-              <div className="up-results__head">
-                <b>Результаты {users.length > 0 && <span className="up-count">{users.length}</span>}</b>
-                {users.length > 0 && (
-                  <div className="row" style={{ gap: 8 }}>
-                    <button className="btn btn-sm" onClick={copyLinks}>Копировать ссылки</button>
-                    <button className="btn btn-sm" onClick={() => exportFile("csv")}>CSV</button>
-                    <button className="btn btn-sm" onClick={() => exportFile("json")}>JSON</button>
-                  </div>
-                )}
-              </div>
-              {note && <div className="tg-banner" style={{ margin: "10px 0" }}>{note}</div>}
-              {users.length === 0 ? (
-                <div className="ch-empty">
-                  <div className="ch-empty__ico">👥</div>
-                  <div className="ch-empty__title">Пока нет собранных пользователей</div>
-                  <p>Укажите чаты, настройте фильтры и запустите парсинг.</p>
-                </div>
-              ) : (
-                <div className="up-list">
-                  {users.map((u) => (
-                    <div className="up-user" key={u.id}>
-                      <div className="part-ava">{u.name.slice(0, 1)}</div>
-                      <div className="part-body">
-                        <div className="part-name">{u.name}</div>
-                        <div className="part-user">{u.username || "без юзернейма"}</div>
-                      </div>
-                      <div className="up-badges">
-                        {u.premium && <span className="up-badge prem">Premium</span>}
-                        {u.hasPhoto && <span className="up-badge">фото</span>}
-                        {u.bot && <span className="up-badge bot">бот</span>}
-                      </div>
+            <div className="tabs" style={{ marginBottom: 16 }}>
+              <button className={`tab${tab === "chats" ? " active" : ""}`} onClick={() => setTab("chats")}>Чаты по ключевым словам</button>
+              <button className={`tab${tab === "users" ? " active" : ""}`} onClick={() => setTab("users")}>Пользователи из чатов</button>
+            </div>
+
+            {tab === "chats" ? (
+              <div className="up-layout">
+                <div className="card up-settings">
+                  <div className="field">
+                    <label className="label">Ключевые слова</label>
+                    <div className="kw-input">
+                      <input className="input" value={kwInput} onChange={(e) => setKwInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && addKeyword()} placeholder="крипто, трейдинг…" />
+                      <button className="btn btn-primary btn-sm" onClick={() => addKeyword()}>+ Добавить</button>
                     </div>
-                  ))}
+                    {keywords.length > 0 && (
+                      <div className="kw-chips">
+                        {keywords.map((k) => (
+                          <span className="kw-chip" key={k}>{k}<button onClick={() => setKeywords((ks) => ks.filter((x) => x !== k))}>✕</button></span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="field">
+                    <label className="label">✨ AI подсказывает окончания</label>
+                    <div className="kw-input">
+                      <input className="input" value={endInput} onChange={(e) => setEndInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && addEnding()} placeholder="новости, 2026…" />
+                      <button className="btn btn-sm" onClick={() => addEnding()}>+ Добавить</button>
+                    </div>
+                    <div className="kw-suggest">
+                      {SUGGEST.filter((s) => !endings.includes(s)).map((s) => (
+                        <button key={s} className="kw-sugg" onClick={() => addEnding(s)}>+ {s}</button>
+                      ))}
+                    </div>
+                    {endings.length > 0 && (
+                      <div className="kw-chips">
+                        {endings.map((k) => (
+                          <span className="kw-chip end" key={k}>{k}<button onClick={() => setEndings((ks) => ks.filter((x) => x !== k))}>✕</button></span>
+                        ))}
+                      </div>
+                    )}
+                    {(keywords.length > 0) && (
+                      <div className="fn__var-hint">Запросов будет: <b>{buildQueries().length}</b> (слова × окончания).</div>
+                    )}
+                  </div>
+
+                  <div className="up-range">
+                    <div className="field" style={{ margin: 0 }}>
+                      <label className="label">Участников от</label>
+                      <input className="input" type="number" value={minM} onChange={(e) => setMinM(Number(e.target.value) || 0)} />
+                    </div>
+                    <div className="field" style={{ margin: 0 }}>
+                      <label className="label">до</label>
+                      <input className="input" type="number" value={maxM} onChange={(e) => setMaxM(Number(e.target.value) || 0)} />
+                    </div>
+                    <div className="field" style={{ margin: 0 }}>
+                      <label className="label">Лимит чатов</label>
+                      <input className="input" type="number" value={cLimit} onChange={(e) => setCLimit(Number(e.target.value) || 50)} />
+                    </div>
+                  </div>
+
+                  <div className="tg-help">
+                    Чем выше участников и активность — тем качественнее чат для рассылки.
+                    Начните с диапазона 4 000–100 000 подписчиков.
+                  </div>
+                  {err && <div className="ai-error">⚠ {err}</div>}
+                  <button className="btn btn-ai" style={{ width: "100%", marginTop: 12 }} onClick={runChats} disabled={cBusy || !keywords.length}>
+                    {cBusy ? "Ищу чаты…" : "🚀 Начать парсинг"}
+                  </button>
                 </div>
-              )}
-            </div>
-          </div>
+
+                <div className="card up-results">
+                  <div className="up-results__head">
+                    <b>Найденные чаты {foundChats.length > 0 && <span className="up-count">{foundChats.length}</span>}</b>
+                    {foundChats.length > 0 && (
+                      <div className="row" style={{ gap: 8 }}>
+                        <button className="btn btn-sm" onClick={copyChatLinks}>Ссылки</button>
+                        <button className="btn btn-sm" onClick={() => exportChats("txt")}>TXT</button>
+                        <button className="btn btn-sm" onClick={() => exportChats("csv")}>CSV</button>
+                        <button className="btn btn-sm" onClick={() => exportChats("json")}>JSON</button>
+                      </div>
+                    )}
+                  </div>
+                  {cNote && <div className="tg-banner" style={{ margin: "10px 0" }}>{cNote}</div>}
+                  {foundChats.length === 0 ? (
+                    <div className="ch-empty"><div className="ch-empty__ico">🔍</div><div className="ch-empty__title">Чаты ещё не найдены</div><p>Задайте ключевые слова и диапазон участников, затем запустите парсинг.</p></div>
+                  ) : (
+                    <div className="up-list">
+                      {foundChats.map((c) => (
+                        <div className="up-user" key={c.id}>
+                          <div className="part-ava">{c.title.slice(0, 1)}</div>
+                          <div className="part-body">
+                            <div className="part-name">{c.title}</div>
+                            <div className="part-user">{c.username || "—"} · {c.members.toLocaleString("ru-RU")} участников</div>
+                          </div>
+                          {c.link && <a className="ch-open" href={c.link} target="_blank" rel="noreferrer">открыть ↗</a>}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="up-layout">
+                <div className="card up-settings">
+                  <div className="field">
+                    <label className="label">Список чатов (ссылки или @username, по одному в строке)</label>
+                    <textarea className="textarea" style={{ minHeight: 96 }} value={chats} onChange={(e) => setChats(e.target.value)} placeholder={"@target_chat\nhttps://t.me/competitor_chat"} />
+                  </div>
+                  <div className="field">
+                    <label className="label">Лимит участников</label>
+                    <input className="input" type="number" min={1} max={100000} value={uLimit} onChange={(e) => setULimit(Number(e.target.value) || 1000)} />
+                  </div>
+                  <div className="up-filters">
+                    <div className="up-filters__col">
+                      <div className="up-filters__label">Базовые фильтры</div>
+                      {USER_FILTERS.filter((f) => f.group === "base").map((f) => (
+                        <label key={f.key} className="up-check"><input type="checkbox" checked={!!filters[f.key]} onChange={(e) => setFilters((v) => ({ ...v, [f.key]: e.target.checked }))} />{f.label}</label>
+                      ))}
+                    </div>
+                    <div className="up-filters__col">
+                      <div className="up-filters__label">Фильтры профиля</div>
+                      {USER_FILTERS.filter((f) => f.group === "profile").map((f) => (
+                        <label key={f.key} className="up-check"><input type="checkbox" checked={!!filters[f.key]} onChange={(e) => setFilters((v) => ({ ...v, [f.key]: e.target.checked }))} />{f.label}</label>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="tg-help">Работает для чатов с открытым списком участников. Если список скрыт — соберите аудиторию из «Чаты по ключевым словам».</div>
+                  {err && <div className="ai-error">⚠ {err}</div>}
+                  <button className="btn btn-ai" style={{ width: "100%", marginTop: 12 }} onClick={runUsers} disabled={uBusy || !chats.trim()}>{uBusy ? "Парсинг…" : "🚀 Запустить парсинг"}</button>
+                </div>
+
+                <div className="card up-results">
+                  <div className="up-results__head">
+                    <b>Пользователи {users.length > 0 && <span className="up-count">{users.length}</span>}</b>
+                    {users.length > 0 && (
+                      <div className="row" style={{ gap: 8 }}>
+                        <button className="btn btn-sm" onClick={copyUserLinks}>Ссылки</button>
+                        <button className="btn btn-sm" onClick={() => exportUsers("csv")}>CSV</button>
+                        <button className="btn btn-sm" onClick={() => exportUsers("json")}>JSON</button>
+                      </div>
+                    )}
+                  </div>
+                  {uNote && <div className="tg-banner" style={{ margin: "10px 0" }}>{uNote}</div>}
+                  {users.length === 0 ? (
+                    <div className="ch-empty"><div className="ch-empty__ico">👥</div><div className="ch-empty__title">Пока нет собранных пользователей</div><p>Укажите чаты, настройте фильтры и запустите парсинг.</p></div>
+                  ) : (
+                    <div className="up-list">
+                      {users.map((u) => (
+                        <div className="up-user" key={u.id}>
+                          <div className="part-ava">{u.name.slice(0, 1)}</div>
+                          <div className="part-body"><div className="part-name">{u.name}</div><div className="part-user">{u.username || "без юзернейма"}</div></div>
+                          <div className="up-badges">
+                            {u.premium && <span className="up-badge prem">Premium</span>}
+                            {u.hasPhoto && <span className="up-badge">фото</span>}
+                            {u.bot && <span className="up-badge bot">бот</span>}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
     </>
