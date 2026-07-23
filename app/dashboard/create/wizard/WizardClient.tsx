@@ -8,18 +8,66 @@ import { IconSpark, IconChevron } from "@/components/icons";
 import { STYLE_LABELS, AssistantStyle, loadAssistant, saveAssistant } from "@/lib/assistant";
 import { uid, upsertScenario, Scenario } from "@/lib/scenarios";
 
-type Goal = { id: string; label: string; emoji: string };
+type Goal = { id: string; label: string; emoji: string; desc: string; prepares: string[] };
 type Tmpl = { id: string; label: string; emoji: string; result: string };
 
 const GOALS: Goal[] = [
-  { id: "answer", label: "Отвечать клиентам", emoji: "💬" },
-  { id: "leads", label: "Собирать заявки", emoji: "📥" },
-  { id: "sell", label: "Продавать товары или услуги", emoji: "🛒" },
-  { id: "booking", label: "Записывать на консультацию", emoji: "📅" },
-  { id: "ai", label: "Консультировать с помощью ИИ", emoji: "🤖" },
-  { id: "poll", label: "Проводить опросы", emoji: "📊" },
-  { id: "learn", label: "Обучать сотрудников", emoji: "🎓" },
-  { id: "other", label: "Другой сценарий", emoji: "✨" },
+  {
+    id: "answer",
+    label: "Отвечать клиентам",
+    emoji: "💬",
+    desc: "Например: отвечает на вопросы о ценах, доставке и графике",
+    prepares: ["Приветствие", "Частые вопросы", "Ответы по смыслу", "Передача менеджеру"],
+  },
+  {
+    id: "leads",
+    label: "Собирать заявки",
+    emoji: "📥",
+    desc: "Например: спросит имя и телефон и передаст менеджеру",
+    prepares: ["Приветствие", "Сбор имени", "Запрос телефона", "Уведомление менеджеру"],
+  },
+  {
+    id: "sell",
+    label: "Продавать товары или услуги",
+    emoji: "🛒",
+    desc: "Например: покажет товар, ответит на вопросы и оформит оплату",
+    prepares: ["Каталог/предложение", "Вопросы клиента", "Оформление", "Оплата"],
+  },
+  {
+    id: "booking",
+    label: "Записывать на консультацию",
+    emoji: "📅",
+    desc: "Например: подберёт время и запишет клиента на приём",
+    prepares: ["Выбор услуги", "Выбор времени", "Контакт", "Напоминание"],
+  },
+  {
+    id: "ai",
+    label: "Консультировать с помощью ИИ",
+    emoji: "🤖",
+    desc: "Например: ИИ отвечает на вопросы по вашей базе знаний 24/7",
+    prepares: ["Приветствие", "Ответы ИИ", "База знаний", "Передача менеджеру"],
+  },
+  {
+    id: "poll",
+    label: "Проводить опросы",
+    emoji: "📊",
+    desc: "Например: задаст серию вопросов и соберёт ответы",
+    prepares: ["Вопросы", "Варианты ответов", "Сохранение результата", "Итог"],
+  },
+  {
+    id: "learn",
+    label: "Обучать сотрудников",
+    emoji: "🎓",
+    desc: "Например: проведёт по материалам и проверит знания тестом",
+    prepares: ["Материалы", "Шаги обучения", "Тест", "Результат"],
+  },
+  {
+    id: "other",
+    label: "Создать другой сценарий",
+    emoji: "✨",
+    desc: "Соберём структуру под вашу задачу — опишете её на следующих шагах",
+    prepares: ["Приветствие", "Ваши шаги", "Действия", "Завершение"],
+  },
 ];
 
 const PLATFORMS = [
@@ -172,15 +220,38 @@ export default function WizardClient() {
         {step === 0 && (
           <div className="wz-panel">
             <h1 className="h1 wz-h1">Что должен делать бот?</h1>
-            <p className="muted wz-sub">Выберите задачу — система подготовит подходящую структуру.</p>
-            <div className="wz-cards">
+            <p className="muted wz-sub">Выберите цель — система автоматически подготовит структуру бота.</p>
+            <div className="wz-cards wz-cards--goals">
               {GOALS.map((g) => (
-                <button key={g.id} className={`wz-card${goal === g.id ? " on" : ""}`} onClick={() => setGoal(g.id)} type="button">
+                <button key={g.id} className={`wz-card wz-goal${goal === g.id ? " on" : ""}`} onClick={() => setGoal(g.id)} type="button">
                   <span className="wz-card__emoji">{g.emoji}</span>
-                  <span className="wz-card__label">{g.label}</span>
+                  <span className="wz-goal__body">
+                    <span className="wz-card__label">{g.label}</span>
+                    <span className="wz-goal__desc">{g.desc}</span>
+                  </span>
+                  {goal === g.id && <span className="wz-goal__check">✓</span>}
                 </button>
               ))}
             </div>
+
+            {goalObj ? (
+              <div className="wz-prepare">
+                <div className="wz-prepare__head">
+                  <span className="wz-prepare__ico"><IconSpark className="ico" /></span>
+                  Система подготовит структуру для «{goalObj.label}»:
+                </div>
+                <div className="wz-prepare__flow">
+                  {goalObj.prepares.map((p, i) => (
+                    <span key={i} className="wz-prepare__step">
+                      {p}
+                      {i < goalObj.prepares.length - 1 && <span className="wz-prepare__arr">→</span>}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="wz-hint">💡 Подсказка: выберите задачу, а система автоматически подготовит структуру бота.</div>
+            )}
           </div>
         )}
 
