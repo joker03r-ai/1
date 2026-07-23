@@ -13,7 +13,8 @@ const TOC = [
   { id: "recipes", label: "Готовые рецепты" },
   { id: "payments", label: "Оплата и интеграции" },
   { id: "channels", label: "Каналы" },
-  { id: "parser", label: "Парсер и прогрев" },
+  { id: "parser", label: "Парсер Telegram" },
+  { id: "warming", label: "Прогрев аккаунтов" },
   { id: "promotion", label: "Продвижение" },
   { id: "settings", label: "Подключение и настройка" },
   { id: "faq", label: "Частые вопросы" },
@@ -341,11 +342,12 @@ export default function DocsClient() {
             </section>
 
             <section id="parser" className="docs-section">
-              <div className="section-title">Парсер пользователей</div>
+              <div className="section-title">Парсер Telegram</div>
               <p className="muted" style={{ marginTop: 0, maxWidth: 640 }}>
-                Раздел <b>«Парсер пользователей»</b> собирает базу аудитории из открытых
-                Telegram-чатов: участники с фильтрами по профилю и активности, экспорт в
-                CSV / JSON.
+                Находится в разделе <b>«Продвижение»</b>. Собирает базу аудитории из
+                Telegram-чатов: целевые чаты по ключевым словам, участники и авторы
+                сообщений с фильтрами, экспорт в TXT / CSV / JSON. Прогрев аккаунтов
+                описан ниже, в отдельном разделе.
               </p>
               <div className="docs-sub">📱 Где взять телефон для подключения</div>
               <p className="docs-p">
@@ -375,13 +377,20 @@ export default function DocsClient() {
                 используйте базы для спама. Для крупных чатов включайте «Консервативный»
                 режим AI-защиты, чтобы снизить риск ограничений.
               </div>
-              <div className="docs-sub">🔥 Прогрев Telegram аккаунтов</div>
-              <p className="docs-p">
-                Отдельная вкладка <b>«Прогрев аккаунтов»</b> в том же разделе. Прогрев —
-                это постепенное «оживление» аккаунта (чтение каналов, реакции, навигация),
-                чтобы Telegram не заморозил его перед рассылками и парсингом. Главное —
-                мягкий старт и плавное усиление.
+              <Link href="/dashboard/user-parser" className="btn btn-ai" style={{ display: "inline-block" }}>
+                Открыть «Продвижение»
+              </Link>
+            </section>
+
+            <section id="warming" className="docs-section">
+              <div className="section-title">Прогрев аккаунтов</div>
+              <p className="muted" style={{ marginTop: 0, maxWidth: 640 }}>
+                Отдельная вкладка <b>«🔥 Прогрев аккаунтов»</b> в разделе «Продвижение».
+                Прогрев — это постепенное «оживление» аккаунта (чтение каналов, реакции,
+                навигация), чтобы Telegram не заморозил его перед рассылками и парсингом.
+                Главное — мягкий старт и плавное усиление.
               </p>
+              <div className="docs-sub">Порядок прогрева</div>
               <ol className="docs-oli">
                 <li><b>Дайте аккаунту отлежаться</b> 1–2 часа после импорта — не запускайте активность сразу.</li>
                 <li><b>Расписание</b>: задайте окно активности (напр. 18:00–19:00) и таймзону; включите случайные перерывы.</li>
@@ -397,7 +406,7 @@ export default function DocsClient() {
                 сервере по расписанию (можно закрыть вкладку).
               </div>
               <Link href="/dashboard/user-parser" className="btn btn-ai" style={{ display: "inline-block" }}>
-                Открыть «Парсер и прогрев»
+                Открыть «Прогрев»
               </Link>
             </section>
 

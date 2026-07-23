@@ -19,6 +19,7 @@ import {
 } from "./icons";
 import { t } from "@/lib/i18n";
 import { Lang, loadLang } from "@/lib/appPrefs";
+import SidebarFoot from "./SidebarFoot";
 
 const NAV = [
   { href: "/dashboard/bots", key: "nav.bots", Icon: IconBot },
@@ -93,10 +94,8 @@ export default function Sidebar() {
             <div className="sub">{t("brand.trialLeft", lang)}</div>
             <Link href="/dashboard/billing" className="promo-btn">{t("brand.choosePlan", lang)}</Link>
           </div>
-          <div className="sidebar__foot">
-            <div className="chip">{t("brand.orderBot", lang)}</div>
-            <div className="chip">{t("brand.partners", lang)}</div>
-          </div>
+          <SidebarFoot />
+          {/* стили и модалки чипов «Заказать бота» / «Партнёры» — в SidebarFoot */}
         </>
       )}
     </aside>

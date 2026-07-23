@@ -29,6 +29,42 @@ export const STR: Dict = {
   "settings.theme": { ru: "Цветовая гамма", en: "Color theme" },
   "settings.language": { ru: "Язык", en: "Language" },
   "settings.done": { ru: "Готово", en: "Done" },
+
+  "partners.title": { ru: "Партнёрская программа", en: "Partner program" },
+  "partners.lead": {
+    ru: "Приглашайте клиентов и получайте 30% от каждой их оплаты — пожизненно.",
+    en: "Invite clients and earn 30% of every payment they make — for life.",
+  },
+  "partners.yourLink": { ru: "Ваша реферальная ссылка", en: "Your referral link" },
+  "partners.copy": { ru: "Копировать", en: "Copy" },
+  "partners.copied": { ru: "Скопировано ✓", en: "Copied ✓" },
+  "partners.commission": { ru: "Комиссия", en: "Commission" },
+  "partners.invited": { ru: "Приглашено", en: "Invited" },
+  "partners.earned": { ru: "Заработано", en: "Earned" },
+  "partners.how": { ru: "Как это работает", en: "How it works" },
+  "partners.step1": {
+    ru: "Отправьте свою ссылку клиенту или разместите её на сайте.",
+    en: "Send your link to a client or post it on your website.",
+  },
+  "partners.step2": {
+    ru: "Клиент регистрируется и оплачивает любой тариф.",
+    en: "The client registers and pays for any plan.",
+  },
+  "partners.step3": {
+    ru: "Вы получаете 30% на баланс с каждой его оплаты — навсегда.",
+    en: "You get 30% on your balance from each of their payments — forever.",
+  },
+  "partners.close": { ru: "Закрыть", en: "Close" },
+
+  "order.title": { ru: "Заказать бота под ключ", en: "Order a custom bot" },
+  "order.lead": {
+    ru: "Наша команда соберёт бота под вашу задачу: сценарии, интеграции, оплату и рассылки. Оставьте контакт — свяжемся в течение дня.",
+    en: "Our team will build a bot for your task: scenarios, integrations, payments and broadcasts. Leave a contact — we'll reach out within a day.",
+  },
+  "order.contact": { ru: "Telegram или e-mail для связи", en: "Telegram or e-mail to contact you" },
+  "order.task": { ru: "Коротко опишите задачу", en: "Briefly describe the task" },
+  "order.send": { ru: "Отправить заявку", en: "Send request" },
+  "order.sent": { ru: "Заявка отправлена — мы свяжемся с вами!", en: "Request sent — we'll contact you!" },
 };
 
 export function t(key: string, lang?: Lang): string {

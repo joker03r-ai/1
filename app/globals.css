@@ -237,6 +237,89 @@ select {
   color: var(--ink-soft);
   font-size: 12px;
   font-weight: 600;
+  border: 0;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, transform 0.1s;
+}
+.chip:hover {
+  background: color-mix(in srgb, var(--accent) 14%, var(--line-soft));
+  color: var(--accent);
+}
+.chip:active {
+  transform: translateY(1px);
+}
+
+/* ── Партнёрская программа / Заказать бота ── */
+.pt-lead {
+  color: var(--ink-soft);
+  font-size: 14px;
+  line-height: 1.5;
+  margin: 6px 0 16px;
+}
+.pt-link {
+  display: flex;
+  gap: 8px;
+  margin-top: 6px;
+}
+.pt-link__inp {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--line-soft);
+  color: var(--ink);
+  font-size: 13px;
+}
+.pt-link__btn {
+  white-space: nowrap;
+}
+.pt-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-top: 16px;
+}
+.pt-stat {
+  text-align: center;
+  padding: 14px 8px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--line-soft);
+}
+.pt-stat__v {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--accent);
+}
+.pt-stat__l {
+  font-size: 12px;
+  color: var(--ink-soft);
+  margin-top: 4px;
+}
+.pt-steps {
+  margin: 6px 0 0;
+  padding-left: 20px;
+  color: var(--ink-soft);
+  font-size: 14px;
+  line-height: 1.6;
+}
+.pt-steps li {
+  margin-bottom: 6px;
+}
+.pt-inp {
+  width: 100%;
+  padding: 11px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--line-soft);
+  color: var(--ink);
+  font-size: 14px;
+  margin-bottom: 10px;
+}
+.pt-inp:focus {
+  outline: none;
+  border-color: var(--accent);
 }
 
 /* ---------- Main ---------- */
@@ -812,12 +895,12 @@ table.tariff tr:last-child td {
 /* ---------- Support widget (bottom-left) ---------- */
 .support {
   position: fixed;
-  left: 20px;
+  right: 20px;
   bottom: 20px;
   z-index: 60;
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: flex-end;
   gap: 12px;
 }
 
