@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Topbar from "@/components/Topbar";
 import { IconSpark, IconChevron } from "@/components/icons";
@@ -264,7 +263,6 @@ const TEMPLATES: Tmpl[] = [
 const STEPS = ["Цель", "Площадка", "О бизнесе", "Сценарий", "Ассистент", "Запуск"];
 
 export default function WizardClient() {
-  const router = useRouter();
   const [step, setStep] = useState(0);
 
   const [goal, setGoal] = useState<string>("");
@@ -281,6 +279,8 @@ export default function WizardClient() {
   const [error, setError] = useState("");
   const [testInput, setTestInput] = useState("");
   const [testLog, setTestLog] = useState<{ me: boolean; text: string }[]>([]);
+  const [launched, setLaunched] = useState(false);
+  const [builtId, setBuiltId] = useState("");
 
   // Автозаполнение карточки бизнеса по сайту.
   const [analyzing, setAnalyzing] = useState(false);
@@ -367,12 +367,20 @@ export default function WizardClient() {
     });
   }
 
+  // Приветствие бота в предпросмотре — первая реплика выбранного сценария.
+  const greeting =
+    tmplObj?.example.find((m) => !m.me)?.text ||
+    `Здравствуйте! ${biz.name ? `Это ${biz.name}. ` : ""}Чем могу помочь?`;
+
   function sendTest() {
     const v = testInput.trim();
     if (!v) return;
+    // Ответы берём из примера сценария по порядку (приветствие уже показано).
+    const botLines = (tmplObj?.example || []).filter((m) => !m.me).map((m) => m.text);
+    const replyIdx = testLog.filter((m) => !m.me).length + 1;
     const reply =
-      `${asstName}: Здравствуйте! ${biz.name ? `Это ${biz.name}. ` : ""}` +
-      `Подскажу по вашему вопросу и помогу оставить заявку. Что именно вас интересует?`;
+      botLines[replyIdx] ||
+      `Подскажу подробнее и помогу оставить заявку 🙂 ${biz.contacts ? `Или свяжитесь напрямую: ${biz.contacts}.` : "Оставьте контакт — менеджер свяжется с вами."}`;
     setTestLog((l) => [...l, { me: true, text: v }, { me: false, text: reply }]);
     setTestInput("");
   }
@@ -420,7 +428,9 @@ export default function WizardClient() {
         updatedAt: Date.now(),
       };
       upsertScenario(s);
-      router.push(`/dashboard/scenarios/${s.id}`);
+      setBuiltId(s.id);
+      setBuilding(false);
+      setLaunched(true);
     } catch {
       // Не удалось собрать через ИИ — ведём в раздел сценариев.
       setBuilding(false);
@@ -682,10 +692,10 @@ export default function WizardClient() {
         )}
 
         {/* Шаг 6 — проверка и запуск */}
-        {step === 5 && (
+        {step === 5 && !launched && (
           <div className="wz-panel">
             <h1 className="h1 wz-h1">Проверьте и запустите</h1>
-            <p className="muted wz-sub">Готово к запуску. Проверьте параметры и отправьте тестовое сообщение.</p>
+            <p className="muted wz-sub">Готовый бот — в окне предпросмотра. Напишите тестовое сообщение и посмотрите ответ.</p>
 
             <div className="wz-summary">
               <div className="wz-sum"><span>Задача</span><b>{goalObj?.label || "—"}</b></div>
@@ -696,9 +706,9 @@ export default function WizardClient() {
             </div>
 
             <div className="wz-preview">
-              <div className="wz-preview__head">🤖 Предпросмотр диалога</div>
+              <div className="wz-preview__head">🤖 Предпросмотр диалога · {asstName}</div>
               <div className="wz-preview__body">
-                {testLog.length === 0 && <div className="muted" style={{ fontSize: 13 }}>Напишите сообщение, чтобы увидеть ответ бота.</div>}
+                <div className="wz-msg">{greeting}</div>
                 {testLog.map((m, i) => (
                   <div key={i} className={`wz-msg${m.me ? " me" : ""}`}>{m.text}</div>
                 ))}
@@ -720,7 +730,25 @@ export default function WizardClient() {
           </div>
         )}
 
+        {/* Экран успеха после запуска */}
+        {step === 5 && launched && (
+          <div className="wz-panel wz-launched">
+            <div className="wz-launched__ico">✅</div>
+            <h1 className="h1" style={{ marginBottom: 8 }}>Бот готов и уже может принимать сообщения</h1>
+            <p className="muted" style={{ maxWidth: 480, margin: "0 auto 24px" }}>
+              Сценарий собран и сохранён. Подключите канал — и бот начнёт отвечать клиентам
+              в мессенджере. Всё можно доработать в редакторе.
+            </p>
+            <div className="wz-launched__actions">
+              <Link href={`/dashboard/scenarios/${builtId}`} className="btn btn-primary btn-lg">Открыть в редакторе</Link>
+              <Link href="/dashboard/channels" className="btn btn-lg">Подключить канал</Link>
+              <Link href="/dashboard" className="btn">На главную</Link>
+            </div>
+          </div>
+        )}
+
         {/* Навигация */}
+        {!launched && (
         <div className="wz-nav">
           {step > 0 ? (
             <button className="btn" onClick={() => setStep((s) => s - 1)} disabled={building}>← Назад</button>
@@ -738,6 +766,7 @@ export default function WizardClient() {
             </button>
           )}
         </div>
+        )}
       </div>
 
       {/* Пример сценария */}
