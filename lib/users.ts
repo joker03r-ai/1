@@ -7,7 +7,16 @@ export type BotUser = {
   channel: "Telegram" | "ВКонтакте" | "WhatsApp" | "Сайт";
   firstSeen: string; // дата
   values: Record<string, string>; // значения переменных по имени
+  blocked?: boolean; // заблокирован администратором
 };
+
+// Детерминированный цвет аватара по имени — чтобы у каждого был стабильный оттенок.
+const AVATAR_COLORS = ["#6c5ce7", "#2b6ef6", "#16a34a", "#ec4899", "#f59e0b", "#0ea5e9", "#8b5cf6", "#ef4444"];
+export function avatarColor(seed: string): string {
+  let h = 0;
+  for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
+  return AVATAR_COLORS[h % AVATAR_COLORS.length];
+}
 
 const KEY = "sb_users";
 

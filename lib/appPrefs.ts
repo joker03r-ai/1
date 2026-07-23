@@ -2,6 +2,7 @@
 
 export type Accent = "violet" | "blue" | "green" | "rose" | "graphite";
 export type Lang = "ru" | "en";
+export type Theme = "light" | "dark";
 
 export const ACCENTS: { id: Accent; label: string; color: string }[] = [
   { id: "violet", label: "Фиолетовая", color: "#6c5ce7" },
@@ -39,4 +40,22 @@ export function saveLang(l: Lang) {
     localStorage.setItem("sb_lang", l);
   } catch {}
   if (typeof document !== "undefined") document.documentElement.lang = l;
+}
+
+export function loadTheme(): Theme {
+  if (typeof window === "undefined") return "light";
+  return (localStorage.getItem("sb_theme") as Theme) || "light";
+}
+
+export function applyTheme(t: Theme) {
+  if (typeof document === "undefined") return;
+  if (t === "dark") document.documentElement.setAttribute("data-theme", "dark");
+  else document.documentElement.removeAttribute("data-theme");
+}
+
+export function saveTheme(t: Theme) {
+  try {
+    localStorage.setItem("sb_theme", t);
+  } catch {}
+  applyTheme(t);
 }

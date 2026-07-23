@@ -3,17 +3,17 @@
 import { useEffect, useState } from "react";
 import { IconGear } from "./icons";
 import { useEsc } from "@/lib/useEsc";
-import { ACCENTS, Accent, Lang, loadAccent, saveAccent, loadLang, saveLang } from "@/lib/appPrefs";
+import { ACCENTS, Accent, Theme, loadAccent, saveAccent, loadTheme, saveTheme } from "@/lib/appPrefs";
 import { t } from "@/lib/i18n";
 
 export default function SettingsButton() {
   const [open, setOpen] = useState(false);
   const [accent, setAccent] = useState<Accent>("violet");
-  const [lang, setLang] = useState<Lang>("ru");
+  const [theme, setTheme] = useState<Theme>("light");
 
   useEffect(() => {
     setAccent(loadAccent());
-    setLang(loadLang());
+    setTheme(loadTheme());
   }, []);
   useEsc(open, () => setOpen(false));
 
@@ -21,16 +21,14 @@ export default function SettingsButton() {
     setAccent(a);
     saveAccent(a);
   }
-  function pickLang(l: Lang) {
-    setLang(l);
-    saveLang(l);
-    // Перезагружаем, чтобы навигация и надписи применились сразу.
-    setTimeout(() => location.reload(), 150);
+  function pickTheme(v: Theme) {
+    setTheme(v);
+    saveTheme(v);
   }
 
   return (
     <>
-      <button className="topbar-icon-btn" onClick={() => setOpen(true)} aria-label={t("settings.title", lang)} title={t("settings.title", lang)}>
+      <button className="topbar-icon-btn" onClick={() => setOpen(true)} aria-label={t("settings.title")} title={t("settings.title")}>
         <IconGear className="ico" />
       </button>
 
@@ -38,11 +36,11 @@ export default function SettingsButton() {
         <div className="modal-overlay" onClick={() => setOpen(false)}>
           <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 420 }}>
             <div className="modal__head">
-              <b>⚙ {t("settings.title", lang)}</b>
+              <b>⚙ {t("settings.title")}</b>
               <button className="fn__x dark" onClick={() => setOpen(false)}>✕</button>
             </div>
 
-            <div className="set-label">{t("settings.theme", lang)}</div>
+            <div className="set-label">{t("settings.theme")}</div>
             <div className="set-accents">
               {ACCENTS.map((a) => (
                 <button
@@ -59,14 +57,20 @@ export default function SettingsButton() {
               ))}
             </div>
 
-            <div className="set-label" style={{ marginTop: 18 }}>{t("settings.language", lang)}</div>
-            <div className="set-lang">
-              <button className={`set-lang__btn${lang === "ru" ? " on" : ""}`} onClick={() => pickLang("ru")}>🇷🇺 Русский</button>
-              <button className={`set-lang__btn${lang === "en" ? " on" : ""}`} onClick={() => pickLang("en")}>🇬🇧 English</button>
+            <div className="set-label" style={{ marginTop: 18 }}>{t("settings.mode")}</div>
+            <div className="set-modes">
+              <button className={`set-mode${theme === "light" ? " on" : ""}`} onClick={() => pickTheme("light")}>
+                <span className="set-mode__pv light">☀️</span>
+                <span>{t("settings.light")}</span>
+              </button>
+              <button className={`set-mode${theme === "dark" ? " on" : ""}`} onClick={() => pickTheme("dark")}>
+                <span className="set-mode__pv dark">🌙</span>
+                <span>{t("settings.dark")}</span>
+              </button>
             </div>
 
             <div className="row" style={{ justifyContent: "flex-end", marginTop: 20 }}>
-              <button className="btn btn-primary" onClick={() => setOpen(false)}>{t("settings.done", lang)}</button>
+              <button className="btn btn-primary" onClick={() => setOpen(false)}>{t("settings.done")}</button>
             </div>
           </div>
         </div>

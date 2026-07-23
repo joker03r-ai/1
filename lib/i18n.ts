@@ -27,6 +27,9 @@ export const STR: Dict = {
 
   "settings.title": { ru: "Настройки", en: "Settings" },
   "settings.theme": { ru: "Цветовая гамма", en: "Color theme" },
+  "settings.mode": { ru: "Оформление", en: "Appearance" },
+  "settings.light": { ru: "Светлое", en: "Light" },
+  "settings.dark": { ru: "Тёмное", en: "Dark" },
   "settings.language": { ru: "Язык", en: "Language" },
   "settings.done": { ru: "Готово", en: "Done" },
 
