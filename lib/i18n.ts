@@ -12,6 +12,8 @@ export const STR: Dict = {
   "nav.assistant": { ru: "ИИ-ассистент", en: "AI assistant" },
   "nav.clients": { ru: "Клиенты", en: "Clients" },
   "nav.promo": { ru: "Продвижение", en: "Promotion" },
+  "nav.parsing": { ru: "Парсинг", en: "Parsing" },
+  "nav.content": { ru: "Контент", en: "Content" },
   "nav.analytics": { ru: "Аналитика", en: "Analytics" },
   "nav.team": { ru: "Команда", en: "Team" },
   "nav.settings": { ru: "Настройки", en: "Settings" },

@@ -3276,6 +3276,53 @@ img, svg, video, canvas { max-width: 100%; }
 .cw-plan__table td:last-child { color: var(--ink-soft); white-space: nowrap; }
 @media (max-width: 720px) { .cw-imgs__grid { grid-template-columns: 1fr 1fr; } }
 
+/* ---------- Разделы Парсинг и Контент ---------- */
+.sec-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
+.pr-flow { font-size: 12.5px; color: var(--ink-soft); background: var(--line-soft); border-radius: 999px; padding: 7px 14px; display: inline-block; margin-bottom: 16px; }
+.pr-flow b { color: var(--violet-700); }
+
+.pr-grid { display: grid; grid-template-columns: 1.4fr 1fr; gap: 16px; align-items: start; }
+.pr-card { padding: 16px 18px; }
+.pr-card__t { font-weight: 800; font-size: 15px; margin-bottom: 12px; }
+.pr-note { margin-top: 12px; font-size: 13px; color: var(--violet-700); background: var(--violet-050); border-radius: 10px; padding: 9px 12px; font-weight: 600; }
+.pr-hist { display: flex; flex-direction: column; gap: 8px; }
+.pr-hist__row { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--line-soft); }
+.pr-hist__n { font-size: 12px; font-weight: 700; color: var(--violet-700); background: var(--violet-050); border-radius: 999px; padding: 3px 10px; white-space: nowrap; }
+.pr-found__head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+.pr-found__grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.pr-mat { display: flex; gap: 10px; align-items: flex-start; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; cursor: pointer; }
+.pr-mat.on { border-color: var(--violet); background: var(--violet-050); }
+.pr-mat input { margin-top: 3px; }
+.pr-mat__ico { font-size: 18px; }
+.pr-mat__body { display: flex; flex-direction: column; min-width: 0; font-size: 13px; gap: 1px; }
+.pr-mat__body b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pr-mat__text { font-size: 12px; color: var(--ink-soft); margin-top: 3px; }
+.pr-actions { display: flex; align-items: center; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+@media (max-width: 860px) { .pr-grid { grid-template-columns: 1fr; } .pr-found__grid { grid-template-columns: 1fr; } }
+
+.ct-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
+.ct-tab { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); background: var(--panel); border-radius: 10px; padding: 8px 14px; font-size: 13.5px; font-weight: 600; color: var(--ink-soft); cursor: pointer; }
+.ct-tab.on { border-color: var(--violet); background: var(--violet-050); color: var(--violet-700); }
+.ct-tab__b { font-style: normal; font-size: 11px; font-weight: 800; background: var(--violet); color: #fff; border-radius: 999px; padding: 1px 7px; }
+.ct-card { padding: 18px 20px; }
+.ct-hint { background: var(--violet-050); color: var(--violet-700); border-radius: 10px; padding: 10px 14px; font-size: 13px; font-weight: 600; margin-bottom: 16px; }
+.ct-empty { text-align: center; padding: 30px 16px; color: var(--ink-soft); font-size: 14px; }
+.ct-empty__acts { display: flex; gap: 10px; justify-content: center; margin-top: 14px; flex-wrap: wrap; }
+.ct-drafts { display: flex; flex-direction: column; gap: 10px; }
+.ct-draft { border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; background: var(--panel); }
+.ct-draft__body { display: flex; flex-direction: column; gap: 4px; }
+.ct-draft__tag { font-size: 11px; font-weight: 700; color: var(--ink-faint); text-transform: uppercase; letter-spacing: .03em; }
+.ct-draft__text { font-size: 13.5px; line-height: 1.5; white-space: pre-wrap; }
+.ct-draft__acts { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+
+.pc-list { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+.pc-item { display: flex; gap: 10px; align-items: flex-start; border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; background: var(--panel); cursor: pointer; }
+.pc-item.on { border-color: var(--violet); background: var(--violet-050); }
+.pc-item input { margin-top: 3px; }
+.pc-item__body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.pc-item__tag { font-size: 11px; font-weight: 700; color: var(--ink-faint); text-transform: uppercase; letter-spacing: .03em; }
+.pc-item__text { font-size: 13.5px; }
+
 /* ---------- Боты: фактический статус и диагностика Telegram ---------- */
 .bots-card { padding: 0; overflow: hidden; }
 .bots-card.cur { border-color: var(--violet); }

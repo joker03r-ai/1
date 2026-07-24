@@ -11,6 +11,8 @@ import {
   IconUsers,
   IconSend,
   IconChart,
+  IconUserParse,
+  IconDoc,
   IconPlug,
   IconTeam,
   IconGear,
@@ -29,6 +31,8 @@ const MAIN = [
   { href: "/dashboard/scenarios", key: "nav.scenarios", Icon: IconFlow },
   { href: "/dashboard/assistant", key: "nav.assistant", Icon: IconSpark },
   { href: "/dashboard/users", key: "nav.clients", Icon: IconUsers },
+  { href: "/dashboard/parsing", key: "nav.parsing", Icon: IconUserParse },
+  { href: "/dashboard/content", key: "nav.content", Icon: IconDoc },
   { href: "/dashboard/promotion", key: "nav.promo", Icon: IconSend },
   { href: "/dashboard/stats", key: "nav.analytics", Icon: IconChart },
 ];
