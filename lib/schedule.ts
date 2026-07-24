@@ -1,13 +1,24 @@
 // Запланированные публикации (расписание постинга).
 
-export type PostStatus = "draft" | "planned" | "published" | "paused" | "error";
+export type PostStatus = "draft" | "planned" | "published" | "review" | "paused" | "error";
 
 export const STATUS_LABELS: Record<PostStatus, string> = {
   draft: "Черновик",
   planned: "Запланировано",
   published: "Опубликовано",
+  review: "На согласовании",
   paused: "Приостановлено",
   error: "Ошибка",
+};
+
+// Единая палитра статусов (класс + подпись + цвет-точка).
+export const STATUS_META: Record<PostStatus, { label: string; cls: string }> = {
+  draft: { label: "Черновик", cls: "s-draft" },
+  planned: { label: "Запланировано", cls: "s-planned" },
+  published: { label: "Опубликовано", cls: "s-published" },
+  review: { label: "На согласовании", cls: "s-review" },
+  paused: { label: "Приостановлено", cls: "s-paused" },
+  error: { label: "Ошибка", cls: "s-error" },
 };
 
 export type ScheduledPost = {
@@ -21,6 +32,13 @@ export type ScheduledPost = {
   repeat: string;
   type: string; // тип контента
   status: PostStatus;
+  // Дополнительно (новый редактор контента)
+  title?: string; // заголовок / краткое имя
+  image?: string; // data-URI миниатюры
+  createdBy?: "manual" | "ai"; // способ создания
+  author?: string; // автор
+  cta?: string; // призыв к действию
+  buttons?: { text: string; url: string }[]; // инлайн-кнопки
 };
 
 const KEY = "sb_schedule";

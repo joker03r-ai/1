@@ -9,7 +9,7 @@ import {
 import { CITIES, cityById, searchCities, wallToInstant, formatInTz, mskLabel } from "@/lib/tz";
 
 const STATUS_COLOR: Record<PostStatus, string> = {
-  draft: "s-draft", planned: "s-planned", published: "s-published", paused: "s-paused", error: "s-error",
+  draft: "s-draft", planned: "s-planned", published: "s-published", review: "s-review", paused: "s-paused", error: "s-error",
 };
 const REPEATS = ["Один раз", "Каждый день", "По будням", "Каждую неделю", "Несколько раз в день", "По индивидуальному графику", "Повторять до даты"];
 const TYPES = ["Текст", "Изображение", "Текст + фото", "Видео", "Опрос"];

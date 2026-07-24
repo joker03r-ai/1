@@ -128,6 +128,13 @@ export function formatInTz(instant: Date, tz: string): string {
   return new Intl.DateTimeFormat("ru-RU", { hour: "2-digit", minute: "2-digit", timeZone: tz }).format(instant);
 }
 
+// Метка смещения от UTC, напр. «UTC+3» (с учётом DST на конкретный момент).
+export function utcLabel(tz: string, ref = new Date()): string {
+  const off = Math.round(tzOffsetMinutes(tz, ref) / 60);
+  if (off === 0) return "UTC";
+  return `UTC${off > 0 ? "+" : "−"}${Math.abs(off)}`;
+}
+
 // Метка смещения относительно Москвы, напр. «МСК+5».
 export function mskLabel(tz: string, ref = new Date()): string {
   const base = tzOffsetMinutes("Europe/Moscow", ref);
