@@ -29,9 +29,24 @@ export type KbFile = { name: string; type: string; size: number; text?: string }
 
 export type Provider = "builtin" | "anthropic" | "openai";
 export const PROVIDERS: { id: Provider; label: string; needsKey: boolean; models: string[]; keyHint: string }[] = [
-  { id: "builtin", label: "BotPilot (встроенный)", needsKey: false, models: ["Быстрый", "Умный"], keyHint: "Ключ не нужен — работает из коробки." },
-  { id: "anthropic", label: "Anthropic (Claude)", needsKey: true, models: ["claude-haiku-4-5-20251001", "claude-sonnet-4-5", "claude-opus-4-1"], keyHint: "Ключ вида sk-ant-… с console.anthropic.com" },
-  { id: "openai", label: "OpenAI (GPT)", needsKey: true, models: ["gpt-4o-mini", "gpt-4o", "gpt-4.1-mini"], keyHint: "Ключ вида sk-… с platform.openai.com" },
+  { id: "builtin", label: "Встроенная модель BotPilot", needsKey: false, models: ["Быстрый", "Умный"], keyHint: "Ключ не нужен — работает из коробки." },
+  {
+    id: "anthropic", label: "Anthropic (Claude)", needsKey: true,
+    models: [
+      "claude-opus-4-8", "claude-sonnet-5", "claude-haiku-4-5-20251001",
+      "claude-opus-4-1", "claude-sonnet-4-5", "claude-3-7-sonnet-latest",
+      "claude-3-5-sonnet-latest", "claude-3-5-haiku-latest", "claude-3-opus-latest",
+    ],
+    keyHint: "Ключ вида sk-ant-… с console.anthropic.com",
+  },
+  {
+    id: "openai", label: "OpenAI (ChatGPT)", needsKey: true,
+    models: [
+      "gpt-4o", "gpt-4o-mini", "gpt-4.1", "gpt-4.1-mini", "gpt-4.1-nano",
+      "gpt-4-turbo", "o3", "o3-mini", "o1", "o1-mini", "gpt-3.5-turbo",
+    ],
+    keyHint: "Ключ вида sk-… с platform.openai.com",
+  },
 ];
 
 export type Length = "short" | "medium" | "long";
