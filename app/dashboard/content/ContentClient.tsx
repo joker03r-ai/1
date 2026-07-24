@@ -4,13 +4,13 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import Topbar from "@/components/Topbar";
 import {
-  IconSpark, IconCalendar, IconDoc, IconLayers, IconCheck, IconPlus, IconChevron,
-  IconChat, IconChart, IconUserParse, IconSend, IconGlobe,
+  IconSpark, IconCalendar, IconDoc, IconLayers, IconPlus, IconChevron,
+  IconChat, IconUserParse, IconSend, IconGlobe,
 } from "@/components/icons";
 import { Draft, loadDrafts, addDraft, removeDraft } from "@/lib/content";
-import { ScheduledPost, PostStatus, STATUS_META, loadPosts, upsertPost, removePost, savePosts, pid } from "@/lib/schedule";
+import { ScheduledPost, PostStatus, STATUS_META, loadPosts, upsertPost, removePost, pid } from "@/lib/schedule";
 import { Bot, loadBots, currentBot } from "@/lib/bots";
-import { CITIES, cityById, utcLabel } from "@/lib/tz";
+import { cityById, utcLabel } from "@/lib/tz";
 
 /* ================= утилиты ================= */
 const TZ_CHOICES = ["moscow", "spb", "kaliningrad", "samara", "ekb", "omsk", "nsk", "krasnoyarsk", "irkutsk", "ulanude", "yakutsk", "vladivostok", "magadan", "kamchatka", "minsk", "almaty", "tbilisi", "istanbul", "dubai", "london", "newyork"];
@@ -22,6 +22,15 @@ const KINDS: { id: string; label: string }[] = [
 ];
 const RU_MONTHS = ["январь", "февраль", "март", "апрель", "май", "июнь", "июль", "август", "сентябрь", "октябрь", "ноябрь", "декабрь"];
 const RU_DOW = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
+
+// Закрытие оверлеев по Escape.
+function useEscape(onClose: () => void) {
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", h);
+    return () => window.removeEventListener("keydown", h);
+  }, [onClose]);
+}
 
 function ymd(d: Date) { return d.toISOString().slice(0, 10); }
 function todayYmd() { return ymd(new Date()); }
@@ -212,8 +221,11 @@ export default function ContentClient() {
 
         {tab === "drafts" && (
           <DraftsView drafts={drafts} onRefresh={refresh} onEdit={(d: Draft) => {
-            setSide({ id: pid(), text: d.text, title: d.text.slice(0, 40), channel, date: todayYmd(), time: "12:00", cityId, regionMode: "sim", repeat: "Один раз", type: d.type, status: "draft", createdBy: d.source === "ИИ" ? "ai" : "manual", author: "Вы", image: d.image });
-            removeDraft(d.id); refresh();
+            // Сразу сохраняем пост в календаре (иначе при закрытии панели без
+            // правок черновик уже удалён, а пост не создан — потеря данных).
+            const np: ScheduledPost = { id: pid(), text: d.text, title: d.text.slice(0, 40), channel, date: todayYmd(), time: "12:00", cityId, regionMode: "sim", repeat: "Один раз", type: d.type, status: "draft", createdBy: d.source === "ИИ" ? "ai" : "manual", author: "Вы", image: d.image };
+            upsertPost(np); removeDraft(d.id); refresh();
+            setSide(np); setTab("calendar");
           }} onAi={() => openCreate("ai")} onManual={() => openCreate("manual")} />
         )}
 
@@ -222,7 +234,7 @@ export default function ContentClient() {
         )}
       </div>
 
-      {side && <SidePanel post={side} bot={sel?.bot} chans={chans} onClose={() => setSide(null)} onSave={save} onDelete={del} defaultCity={cityId} />}
+      {side && <SidePanel post={side} bot={sel?.bot} chans={chans} onClose={() => setSide(null)} onSave={save} onDelete={del} overLimit={posts.filter((p) => p.status === "planned").length >= 100} />}
       {wizard && <AiWizard initSource={wizard.source} channel={channel} cityId={cityId} onClose={() => setWizard(null)} onDone={() => { setWizard(null); refresh(); }} />}
       {series && <SeriesModal channel={channel} cityId={cityId} onClose={() => setSeries(false)} onDone={() => { setSeries(false); refresh(); }} />}
     </>
@@ -441,18 +453,24 @@ function checksFor(p: ScheduledPost, bot?: Bot, limitReached?: boolean) {
   return out;
 }
 
-function SidePanel({ post, bot, chans, onClose, onSave, onDelete, defaultCity }: any) {
+function SidePanel({ post, bot, chans, onClose, onSave, onDelete, overLimit }: any) {
   const [p, setP] = useState<ScheduledPost>(post);
   const first = useRef(true);
-  useEffect(() => { setP(post); first.current = true; }, [post.id]);
+  const origCity = useRef(post.cityId);
+  useEffect(() => { setP(post); first.current = true; origCity.current = post.cityId; }, [post.id]);
   // Автосохранение
   useEffect(() => {
     if (first.current) { first.current = false; return; }
     const t = setTimeout(() => onSave(p), 500); return () => clearTimeout(t);
   }, [p]); // eslint-disable-line
   const patch = (x: Partial<ScheduledPost>) => setP((cur) => ({ ...cur, ...x }));
-  const checks = checksFor(p, bot);
+  // Смена статуса: обновляем И локальное состояние, и хранилище — иначе
+  // следующее автосохранение вернуло бы прежний статус.
+  function commit(status: PostStatus) { const np = { ...p, status }; setP(np); onSave(np); onClose(); }
+  const checks = checksFor(p, bot, overLimit);
   const canSchedule = checks.every((c) => c.ok);
+  const cityChanged = p.cityId !== origCity.current;
+  useEscape(onClose);
 
   function aiAct(kind: string) {
     if (kind === "shorter") patch({ text: (p.text || "").split(/(?<=[.!?])\s+/).slice(0, 2).join(" ") });
@@ -502,6 +520,7 @@ function SidePanel({ post, bot, chans, onClose, onSave, onDelete, defaultCity }:
           </div>
           <label className="af"><span>Часовой пояс</span><select className="input" value={p.cityId} onChange={(e) => patch({ cityId: e.target.value })}>{TZ_CHOICES.map((id) => { const c = cityById(id); return <option key={id} value={id}>{c?.name} · {utcLabel(c!.tz)}</option>; })}</select></label>
           <div className="cc-when">🕑 {timeLabel(p.time, p.cityId)}</div>
+          {cityChanged && <div className="cc-tzwarn">Пояс изменён: время «{p.time}» останется прежним, но фактический момент публикации сместится.</div>}
 
           {/* Проверки перед планированием */}
           <div className="cc-checks">
@@ -523,9 +542,9 @@ function SidePanel({ post, bot, chans, onClose, onSave, onDelete, defaultCity }:
         <div className="cc-side__foot">
           <button className="user-act del" onClick={() => onDelete(p.id)} type="button">Удалить</button>
           <div className="pw-row" style={{ gap: 8 }}>
-            <button className="btn" onClick={() => onSave({ ...p, status: "review" })} type="button">На согласование</button>
-            <button className="btn" onClick={() => onSave({ ...p, status: "planned" })} type="button" disabled={!canSchedule} title={canSchedule ? "" : "Исправьте ошибки готовности"}><IconCalendar className="ico" /> Запланировать</button>
-            <button className="btn btn-primary" onClick={() => onSave({ ...p, status: "published" })} type="button" disabled={!canSchedule}><IconSend className="ico" /> Опубликовать</button>
+            <button className="btn" onClick={() => commit("review")} type="button">На согласование</button>
+            <button className="btn" onClick={() => commit("planned")} type="button" disabled={!canSchedule} title={canSchedule ? "" : "Исправьте ошибки готовности"}><IconCalendar className="ico" /> Запланировать</button>
+            <button className="btn btn-primary" onClick={() => commit("published")} type="button" disabled={!canSchedule}><IconSend className="ico" /> Опубликовать</button>
           </div>
         </div>
       </aside>
@@ -551,6 +570,7 @@ function AiWizard({ initSource, channel, cityId, onClose, onDone }: any) {
   const [date, setDate] = useState(todayYmd());
   const [time, setTime] = useState("18:00");
   const draftId = useRef<string>("");
+  useEscape(onClose);
 
   // автосохранение черновика
   useEffect(() => {
@@ -673,6 +693,7 @@ function SeriesModal({ channel, cityId, onClose, onDone }: any) {
   const [startDate, setStartDate] = useState(todayYmd());
   const [time, setTime] = useState("12:00");
   const [everyN, setEveryN] = useState("1");
+  useEscape(onClose);
   function create() {
     const n = Math.min(Math.max(Number(count) || 1, 1), 30); const step = Math.max(Number(everyN) || 1, 1);
     const base = parseYmd(startDate);

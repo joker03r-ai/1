@@ -69,13 +69,19 @@ function log(job: Job, msg: string, kind: LogRow["kind"] = "info") {
 
 // Проверка пользователя по фильтрам профиля/статуса.
 function hasPhoto(u: any): boolean { return !!u?.photo && u.photo.className !== "UserProfilePhotoEmpty"; }
-function passFilters(u: any, f: AudienceFilters): boolean {
+function passFilters(u: any, f: AudienceFilters, checkStatus = false): boolean {
   if (f.skipBots && u.bot) return false;
   if (f.skipDeleted && u.deleted) return false;
   if (f.skipScam && (u.scam || u.fake)) return false;
   if (f.onlyUsername && !u.username) return false;
   if (f.onlyPhoto && !hasPhoto(u)) return false;
   if (f.onlyPremium && !u.premium) return false;
+  // «Только активные» имеет смысл лишь для списка участников (где есть статус).
+  // В режиме «по сообщениям» пользователь активен по факту написанного сообщения.
+  if (f.onlyActive && checkStatus) {
+    const st = u.status?.className || "";
+    if (st === "UserStatusEmpty" || st === "UserStatusLastMonth") return false;
+  }
   return true;
 }
 
@@ -297,7 +303,7 @@ async function runAudience(job: Job, acc: any, opts: AudienceOpts) {
           if (!u || u.className !== "User") { job.skipped++; continue; }
           const id = String(u.id);
           if (seen.has(id)) { job.skipped++; continue; }
-          if (!passFilters(u, opts.filters)) { job.skipped++; continue; }
+          if (!passFilters(u, opts.filters, true)) { job.skipped++; continue; }
           seen.add(id); job.found++;
           job.audience.push({ user_id: id, username: u.username ? "@" + u.username : "", name: personName(u), source: baseUser, activity_date: dstr(u?.participant?.date), premium: !!u.premium });
           job.saved++;
