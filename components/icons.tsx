@@ -132,3 +132,31 @@ export const IconHelp = base(
     <path d="M12 17h.01" />
   </>
 );
+
+export const IconCalendar = base(
+  <>
+    <rect x="3" y="4.5" width="18" height="16" rx="2.5" />
+    <path d="M3 9h18M8 3v3M16 3v3" />
+  </>
+);
+export const IconCheck = base(<path d="M4 12.5 9 17.5 20 6.5" />);
+export const IconArrowRight = base(<path d="M5 12h14M13 6l6 6-6 6" />);
+export const IconBook = base(
+  <>
+    <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5z" />
+    <path d="M4 20.5A2.5 2.5 0 0 1 6.5 18H20" />
+  </>
+);
+export const IconRocket = base(
+  <>
+    <path d="M5 15c-1.5 1.5-2 5-2 5s3.5-.5 5-2c.8-.8.9-2 .2-2.8-.8-.7-2-.6-2.7.2z" />
+    <path d="M9 12a12 12 0 0 1 8-9c1 4-.5 8-4 11l-3 1-2-2 1-1z" />
+    <circle cx="14.5" cy="8.5" r="1.3" />
+  </>
+);
+export const IconLayers = base(
+  <>
+    <path d="M12 3 3 8l9 5 9-5-9-5z" />
+    <path d="M3 13l9 5 9-5M3 18l9 5 9-5" opacity=".55" />
+  </>
+);

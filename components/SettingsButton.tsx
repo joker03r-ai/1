@@ -3,96 +3,118 @@
 import { useEffect, useState } from "react";
 import { IconGear } from "./icons";
 import { useEsc } from "@/lib/useEsc";
-import { ACCENTS, Accent, Theme, loadAccent, saveAccent, loadTheme, saveTheme, loadHue, saveHue } from "@/lib/appPrefs";
+import {
+  ACCENTS, Accent, Theme, THEMES, FontColor, Density, GradIntensity, isThemeDark,
+  loadAccent, saveAccent, loadTheme, saveTheme, loadHue, saveHue,
+  loadFontColor, saveFontColor, loadDensity, saveDensity, loadGrad, saveGrad, loadAnim, saveAnim,
+} from "@/lib/appPrefs";
 import { t } from "@/lib/i18n";
+
+const FONTS: { id: FontColor; label: string }[] = [
+  { id: "black", label: "Чёрный" },
+  { id: "gray", label: "Тёмно-серый" },
+  { id: "white", label: "Белый" },
+];
+const GRADS: { id: GradIntensity; label: string }[] = [
+  { id: "off", label: "Выкл" },
+  { id: "soft", label: "Мягко" },
+  { id: "normal", label: "Ярко" },
+];
 
 export default function SettingsButton() {
   const [open, setOpen] = useState(false);
   const [accent, setAccent] = useState<Accent>("violet");
   const [theme, setTheme] = useState<Theme>("light");
   const [hue, setHue] = useState(265);
+  const [font, setFont] = useState<FontColor>("black");
+  const [density, setDensity] = useState<Density>("standard");
+  const [grad, setGrad] = useState<GradIntensity>("normal");
+  const [anim, setAnim] = useState(true);
 
   useEffect(() => {
-    setAccent(loadAccent());
-    setTheme(loadTheme());
-    setHue(loadHue());
+    setAccent(loadAccent()); setTheme(loadTheme()); setHue(loadHue());
+    setFont(loadFontColor()); setDensity(loadDensity()); setGrad(loadGrad()); setAnim(loadAnim());
   }, []);
   useEsc(open, () => setOpen(false));
 
-  function pickAccent(a: Accent) {
-    setAccent(a);
-    saveAccent(a);
-  }
-  function pickHue(h: number) {
-    setHue(h);
-    setAccent("custom");
-    saveHue(h);
-  }
-  function pickTheme(v: Theme) {
-    setTheme(v);
-    saveTheme(v);
-  }
+  function pickTheme(v: Theme) { setTheme(v); saveTheme(v); if (font === "white" && !isThemeDark(v)) { setFont("black"); saveFontColor("black"); } else { saveFontColor(font); } }
+  function pickFont(v: FontColor) { setFont(v); saveFontColor(v); }
+  const themeDark = isThemeDark(theme);
 
   return (
     <>
-      <button className="topbar-icon-btn" onClick={() => setOpen(true)} aria-label={t("settings.title")} title={t("settings.title")}>
+      <button className="topbar-icon-btn" onClick={() => setOpen(true)} aria-label={t("settings.title")} title="Внешний вид">
         <IconGear className="ico" />
       </button>
 
       {open && (
         <div className="modal-overlay" onClick={() => setOpen(false)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 420 }}>
+          <div className="modal appr" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 480 }}>
             <div className="modal__head">
-              <b>⚙ {t("settings.title")}</b>
+              <b>🎨 Внешний вид</b>
               <button className="fn__x dark" onClick={() => setOpen(false)}>✕</button>
             </div>
 
-            <div className="set-label">{t("settings.theme")}</div>
-            <div className="set-accents">
-              {ACCENTS.map((a) => (
-                <button
-                  key={a.id}
-                  className={`set-accent${accent === a.id ? " on" : ""}`}
-                  onClick={() => pickAccent(a.id)}
-                  title={a.label}
-                >
-                  <span className="set-accent__dot" style={{ background: a.color }}>
-                    {accent === a.id && "✓"}
-                  </span>
-                  <span>{a.label}</span>
+            {/* Темы */}
+            <div className="set-label">Тема оформления</div>
+            <div className="set-themes">
+              {THEMES.map((th) => (
+                <button key={th.id} className={`set-theme t-${th.id}${theme === th.id ? " on" : ""}`} onClick={() => pickTheme(th.id)} type="button">
+                  <span className="set-theme__pv"><i /><i /><b /></span>
+                  <span className="set-theme__l">{th.label}</span>
                 </button>
               ))}
             </div>
 
-            <div className="set-label" style={{ marginTop: 16 }}>{t("settings.custom")}</div>
-            <div className="set-hue">
-              <span className="set-hue__swatch" style={{ background: `hsl(${hue} 72% 55%)` }}>
-                {accent === "custom" && "✓"}
-              </span>
-              <input
-                className="set-hue__range"
-                type="range"
-                min={0}
-                max={360}
-                value={hue}
-                onChange={(e) => pickHue(Number(e.target.value))}
-                aria-label={t("settings.custom")}
-              />
+            {/* Цвет шрифта */}
+            <div className="set-label" style={{ marginTop: 16 }}>Цвет шрифта</div>
+            <div className="set-seg">
+              {FONTS.map((f) => {
+                const disabled = f.id === "white" && !themeDark;
+                return (
+                  <button key={f.id} className={`set-seg__b${font === f.id ? " on" : ""}`} disabled={disabled} onClick={() => pickFont(f.id)} type="button" title={disabled ? "Белый доступен в тёмных темах" : ""}>{f.label}</button>
+                );
+              })}
+            </div>
+            {font === "white" && !themeDark && <div className="hint" style={{ marginTop: 6 }}>Белый шрифт доступен только в тёмных темах — на светлом фоне применён чёрный.</div>}
+
+            {/* Акцент */}
+            <div className="set-label" style={{ marginTop: 16 }}>Акцентный цвет</div>
+            <div className="set-accents">
+              {ACCENTS.map((a) => (
+                <button key={a.id} className={`set-accent${accent === a.id ? " on" : ""}`} onClick={() => { setAccent(a.id); saveAccent(a.id); }} title={a.label}>
+                  <span className="set-accent__dot" style={{ background: a.color }}>{accent === a.id && "✓"}</span>
+                  <span>{a.label}</span>
+                </button>
+              ))}
+            </div>
+            <div className="set-hue" style={{ marginTop: 10 }}>
+              <span className="set-hue__swatch" style={{ background: `hsl(${hue} 72% 55%)` }}>{accent === "custom" && "✓"}</span>
+              <input className="set-hue__range" type="range" min={0} max={360} value={hue} onChange={(e) => { const h = Number(e.target.value); setHue(h); setAccent("custom"); saveHue(h); }} aria-label="Свой оттенок" />
             </div>
 
-            <div className="set-label" style={{ marginTop: 18 }}>{t("settings.mode")}</div>
-            <div className="set-modes">
-              <button className={`set-mode${theme === "light" ? " on" : ""}`} onClick={() => pickTheme("light")}>
-                <span className="set-mode__pv light">☀️</span>
-                <span>{t("settings.light")}</span>
-              </button>
-              <button className={`set-mode${theme === "dark" ? " on" : ""}`} onClick={() => pickTheme("dark")}>
-                <span className="set-mode__pv dark">🌙</span>
-                <span>{t("settings.dark")}</span>
-              </button>
+            {/* Плотность */}
+            <div className="set-label" style={{ marginTop: 16 }}>Плотность интерфейса</div>
+            <div className="set-seg">
+              <button className={`set-seg__b${density === "standard" ? " on" : ""}`} onClick={() => { setDensity("standard"); saveDensity("standard"); }} type="button">Стандартная</button>
+              <button className={`set-seg__b${density === "compact" ? " on" : ""}`} onClick={() => { setDensity("compact"); saveDensity("compact"); }} type="button">Компактная</button>
             </div>
 
-            <div className="row" style={{ justifyContent: "flex-end", marginTop: 20 }}>
+            {/* Градиенты */}
+            <div className="set-label" style={{ marginTop: 16 }}>Интенсивность градиентов</div>
+            <div className="set-seg">
+              {GRADS.map((g) => (
+                <button key={g.id} className={`set-seg__b${grad === g.id ? " on" : ""}`} onClick={() => { setGrad(g.id); saveGrad(g.id); }} type="button">{g.label}</button>
+              ))}
+            </div>
+
+            {/* Анимации */}
+            <label className="set-switch" style={{ marginTop: 16 }}>
+              <span><b>Анимация интерфейса</b><span className="set-switch__hint">Плавные появления и свечения. Отключите, если отвлекает.</span></span>
+              <span className="sw"><input type="checkbox" checked={anim} onChange={() => { const v = !anim; setAnim(v); saveAnim(v); }} /><span className="sw__t" /></span>
+            </label>
+
+            <div className="row" style={{ justifyContent: "flex-end", marginTop: 18 }}>
               <button className="btn btn-primary" onClick={() => setOpen(false)}>{t("settings.done")}</button>
             </div>
           </div>

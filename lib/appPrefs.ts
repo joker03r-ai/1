@@ -5,7 +5,33 @@ export type Accent =
   | "orange" | "amber" | "teal" | "cyan" | "red" | "indigo" | "pink"
   | "custom";
 export type Lang = "ru" | "en";
-export type Theme = "light" | "dark";
+export type Theme = "light" | "dark" | "graphite" | "night" | "system";
+export type FontColor = "black" | "gray" | "white";
+export type Density = "standard" | "compact";
+export type GradIntensity = "off" | "soft" | "normal";
+
+// Кураторские темы оформления. dark=true — тёмная база.
+export const THEMES: { id: Theme; label: string; dark: boolean }[] = [
+  { id: "light", label: "Светлая", dark: false },
+  { id: "dark", label: "Тёмная", dark: true },
+  { id: "graphite", label: "Графитовая", dark: true },
+  { id: "night", label: "Ночная", dark: true },
+  { id: "system", label: "Системная", dark: false },
+];
+
+function systemDark(): boolean {
+  if (typeof window === "undefined") return false;
+  return window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+}
+// Фактическая тема (для «системной»).
+export function resolveTheme(t: Theme): "light" | "dark" | "graphite" | "night" {
+  if (t === "system") return systemDark() ? "dark" : "light";
+  return t;
+}
+export function isThemeDark(t: Theme): boolean {
+  const r = resolveTheme(t);
+  return r === "dark" || r === "graphite" || r === "night";
+}
 
 export const ACCENTS: { id: Accent; label: string; color: string }[] = [
   { id: "violet", label: "Фиолетовая", color: "#6c5ce7" },
@@ -108,15 +134,89 @@ export function loadTheme(): Theme {
 
 export function applyTheme(t: Theme) {
   if (typeof document === "undefined") return;
-  if (t === "dark") document.documentElement.setAttribute("data-theme", "dark");
-  else document.documentElement.removeAttribute("data-theme");
-  // Свой оттенок зависит от темы — пересчитываем при переключении.
+  const de = document.documentElement;
+  const eff = resolveTheme(t);
+  const isDark = eff === "dark" || eff === "graphite" || eff === "night";
+  if (isDark) de.setAttribute("data-theme", "dark");
+  else de.removeAttribute("data-theme");
+  // Вариант тёмной темы через data-skin (graphite / night).
+  if (eff === "graphite" || eff === "night") de.setAttribute("data-skin", eff);
+  else de.removeAttribute("data-skin");
+  // Цвет шрифта зависит от темы (автоконтроль контраста).
+  applyFontColor(loadFontColor());
   if (loadAccent() === "custom") applyCustomHue(loadHue());
 }
-
 export function saveTheme(t: Theme) {
-  try {
-    localStorage.setItem("sb_theme", t);
-  } catch {}
+  try { localStorage.setItem("sb_theme", t); } catch {}
   applyTheme(t);
+}
+
+// ---- Цвет шрифта (чёрный / тёмно-серый / белый) с автоконтролем контраста ----
+export function loadFontColor(): FontColor {
+  if (typeof window === "undefined") return "black";
+  return (localStorage.getItem("sb_font_color") as FontColor) || "black";
+}
+export function applyFontColor(fc: FontColor) {
+  if (typeof document === "undefined") return;
+  const de = document.documentElement;
+  const dark = de.getAttribute("data-theme") === "dark";
+  // Белый текст допускаем только на тёмном фоне — иначе откатываем к чёрному.
+  const safe: FontColor = fc === "white" && !dark ? "black" : fc;
+  de.setAttribute("data-ink", safe);
+}
+export function saveFontColor(fc: FontColor) {
+  try { localStorage.setItem("sb_font_color", fc); } catch {}
+  applyFontColor(fc);
+}
+
+// ---- Плотность интерфейса ----
+export function loadDensity(): Density {
+  if (typeof window === "undefined") return "standard";
+  return (localStorage.getItem("sb_density") as Density) || "standard";
+}
+export function applyDensity(d: Density) {
+  if (typeof document === "undefined") return;
+  if (d === "compact") document.documentElement.setAttribute("data-density", "compact");
+  else document.documentElement.removeAttribute("data-density");
+}
+export function saveDensity(d: Density) {
+  try { localStorage.setItem("sb_density", d); } catch {}
+  applyDensity(d);
+}
+
+// ---- Интенсивность градиентов ----
+export function loadGrad(): GradIntensity {
+  if (typeof window === "undefined") return "normal";
+  return (localStorage.getItem("sb_grad") as GradIntensity) || "normal";
+}
+export function applyGrad(g: GradIntensity) {
+  if (typeof document === "undefined") return;
+  document.documentElement.setAttribute("data-grad", g);
+}
+export function saveGrad(g: GradIntensity) {
+  try { localStorage.setItem("sb_grad", g); } catch {}
+  applyGrad(g);
+}
+
+// ---- Анимации ----
+export function loadAnim(): boolean {
+  if (typeof window === "undefined") return true;
+  return localStorage.getItem("sb_anim") !== "0";
+}
+export function applyAnim(on: boolean) {
+  if (typeof document === "undefined") return;
+  if (on) document.documentElement.removeAttribute("data-anim");
+  else document.documentElement.setAttribute("data-anim", "off");
+}
+export function saveAnim(on: boolean) {
+  try { localStorage.setItem("sb_anim", on ? "1" : "0"); } catch {}
+  applyAnim(on);
+}
+
+// Следим за системной темой, если выбрана «Системная».
+export function watchSystemTheme() {
+  if (typeof window === "undefined" || !window.matchMedia) return;
+  const mq = window.matchMedia("(prefers-color-scheme: dark)");
+  const handler = () => { if (loadTheme() === "system") applyTheme("system"); };
+  try { mq.addEventListener("change", handler); } catch { mq.addListener?.(handler); }
 }
