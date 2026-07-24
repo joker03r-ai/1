@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Topbar from "@/components/Topbar";
 import { useEsc } from "@/lib/useEsc";
 import {
@@ -40,6 +40,10 @@ import {
 
 type DetailTab = "messages" | "participants" | "access";
 
+import { loadAssistant, kbText, behaviorInstruction, kbFilled } from "@/lib/assistant";
+import { loadBots, getCurrentBotId } from "@/lib/bots";
+import { DEFAULT_BOT, BotConfig } from "@/lib/types";
+
 export default function ChatsClient() {
   const [chats, setChats] = useState<TgChat[]>([]);
   const [team, setTeam] = useState<Member[]>([]);
@@ -47,6 +51,11 @@ export default function ChatsClient() {
   const [selected, setSelected] = useState<string | null>(null);
   const [tab, setTab] = useState<DetailTab>("messages");
   const [q, setQ] = useState("");
+  // Ответы: ручной ввод оператора + нейросеть.
+  const [reply, setReply] = useState("");
+  const [aiBusy, setAiBusy] = useState(false);
+  const [aiOn, setAiOn] = useState(false);
+  const answered = useRef<Set<string>>(new Set());
   const [parsing, setParsing] = useState(false);
   const [teamOpen, setTeamOpen] = useState(false);
 
@@ -115,6 +124,48 @@ export default function ChatsClient() {
   useEffect(() => {
     if (selected && !visibleChats.some((c) => c.id === selected)) setSelected(null);
   }, [visibleChats, selected]);
+
+  // ---- Ответы: оператор + нейросеть ----
+  useEffect(() => { try { setAiOn(localStorage.getItem("sb_chats_ai") === "1"); } catch {} }, []);
+  function toggleAi(v: boolean) { setAiOn(v); try { localStorage.setItem("sb_chats_ai", v ? "1" : "0"); } catch {} }
+
+  // База знаний текущего бота — та же, что в ИИ-ассистенте.
+  const aBot = useMemo(() => loadAssistant(getCurrentBotId() || loadBots()[0]?.id || ""), [selected]);
+  const kbReady = kbFilled(aBot);
+  function botConfig(): BotConfig {
+    return { ...DEFAULT_BOT, id: "chat", name: aBot.name, goal: "consult", knowledge: kbText(aBot), instruction: behaviorInstruction(aBot), extraContext: "", sites: aBot.kbLinks, documents: [], showSources: false, stopWord: DEFAULT_BOT.stopWord, modelId: "x", maxMessages: 0 };
+  }
+  function appendMsg(chatId: string, text: string, from: string, out: boolean) {
+    const list = loadChats().map((c) => c.id === chatId
+      ? { ...c, messages: [...c.messages, { id: "m_" + Math.random().toString(36).slice(2, 9), from, text, ts: Date.now(), out }] }
+      : c);
+    saveChats(list); setChats(list);
+  }
+  function sendOperator() {
+    const t = reply.trim(); if (!t || !chat) return;
+    appendMsg(chat.id, t, "Оператор", true); setReply("");
+  }
+  async function aiAnswer(question: string, chatId: string) {
+    if (!question || aiBusy) return;
+    setAiBusy(true);
+    try {
+      const cur = loadChats().find((c) => c.id === chatId);
+      const history = (cur?.messages || []).map((m) => ({ role: m.out ? "assistant" : "user", content: m.text }));
+      const d = await (await fetch("/api/chat", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ bot: botConfig(), history, ai: { provider: aBot.provider, apiKey: aBot.apiKey, model: aBot.model } }) })).json();
+      const rep = d.reply || "Не удалось получить ответ нейросети.";
+      appendMsg(chatId, rep, "ИИ", true);
+    } catch { appendMsg(chatId, "Ошибка обращения к нейросети.", "ИИ", true); }
+    finally { setAiBusy(false); }
+  }
+  // Автоответ ИИ: если включён и последнее сообщение — от клиента, отвечаем один раз.
+  useEffect(() => {
+    if (!aiOn || !chat || aiBusy) return;
+    const last = chat.messages[chat.messages.length - 1];
+    if (last && !last.out && !answered.current.has(last.id)) {
+      answered.current.add(last.id);
+      aiAnswer(last.text, chat.id);
+    }
+  }, [aiOn, chat?.messages.length, selected]); // eslint-disable-line
 
   async function runParse() {
     if (!manage) return;
@@ -469,15 +520,33 @@ export default function ChatsClient() {
                   </div>
 
                   {tab === "messages" && (
-                    <div className="chat-msgs">
-                      {chat.messages.map((m) => (
-                        <div key={m.id} className={`msg${m.out ? " out" : ""}`}>
-                          {!m.out && <div className="msg__from">{m.from}</div>}
-                          <div className="msg__bubble">{m.text}</div>
-                          <div className="msg__time">{fmtTime(m.ts)}</div>
-                        </div>
-                      ))}
-                    </div>
+                    <>
+                      <div className="chat-aibar">
+                        <label className="chat-aitoggle" title="Нейросеть отвечает клиентам сама. Вы можете вмешаться в любой момент.">
+                          <span className="sw"><input type="checkbox" checked={aiOn} onChange={(e) => toggleAi(e.target.checked)} /><span className="sw__t" /></span>
+                          <b>🤖 Нейросеть отвечает автоматически</b>
+                        </label>
+                        <span className="chat-aibar__st">
+                          {kbReady ? <span className="chat-aibar__ok">● База знаний подключена</span> : <span className="chat-aibar__warn">● База пуста</span>}
+                          {" · "}<a href="/dashboard/assistant">настроить ИИ</a>
+                        </span>
+                      </div>
+                      <div className="chat-msgs">
+                        {chat.messages.map((m) => (
+                          <div key={m.id} className={`msg${m.out ? " out" : ""}`}>
+                            {m.from && <div className={`msg__from${m.out ? " out" : ""}`}>{m.out && m.from === "ИИ" ? "🤖 ИИ" : m.from}</div>}
+                            <div className="msg__bubble">{m.text}</div>
+                            <div className="msg__time">{fmtTime(m.ts)}</div>
+                          </div>
+                        ))}
+                        {aiBusy && <div className="msg out"><div className="msg__bubble chat-typing">🤖 ИИ печатает…</div></div>}
+                      </div>
+                      <div className="chat-composer">
+                        <input className="input" value={reply} onChange={(e) => setReply(e.target.value)} placeholder="Ответить клиенту вручную…" onKeyDown={(e) => { if (e.key === "Enter") sendOperator(); }} />
+                        <button className="btn btn-sm" onClick={() => { const last = [...chat.messages].reverse().find((m) => !m.out); if (last) aiAnswer(last.text, chat.id); }} type="button" disabled={aiBusy} title="Сгенерировать ответ нейросетью на последнее сообщение клиента">✨ ИИ-ответ</button>
+                        <button className="btn btn-sm btn-primary" onClick={sendOperator} type="button" disabled={!reply.trim()}>Отправить</button>
+                      </div>
+                    </>
                   )}
 
                   {tab === "participants" && (

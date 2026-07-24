@@ -11,7 +11,28 @@ export type Member = {
   role: Role;
   chatAccess: string[]; // id чатов, доступных оператору (для owner/admin игнорируется)
   addedAt: number;
+  avatar?: string; // выбранная аватарка (эмодзи из AVATARS) — иначе инициалы
 };
+
+// Максимум участников команды.
+export const TEAM_LIMIT = 10;
+
+// Набор аккуратных аватарок на выбор (эмодзи на цветном градиенте).
+export const AVATARS = [
+  "🦊", "🐼", "🐨", "🦁", "🐯", "🐵", "🐸", "🐧", "🦉", "🐺",
+  "🦄", "🐱", "🐶", "🐰", "🐻", "🐤", "🦝", "🐙", "🐬", "🦕",
+];
+// Градиент фона под аватарку — стабильно по эмодзи.
+export const AVATAR_GRADS = [
+  "linear-gradient(135deg,#7b6cf6,#9b8cff)", "linear-gradient(135deg,#3b82f6,#60a5fa)",
+  "linear-gradient(135deg,#10b981,#34d399)", "linear-gradient(135deg,#f59e0b,#fbbf24)",
+  "linear-gradient(135deg,#ec4899,#f472b6)", "linear-gradient(135deg,#06b6d4,#22d3ee)",
+  "linear-gradient(135deg,#ef4444,#f87171)", "linear-gradient(135deg,#8b5cf6,#a78bfa)",
+];
+export function avatarGrad(seed: string): string {
+  let h = 0; for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
+  return AVATAR_GRADS[h % AVATAR_GRADS.length];
+}
 
 export const ROLE_LABELS: Record<Role, string> = {
   owner: "Владелец",
@@ -58,9 +79,11 @@ export function tid(prefix = "t"): string {
   return prefix + "_" + Math.random().toString(36).slice(2, 8);
 }
 
-export function addMember(m: Omit<Member, "id" | "addedAt">): Member {
+export function addMember(m: Omit<Member, "id" | "addedAt">): Member | null {
+  const list = loadTeam();
+  if (list.length >= TEAM_LIMIT) return null; // достигнут лимит команды
   const member: Member = { ...m, id: tid(), addedAt: Date.now() };
-  saveTeam([...loadTeam(), member]);
+  saveTeam([...list, member]);
   return member;
 }
 

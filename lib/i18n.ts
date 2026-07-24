@@ -16,7 +16,7 @@ export const STR: Dict = {
   "nav.content": { ru: "Контент", en: "Content" },
   "nav.analytics": { ru: "Аналитика", en: "Analytics" },
   "nav.team": { ru: "Команда", en: "Team" },
-  "nav.settings": { ru: "Настройки", en: "Settings" },
+  "nav.settings": { ru: "Тарифы", en: "Plans" },
   "nav.help": { ru: "Помощь", en: "Help" },
 
   "nav.nocode": { ru: "Nocode Cloud", en: "Nocode Cloud" },

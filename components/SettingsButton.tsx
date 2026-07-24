@@ -7,6 +7,7 @@ import {
   ACCENTS, Accent, Theme, THEMES, FontColor, Density, GradIntensity, isThemeDark,
   loadAccent, saveAccent, loadTheme, saveTheme, loadHue, saveHue,
   loadFontColor, saveFontColor, loadDensity, saveDensity, loadGrad, saveGrad, loadAnim, saveAnim,
+  LOGO_COLORS, LogoColor, loadLogo, saveLogo,
 } from "@/lib/appPrefs";
 import { t } from "@/lib/i18n";
 
@@ -27,13 +28,14 @@ export default function SettingsButton() {
   const [theme, setTheme] = useState<Theme>("light");
   const [hue, setHue] = useState(265);
   const [font, setFont] = useState<FontColor>("black");
+  const [logo, setLogo] = useState<LogoColor>("violet");
   const [density, setDensity] = useState<Density>("standard");
   const [grad, setGrad] = useState<GradIntensity>("normal");
   const [anim, setAnim] = useState(true);
 
   useEffect(() => {
     setAccent(loadAccent()); setTheme(loadTheme()); setHue(loadHue());
-    setFont(loadFontColor()); setDensity(loadDensity()); setGrad(loadGrad()); setAnim(loadAnim());
+    setFont(loadFontColor()); setDensity(loadDensity()); setGrad(loadGrad()); setAnim(loadAnim()); setLogo(loadLogo());
   }, []);
   useEsc(open, () => setOpen(false));
 
@@ -91,6 +93,20 @@ export default function SettingsButton() {
             <div className="set-hue" style={{ marginTop: 10 }}>
               <span className="set-hue__swatch" style={{ background: `hsl(${hue} 72% 55%)` }}>{accent === "custom" && "✓"}</span>
               <input className="set-hue__range" type="range" min={0} max={360} value={hue} onChange={(e) => { const h = Number(e.target.value); setHue(h); setAccent("custom"); saveHue(h); }} aria-label="Свой оттенок" />
+            </div>
+
+            {/* Цвет логотипа */}
+            <div className="set-label" style={{ marginTop: 16 }}>Цвет логотипа</div>
+            <div className="set-logos">
+              {LOGO_COLORS.map((l) => (
+                <button key={l.id} className={`set-logo${logo === l.id ? " on" : ""}`} onClick={() => { setLogo(l.id); saveLogo(l.id); }} title={l.label} type="button">
+                  <span className="set-logo__mark" style={{ background: l.grad }}>
+                    <svg viewBox="0 0 24 24" aria-hidden><path d="M20.6 3.4 3.7 11c-.75.34-.68 1.43.1 1.66l4.53 1.35 1.35 4.53c.23.78 1.32.85 1.66.1L20.6 3.4z" fill="#fff" /></svg>
+                    {logo === l.id && <i className="set-logo__ok">✓</i>}
+                  </span>
+                  <span>{l.label}</span>
+                </button>
+              ))}
             </div>
 
             {/* Плотность */}

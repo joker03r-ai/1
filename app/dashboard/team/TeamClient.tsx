@@ -16,7 +16,26 @@ import {
   updateMember,
   currentMember,
   canManage,
+  AVATARS,
+  avatarGrad,
+  TEAM_LIMIT,
 } from "@/lib/team";
+
+// Аватарка участника: выбранный эмодзи на градиенте либо инициалы.
+function Avatar({ m, onClick }: { m: Member; onClick?: () => void }) {
+  if (m.avatar) return <span className={`team-ava${onClick ? " team-ava--btn" : ""}`} style={{ background: avatarGrad(m.username || m.name) }} onClick={onClick}>{m.avatar}</span>;
+  return <span className={`user-ava${onClick ? " team-ava--btn" : ""}`} style={{ background: avatarColor(m.username || m.name) }} onClick={onClick}>{initials(m.name)}</span>;
+}
+
+function AvatarPicker({ value, onPick }: { value?: string; onPick: (a: string) => void }) {
+  return (
+    <div className="team-avgrid">
+      {AVATARS.map((a) => (
+        <button key={a} type="button" className={`team-avopt${value === a ? " on" : ""}`} onClick={() => onPick(a)}>{a}</button>
+      ))}
+    </div>
+  );
+}
 
 function initials(name: string): string {
   const p = name.trim().split(/\s+/).filter(Boolean);
@@ -29,6 +48,8 @@ export default function TeamClient() {
   const [meCanManage, setMeCanManage] = useState(false);
   const [adding, setAdding] = useState(false);
   const [confirm, setConfirm] = useState<Member | null>(null);
+  const [avEdit, setAvEdit] = useState<Member | null>(null);
+  const full = team.length >= TEAM_LIMIT;
 
   useEffect(() => {
     const t = loadTeam();
@@ -55,18 +76,21 @@ export default function TeamClient() {
       <div className="content" style={{ maxWidth: 820 }}>
         <div className="row" style={{ justifyContent: "space-between", marginBottom: 6 }}>
           <div>
-            <h1 className="h1" style={{ marginBottom: 2 }}>Команда</h1>
+            <h1 className="h1" style={{ marginBottom: 2 }}>Команда <span className="team-count">{team.length} / {TEAM_LIMIT}</span></h1>
             <p className="muted" style={{ margin: 0 }}>
-              Сотрудники, роли и права доступа. Владелец и администратор управляют
-              командой; оператор видит только выданные ему чаты.
+              Сотрудники, роли и права доступа. До {TEAM_LIMIT} человек. Владелец и администратор
+              управляют командой; оператор видит только выданные ему чаты.
             </p>
           </div>
           {meCanManage && (
-            <button className="btn btn-primary" onClick={() => setAdding(true)}>
+            <button className="btn btn-primary" onClick={() => setAdding(true)} disabled={full} title={full ? `Достигнут лимит ${TEAM_LIMIT} человек` : ""}>
               <IconPlus className="ico" /> Добавить сотрудника
             </button>
           )}
         </div>
+        {meCanManage && full && (
+          <div className="hint" style={{ marginBottom: 12 }}>Достигнут лимит команды — {TEAM_LIMIT} человек. Удалите кого-то, чтобы добавить нового.</div>
+        )}
 
         {!meCanManage && (
           <div className="hint" style={{ marginBottom: 12 }}>
@@ -77,9 +101,7 @@ export default function TeamClient() {
         <div className="team-list">
           {team.map((m) => (
             <div key={m.id} className="team-row card">
-              <span className="user-ava" style={{ background: avatarColor(m.username || m.name) }}>
-                {initials(m.name)}
-              </span>
+              <Avatar m={m} onClick={meCanManage ? () => setAvEdit(m) : undefined} />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontWeight: 700 }}>{m.name}</div>
                 {m.username && <div className="muted" style={{ fontSize: 12 }}>{m.username}</div>}
@@ -108,11 +130,24 @@ export default function TeamClient() {
         <AddMemberModal
           onClose={() => setAdding(false)}
           onAdd={(m) => {
-            addMember(m);
+            const added = addMember(m);
             setAdding(false);
             refresh();
+            if (!added) alert(`Достигнут лимит команды — ${TEAM_LIMIT} человек.`);
           }}
         />
+      )}
+
+      {avEdit && (
+        <div className="modal-overlay" onClick={() => setAvEdit(null)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 380 }}>
+            <div className="modal__head"><b>Аватарка · {avEdit.name}</b><button className="fn__x dark" onClick={() => setAvEdit(null)}>✕</button></div>
+            <div className="field" style={{ marginTop: 12 }}>
+              <AvatarPicker value={avEdit.avatar} onPick={(a) => { updateMember(avEdit.id, { avatar: a }); setAvEdit(null); refresh(); }} />
+            </div>
+            {avEdit.avatar && <button className="btn btn-sm" style={{ marginTop: 8 }} onClick={() => { updateMember(avEdit.id, { avatar: undefined }); setAvEdit(null); refresh(); }}>Сбросить на инициалы</button>}
+          </div>
+        </div>
       )}
 
       {confirm && (
@@ -142,16 +177,17 @@ function AddMemberModal({
   onAdd,
 }: {
   onClose: () => void;
-  onAdd: (m: { name: string; username?: string; role: Role; chatAccess: string[] }) => void;
+  onAdd: (m: { name: string; username?: string; role: Role; chatAccess: string[]; avatar?: string }) => void;
 }) {
   const [name, setName] = useState("");
   const [username, setUsername] = useState("");
   const [role, setRole] = useState<Role>("operator");
+  const [avatar, setAvatar] = useState<string | undefined>(undefined);
   useEsc(true, onClose);
 
   function submit() {
     if (!name.trim()) return;
-    onAdd({ name: name.trim(), username: username.trim() || undefined, role, chatAccess: [] });
+    onAdd({ name: name.trim(), username: username.trim() || undefined, role, chatAccess: [], avatar });
   }
 
   return (
@@ -176,6 +212,10 @@ function AddMemberModal({
               <option key={r} value={r}>{ROLE_LABELS[r]} — {ROLE_HINTS[r]}</option>
             ))}
           </select>
+        </div>
+        <div className="field">
+          <label className="label">Аватарка</label>
+          <AvatarPicker value={avatar} onPick={(a) => setAvatar(a === avatar ? undefined : a)} />
         </div>
         <div className="row" style={{ justifyContent: "flex-end", gap: 10, marginTop: 6 }}>
           <button className="btn" onClick={onClose}>Отменить</button>

@@ -145,10 +145,41 @@ export function applyTheme(t: Theme) {
   // Цвет шрифта зависит от темы (автоконтроль контраста).
   applyFontColor(loadFontColor());
   if (loadAccent() === "custom") applyCustomHue(loadHue());
+  applyLogo(loadLogo());
 }
 export function saveTheme(t: Theme) {
   try { localStorage.setItem("sb_theme", t); } catch {}
   applyTheme(t);
+}
+
+// ---- Цвет логотипа ----
+export type LogoColor = "accent" | "violet" | "blue" | "green" | "amber" | "rose" | "cyan" | "graphite" | "sunset" | "ocean";
+export const LOGO_COLORS: { id: LogoColor; label: string; grad: string }[] = [
+  { id: "accent", label: "Как акцент", grad: "var(--grad)" },
+  { id: "violet", label: "Фиолетовый", grad: "linear-gradient(140deg,#6d5cf0,#5a8bff)" },
+  { id: "blue", label: "Синий", grad: "linear-gradient(140deg,#2b6ef6,#4f8bf7)" },
+  { id: "cyan", label: "Голубой", grad: "linear-gradient(140deg,#06b6d4,#22d3ee)" },
+  { id: "green", label: "Зелёный", grad: "linear-gradient(140deg,#10b981,#34d399)" },
+  { id: "amber", label: "Янтарный", grad: "linear-gradient(140deg,#f59e0b,#fbbf24)" },
+  { id: "sunset", label: "Закат", grad: "linear-gradient(140deg,#f97316,#ec4899)" },
+  { id: "rose", label: "Розовый", grad: "linear-gradient(140deg,#ec4899,#f472b6)" },
+  { id: "ocean", label: "Океан", grad: "linear-gradient(140deg,#0ea5e9,#6366f1)" },
+  { id: "graphite", label: "Графит", grad: "linear-gradient(140deg,#475569,#64748b)" },
+];
+export function loadLogo(): LogoColor {
+  if (typeof window === "undefined") return "violet";
+  return (localStorage.getItem("sb_logo") as LogoColor) || "violet";
+}
+export function applyLogo(c: LogoColor) {
+  if (typeof document === "undefined") return;
+  const s = document.documentElement.style;
+  const found = LOGO_COLORS.find((x) => x.id === c);
+  if (found) s.setProperty("--logo-grad", found.grad);
+  else s.removeProperty("--logo-grad");
+}
+export function saveLogo(c: LogoColor) {
+  try { localStorage.setItem("sb_logo", c); } catch {}
+  applyLogo(c);
 }
 
 // ---- Цвет шрифта (чёрный / тёмно-серый / белый) с автоконтролем контраста ----
