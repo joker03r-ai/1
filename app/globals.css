@@ -4125,3 +4125,44 @@ img, svg, video, canvas { max-width: 100%; }
   .cc-plan__row { grid-template-columns: 80px 1fr 30px; }
   .cc-plan__row .cc-kind { display: none; }
 }
+
+/* ================= Парсинг — суперсет подразделов (pz) ================= */
+.pz-acc { font-size: 12.5px; font-weight: 700; color: #157347; background: #e7f7ee; padding: 6px 12px; border-radius: 999px; white-space: nowrap; }
+:root[data-theme="dark"] .pz-acc { background: #10241a; color: #4ade80; }
+.pz-nav { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 16px; }
+.pz-tab { display: inline-flex; align-items: center; gap: 7px; border: 1px solid var(--line); background: var(--panel); border-radius: 11px; padding: 8px 14px; font-size: 13px; font-weight: 700; color: var(--ink-soft); cursor: pointer; }
+.pz-tab:hover { border-color: var(--violet-100); }
+.pz-tab.on { border-color: var(--violet); background: var(--violet-050); color: var(--violet-700); }
+.pz-tab span { font-size: 14px; }
+
+.pz-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.pz-hints { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 10px; font-size: 12px; }
+.pz-hint { border: 1px dashed var(--line); background: var(--panel); border-radius: 999px; padding: 3px 10px; font-size: 12px; font-weight: 600; color: var(--violet-700); cursor: pointer; }
+.pz-hint:hover { border-color: var(--violet); background: var(--violet-050); }
+.pz-filters { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 16px; }
+.pz-filters .pr-fcard input[type=range] { width: 100%; }
+
+.pz-rate { display: inline-grid; place-items: center; width: 26px; height: 22px; border-radius: 7px; font-weight: 800; font-size: 12px; }
+.pz-rate.rhi { background: #e7f7ee; color: #157347; } .pz-rate.rmid { background: #eaf2ff; color: #1d4ed8; } .pz-rate.rlo { background: #fef3e2; color: #b45309; }
+:root[data-theme="dark"] .pz-rate.rhi { background: #10241a; color: #4ade80; } :root[data-theme="dark"] .pz-rate.rmid { background: #12203c; color: #93bbff; } :root[data-theme="dark"] .pz-rate.rlo { background: #2a2010; color: #fbbf24; }
+
+.pz-acclist { display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px; }
+.pz-accrow { display: flex; align-items: center; gap: 12px; border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; }
+.pz-accrow.on { border-color: var(--violet); background: var(--violet-050); }
+.pz-accava { width: 34px; height: 34px; border-radius: 50%; background: var(--grad); color: #fff; display: grid; place-items: center; font-weight: 800; flex-shrink: 0; }
+.pz-accid { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+.pz-accid b { font-size: 13.5px; } .pz-accid span { font-size: 12px; }
+.pz-status { font-size: 12px; font-weight: 700; white-space: nowrap; }
+.pz-status.s-ok { color: #16a34a; }
+.pz-sub { font-size: 14px; font-weight: 800; margin-bottom: 10px; }
+
+.pz-hist { display: flex; flex-direction: column; gap: 8px; }
+.pz-histrow { display: flex; align-items: center; gap: 12px; border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; }
+.pz-histrow:hover { border-color: var(--violet-100); }
+.pz-histk { font-size: 11px; font-weight: 800; padding: 3px 10px; border-radius: 999px; background: var(--violet-050); color: var(--violet-700); white-space: nowrap; }
+.pz-histmain { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+.pz-histmain b { font-size: 13.5px; } .pz-histmain span { font-size: 12px; }
+
+@media (max-width: 820px) {
+  .pz-2col, .pz-filters { grid-template-columns: 1fr; }
+}

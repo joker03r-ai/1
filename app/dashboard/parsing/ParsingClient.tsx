@@ -4,15 +4,31 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Topbar from "@/components/Topbar";
 import { addDrafts } from "@/lib/content";
+import {
+  HistoryRun, loadHistory, addRun, removeRun, download,
+  channelsCSV, channelsExtended, channelLinks, audienceCSVClient, audienceLinks, resolvedCSV,
+} from "@/lib/parseHistory";
 
 type Account = { id: string; username: string; name: string };
 type Resolved = { ok: boolean; type?: string; title?: string; username?: string; participantsAvailable?: boolean; commentsAvailable?: boolean; suggestedMode?: string; error?: string };
 type LogRow = { t: string; msg: string; kind: "info" | "ok" | "warn" | "err" };
 type Job = {
-  id: string; kind: string; mode: string; status: string; source: string; sources?: string[];
+  id: string; kind: string; mode: string; status: string; source: string; sources?: string[]; title?: string;
   progress: number; found: number; saved: number; skipped: number; target: number;
-  error: string; floodSeconds: number; audience: any[]; content: any[]; logs?: LogRow[];
+  error: string; floodSeconds: number; audience: any[]; content: any[]; channels?: any[]; resolved?: any[]; logs?: LogRow[];
 };
+
+const SUBTABS = [
+  { id: "accounts", label: "Аккаунты", icon: "👤" },
+  { id: "search", label: "Поиск каналов", icon: "🔎" },
+  { id: "similar", label: "Похожие", icon: "🧭" },
+  { id: "members", label: "Участники", icon: "👥" },
+  { id: "messages", label: "По сообщениям", icon: "💬" },
+  { id: "resolve", label: "Резолвинг", icon: "📞" },
+  { id: "history", label: "История и база", icon: "🗂" },
+] as const;
+type SubId = typeof SUBTABS[number]["id"];
+const LANGS = [{ id: "ru", label: "Русский" }, { id: "en", label: "English" }, { id: "—", label: "Другой" }];
 
 const PROTECTS = [
   { id: "conservative", label: "Консервативный", hint: "Максимальная защита" },
@@ -37,46 +53,63 @@ const TERMINAL = ["done", "error", "stopped"];
 
 export default function ParsingClient() {
   const router = useRouter();
+  const [accounts, setAccounts] = useState<Account[]>([]);
   const [account, setAccount] = useState<Account | null>(null);
-  const [tab, setTab] = useState<"audience" | "content">("audience");
+  const [sub, setSub] = useState<SubId>("search");
+  const [seed, setSeed] = useState<{ to: SubId; text: string } | null>(null);
 
   useEffect(() => { loadAccount(); }, []);
   async function loadAccount() {
     try {
       const d = await (await fetch("/api/tg/auth/status")).json();
       const accs: Account[] = d.accounts || [];
+      setAccounts(accs);
       const savedId = localStorage.getItem("sb_tg_account_id") || "";
       const acc = accs.find((a) => a.id === savedId) || accs[0] || null;
       if (acc) localStorage.setItem("sb_tg_account_id", acc.id);
       setAccount(acc);
+      if (!acc) setSub("accounts");
     } catch {}
   }
+  // Передача результата из одного модуля в другой (например, каналы → участники).
+  function handoff(to: SubId, text: string) { setSeed({ to, text }); setSub(to); }
+
+  const needAcc = !account && sub !== "accounts";
 
   return (
     <>
       <Topbar crumbs={["Основной проект", "Парсинг"]} />
-      <div className="content" style={{ maxWidth: 1080 }}>
+      <div className="content pz" style={{ maxWidth: 1280 }}>
         <div className="sec-head">
           <div>
-            <h1 className="h1" style={{ margin: 0 }}>Парсинг аудитории и контента</h1>
-            <p className="muted" style={{ margin: "4px 0 0" }}>
-              Реальные данные Telegram через ваш аккаунт (MTProto). Участники — через channels.getParticipants,
-              контент — через messages.getHistory. Никаких сгенерированных данных.
+            <h1 className="h1" style={{ margin: 0 }}>Парсинг — сбор базы под вашу нишу</h1>
+            <p className="muted" style={{ margin: "4px 0 0", maxWidth: 760 }}>
+              База — основа любой автоматизации. Соберите уникальную качественную базу каналов и аудитории:
+              поиск по ключам → расширение через похожие → сбор участников. Реальные данные Telegram (MTProto).
             </p>
           </div>
+          {account && <span className="pz-acc">✅ {account.username ? "@" + account.username : account.name}</span>}
         </div>
-        <div className="pr-flow">Парсинг → <b>Черновики</b> → Создание контента → Календарь → Публикация</div>
 
-        {!account ? (
-          <LoginCard onDone={loadAccount} />
+        <div className="pz-nav">
+          {SUBTABS.map((t) => (
+            <button key={t.id} className={`pz-tab${sub === t.id ? " on" : ""}`} onClick={() => { setSeed(null); setSub(t.id); }} type="button">
+              <span>{t.icon}</span> {t.label}
+            </button>
+          ))}
+        </div>
+
+        {needAcc ? (
+          <div className="card ct-card"><div className="ct-hint">👉 Сначала подключите аккаунт Telegram — он нужен для всех задач парсинга.</div><button className="btn btn-primary" onClick={() => setSub("accounts")} type="button">Перейти к аккаунтам</button></div>
         ) : (
           <>
-            <AccountBar account={account} onLogout={async () => { await fetch("/api/tg/auth/logout", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ accountId: account.id }) }); localStorage.removeItem("sb_tg_account_id"); setAccount(null); }} />
-            <div className="ct-tabs" style={{ marginTop: 14 }}>
-              <button className={`ct-tab${tab === "audience" ? " on" : ""}`} onClick={() => setTab("audience")} type="button"><span>👥</span> Аудитория</button>
-              <button className={`ct-tab${tab === "content" ? " on" : ""}`} onClick={() => setTab("content")} type="button"><span>📄</span> Контент</button>
-            </div>
-            {tab === "audience" ? <AudienceTab account={account} /> : <ContentTab account={account} router={router} />}
+            {sub === "accounts" && <AccountsTab accounts={accounts} current={account} onReload={loadAccount} onPick={(id: string) => { localStorage.setItem("sb_tg_account_id", id); loadAccount(); }} />}
+            {sub === "search" && account && <ChannelSearchTab account={account} seed={seed?.to === "search" ? seed.text : ""} onHandoff={handoff} />}
+            {sub === "similar" && account && <SimilarTab account={account} seed={seed?.to === "similar" ? seed.text : ""} onHandoff={handoff} />}
+            {sub === "members" && account && <AudienceTab account={account} initialMode="participants" seedSources={seed?.to === "members" ? seed.text : ""} />}
+            {sub === "messages" && account && <AudienceTab account={account} initialMode="message_authors" seedSources={seed?.to === "messages" ? seed.text : ""} />}
+            {sub === "resolve" && account && <ResolveTab account={account} />}
+            {sub === "history" && <HistoryTab onHandoff={handoff} />}
           </>
         )}
       </div>
@@ -219,12 +252,28 @@ function LogPanel({ logs }: { logs: LogRow[] }) {
   );
 }
 
-/* ---------- Вкладка «Аудитория» ---------- */
-function AudienceTab({ account }: { account: Account }) {
-  const [chats, setChats] = useState("");
+// Автосохранение завершённой задачи в историю (навсегда, без ручного действия).
+function useSaveRun(job: Job | null, kind: string, paramsFn: () => any) {
+  const saved = useRef<string>("");
+  useEffect(() => {
+    if (!job || saved.current === job.id) return;
+    if (job.status === "done" || job.status === "stopped") {
+      const has = (job.channels?.length || 0) + (job.audience?.length || 0) + (job.resolved?.length || 0) > 0;
+      if (has) {
+        saved.current = job.id;
+        addRun({ kind: kind as any, title: job.title || job.source || kind, params: paramsFn(), counts: { found: job.found, saved: job.saved }, channels: job.channels, audience: job.audience, resolved: job.resolved });
+      }
+    }
+  }, [job?.status, job?.id]); // eslint-disable-line
+}
+
+/* ---------- Вкладка «Аудитория» (участники / по сообщениям) ---------- */
+function AudienceTab({ account, initialMode = "participants", seedSources = "" }: { account: Account; initialMode?: string; seedSources?: string }) {
+  const [chats, setChats] = useState(seedSources);
   const [checks, setChecks] = useState<{ link: string; res: Resolved }[]>([]);
   const [checking, setChecking] = useState(false);
-  const [mode, setMode] = useState("participants");
+  const [mode, setMode] = useState(initialMode);
+  useEffect(() => { if (seedSources) setChats(seedSources); }, [seedSources]);
   const [target, setTarget] = useState("1000");
   const [days, setDays] = useState("0");
   const [keywords, setKeywords] = useState("");
@@ -238,6 +287,7 @@ function AudienceTab({ account }: { account: Account }) {
   const [starting, setStarting] = useState(false);
   const [err, setErr] = useState("");
   const { job, poll, reset } = useJobPoller();
+  useSaveRun(job, "audience", () => ({ mode, target, days, keywords, filters }));
 
   const lines = chats.split(/\n/).map((s) => s.trim()).filter(Boolean);
   const byMessages = mode !== "participants";
@@ -507,6 +557,314 @@ function ContentTab({ account, router }: { account: Account; router: any }) {
             ))}
           </div>
           {job.content.length > 60 && <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>Показаны первые 60 из {job.content.length}.</div>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ================= Общие блоки ================= */
+function Guard({ on, setOn, level, setLevel, fast, setFast }: any) {
+  return (
+    <div className="pr-row2" style={{ marginTop: 14 }}>
+      <div className="pr-guard" style={{ margin: 0 }}>
+        <div className="pr-guard__top">
+          <div><b>🛡 AI-защита аккаунтов</b> <span className="pr-new">NEW</span><div className="muted" style={{ fontSize: 12.5 }}>Динамические задержки против блокировок. Для больших объёмов не отключайте.</div></div>
+          <label className="sw"><input type="checkbox" checked={on} onChange={(e) => setOn(e.target.checked)} /><span className="sw__t" /></label>
+        </div>
+        {on && <div className="pr-guard__lv">{PROTECTS.map((p) => <button key={p.id} className={`pr-lv${level === p.id ? " on" : ""}`} onClick={() => setLevel(p.id)} type="button"><b>{p.label}</b><span>{p.hint}</span></button>)}</div>}
+      </div>
+      <label className="pr-toggle"><span><b>⚡ Быстрая работа</b><em className="muted">Минимальные задержки (небольшие объёмы)</em></span><span className="sw"><input type="checkbox" checked={fast} onChange={(e) => setFast(e.target.checked)} /><span className="sw__t" /></span></label>
+    </div>
+  );
+}
+
+function ChannelFilters({ f, set }: { f: any; set: (p: any) => void }) {
+  const toggleLang = (id: string) => set({ langs: f.langs.includes(id) ? f.langs.filter((x: string) => x !== id) : [...f.langs, id] });
+  return (
+    <div className="pz-filters">
+      <div className="pr-fcard">
+        <div className="pr-fcard__t">📊 Основные фильтры каналов</div>
+        <label className="af"><span>Минимум подписчиков</span><input className="input" value={f.minSubs || ""} onChange={(e) => set({ minSubs: Number(e.target.value.replace(/\D/g, "")) || 0 })} placeholder="напр. 1000" inputMode="numeric" /></label>
+        <label className="pr-chk" style={{ marginTop: 8 }}><input type="checkbox" checked={f.onlyComments} onChange={(e) => set({ onlyComments: e.target.checked })} /> <span>Только с открытыми комментариями</span></label>
+        <label className="pr-chk"><input type="checkbox" checked={f.onlyActive} onChange={(e) => set({ onlyActive: e.target.checked })} /> <span>Только активные каналы</span></label>
+      </div>
+      <div className="pr-fcard">
+        <div className="pr-fcard__t">⭐ Рейтинг для рассылки: <b>{f.minRating}+</b></div>
+        <input type="range" min={1} max={10} step={1} value={f.minRating} onChange={(e) => set({ minRating: Number(e.target.value) })} style={{ width: "100%", accentColor: "var(--violet)" }} />
+        <div className="muted" style={{ fontSize: 11.5 }}>Эвристика: просмотры/подписчики, частота постинга, описание, возраст, комментарии.</div>
+        <div className="pr-fcard__t" style={{ marginTop: 12 }}>🌐 Язык</div>
+        <div className="pw-chips">{LANGS.map((l) => <button key={l.id} className={`pw-chip${f.langs.includes(l.id) ? " on" : ""}`} onClick={() => toggleLang(l.id)} type="button">{f.langs.includes(l.id) ? "✓ " : ""}{l.label}</button>)}</div>
+      </div>
+    </div>
+  );
+}
+
+function ChannelResults({ rows, onHandoff }: { rows: any[]; onHandoff: (to: SubId, text: string) => void }) {
+  const [q, setQ] = useState("");
+  const [sort, setSort] = useState("subs");
+  const [copied, setCopied] = useState(false);
+  let list = rows;
+  if (q.trim()) { const s = q.toLowerCase(); list = list.filter((r) => (r.title || "").toLowerCase().includes(s) || (r.username || "").toLowerCase().includes(s)); }
+  if (sort === "subs") list = [...list].sort((a, b) => b.subscribers - a.subscribers);
+  if (sort === "rating") list = [...list].sort((a, b) => b.rating - a.rating);
+  const links = () => rows.map((r) => r.username || r.link).filter(Boolean).join("\n");
+  function copyLinks() { navigator.clipboard?.writeText(channelLinks(rows)).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1500); }).catch(() => {}); }
+  const stamp = new Date().toISOString().slice(0, 10);
+
+  return (
+    <div style={{ marginTop: 16 }}>
+      <div className="pr-found__head">
+        <b>Каналов в базе: {rows.length}</b>
+        <div className="pw-row" style={{ gap: 6 }}>
+          <button className="btn btn-sm" onClick={copyLinks} type="button">{copied ? "✓ Скопировано" : "🔗 Ссылки"}</button>
+          <button className="btn btn-sm" onClick={() => download(`channels_${stamp}.csv`, channelsCSV(rows), "text/csv")} type="button">⬇ Excel/CSV</button>
+          <button className="btn btn-sm" onClick={() => download(`channels_ext_${stamp}.json`, channelsExtended(rows, "json"), "application/json")} type="button">JSON</button>
+          <button className="btn btn-sm" onClick={() => download(`channels_ext_${stamp}.txt`, channelsExtended(rows, "txt"))} type="button">TXT для ИИ</button>
+        </div>
+      </div>
+      <div className="pr-restools">
+        <input className="input" style={{ maxWidth: 240 }} value={q} onChange={(e) => setQ(e.target.value)} placeholder="Поиск канала…" />
+        <select className="input" style={{ maxWidth: 190 }} value={sort} onChange={(e) => setSort(e.target.value)}><option value="subs">По подписчикам</option><option value="rating">По рейтингу</option></select>
+        <div className="pw-row" style={{ gap: 6, marginLeft: "auto" }}>
+          <button className="btn btn-sm btn-primary" onClick={() => onHandoff("similar", links())} type="button">→ Расширить (Похожие)</button>
+          <button className="btn btn-sm" onClick={() => onHandoff("members", rows.map((r) => r.link || r.username).filter(Boolean).join("\n"))} type="button">→ Участники</button>
+        </div>
+      </div>
+      <div className="tg-table-wrap">
+        <table className="tg-table">
+          <thead><tr><th>Канал</th><th>Подписчики</th><th>Рейтинг</th><th>Комменты</th><th>Язык</th><th>Тип</th><th>~Просмотры</th><th>Постов/день</th></tr></thead>
+          <tbody>
+            {list.slice(0, 300).map((r, i) => (
+              <tr key={i}>
+                <td>{r.link ? <a href={r.link} target="_blank" rel="noreferrer" style={{ color: "var(--violet-700)", fontWeight: 600 }}>{r.title}</a> : r.title}<div className="muted" style={{ fontSize: 11 }}>{r.username}</div></td>
+                <td>{r.subscribers.toLocaleString("ru-RU")}</td>
+                <td><span className={`pz-rate r${r.rating >= 7 ? "hi" : r.rating >= 4 ? "mid" : "lo"}`}>{r.rating}</span></td>
+                <td>{r.comments ? "✓" : "—"}</td>
+                <td>{r.language}</td>
+                <td>{r.type}</td>
+                <td>{r.avgViews ? r.avgViews.toLocaleString("ru-RU") : "—"}</td>
+                <td>{r.postFreq || "—"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {rows.length > 300 && <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>Показаны первые 300. В экспорте — все {rows.length}.</div>}
+    </div>
+  );
+}
+
+/* ================= 1.1 Аккаунты ================= */
+function AccountsTab({ accounts, current, onReload, onPick }: any) {
+  return (
+    <div className="card ct-card">
+      <div className="ct-hint">👉 Аккаунты Telegram для парсинга. Для первичного поиска достаточно одного. Сессии шифруются и хранятся на сервере — работа продолжается после закрытия браузера.</div>
+      {accounts.length > 0 && (
+        <div className="pz-acclist">
+          {accounts.map((a: Account) => (
+            <div key={a.id} className={`pz-accrow${current?.id === a.id ? " on" : ""}`}>
+              <span className="pz-accava">{(a.username || a.name || "A").replace(/^@/, "").slice(0, 1).toUpperCase()}</span>
+              <div className="pz-accid"><b>{a.username ? "@" + a.username : a.name}</b><span className="muted">{a.name}</span></div>
+              <span className="pz-status s-ok">● Активен</span>
+              {current?.id === a.id ? <span className="asx-tag ok">выбран</span> : <button className="btn btn-sm" onClick={() => onPick(a.id)} type="button">Выбрать</button>}
+              <button className="user-act del" onClick={async () => { await fetch("/api/tg/auth/logout", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ accountId: a.id }) }); onReload(); }} type="button">Удалить</button>
+            </div>
+          ))}
+        </div>
+      )}
+      <div style={{ marginTop: 16 }}>
+        <div className="pz-sub">Добавить аккаунт по номеру телефона</div>
+        <LoginCard onDone={onReload} />
+        <div className="tgd-info" style={{ marginTop: 12 }}>📁 Импорт папок <b>TData</b> и файлов <b>.session</b> доступен в десктоп-версии парсера (в вебе Telegram не даёт читать локальные сессии из соображений безопасности). Здесь используйте вход по номеру.</div>
+      </div>
+    </div>
+  );
+}
+
+/* ================= 1.2 Поиск каналов ================= */
+const KW_HINTS = ["крипта", "трейдинг", "инвестиции", "маркетинг", "новости", "бизнес"];
+const SFX_HINTS = ["новости", "2026", "сигналы", "чат", "обучение", "россия"];
+function ChannelSearchTab({ account, seed, onHandoff }: any) {
+  const [keywords, setKeywords] = useState("");
+  const [suffixes, setSuffixes] = useState("");
+  const [f, setF] = useState({ minSubs: 1000, onlyComments: false, minRating: 1, langs: [] as string[], onlyActive: false });
+  const [on, setOn] = useState(true); const [level, setLevel] = useState("balanced"); const [fast, setFast] = useState(false);
+  const [starting, setStarting] = useState(false); const [err, setErr] = useState("");
+  const { job, poll } = useJobPoller();
+  useSaveRun(job, "channels", () => ({ keywords, suffixes, filters: f }));
+  const kw = keywords.split(/[\n,]/).map((s) => s.trim()).filter(Boolean);
+  const sfx = suffixes.split(/[\n,]/).map((s) => s.trim()).filter(Boolean);
+  const combos = kw.length * (1 + sfx.length);
+
+  async function start() {
+    if (!kw.length) { setErr("Добавьте ключевые слова"); return; }
+    setErr(""); setStarting(true);
+    try {
+      const d = await (await fetch("/api/tg/channels/search", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ accountId: account.id, keywords: kw, suffixes: sfx, filters: f, protect: on ? level : "off", fast }) })).json();
+      if (!d.ok) throw new Error(d.error || "Ошибка"); poll(d.jobId);
+    } catch (e: any) { setErr(e?.message || "Ошибка"); } finally { setStarting(false); }
+  }
+
+  return (
+    <div className="card ct-card">
+      <div className="ct-hint">👉 Система сама вписывает слова в общий поиск Telegram, перебирает каналы и отсеивает ботов. Telegram отдаёт ~10 каналов на запрос — комбинатор «ключ × окончание» умножает охват, а массово базу наращивает вкладка «Похожие».</div>
+      <div className="pz-2col">
+        <label className="af"><span>Ключевые слова <em className="muted">— по одному в строке или через запятую</em></span><textarea className="input" style={{ minHeight: 90 }} value={keywords} onChange={(e) => setKeywords(e.target.value)} placeholder={"крипта\nкриптовалюта\nбиткоин"} /></label>
+        <label className="af"><span>Окончания (суффиксы) <em className="muted">— комбинируются с каждым ключом</em></span><textarea className="input" style={{ minHeight: 90 }} value={suffixes} onChange={(e) => setSuffixes(e.target.value)} placeholder={"новости\n2026\nсигналы"} /></label>
+      </div>
+      <div className="pz-hints"><span className="muted">Подсказки:</span> {KW_HINTS.map((h) => <button key={h} className="pz-hint" onClick={() => setKeywords((v) => (v ? v + "\n" : "") + h)} type="button">+ {h}</button>)}<span className="muted" style={{ marginLeft: 8 }}>окончания:</span> {SFX_HINTS.map((h) => <button key={h} className="pz-hint" onClick={() => setSuffixes((v) => (v ? v + "\n" : "") + h)} type="button">+ {h}</button>)}</div>
+      {combos > 0 && <div className="muted" style={{ fontSize: 12.5, marginTop: 8 }}>Поисковых запросов будет: <b>{combos}</b></div>}
+      <ChannelFilters f={f} set={(p) => setF({ ...f, ...p })} />
+      <Guard on={on} setOn={setOn} level={level} setLevel={setLevel} fast={fast} setFast={setFast} />
+      {err && <div className="tgd-msg err" style={{ marginTop: 10 }}>⚠ {err}</div>}
+      <div className="pw-row" style={{ marginTop: 14 }}><button className="btn btn-primary" onClick={start} type="button" disabled={starting || !kw.length}>{starting ? "Запускаю…" : "▶ Запустить поиск"}</button></div>
+      {job && <JobPanel job={job} onControl={(a) => jobControl(job.id, a)} />}
+      {job && (job.channels?.length || 0) > 0 && <ChannelResults rows={job.channels!} onHandoff={onHandoff} />}
+    </div>
+  );
+}
+
+/* ================= 1.3 Похожие каналы ================= */
+function SimilarTab({ account, seed, onHandoff }: any) {
+  const [sources, setSources] = useState<string>(seed || "");
+  useEffect(() => { if (seed) setSources(seed); }, [seed]);
+  const [depth, setDepth] = useState(1); const [dedup, setDedup] = useState(true);
+  const [f, setF] = useState({ minSubs: 0, onlyComments: false, minRating: 1, langs: [] as string[], onlyActive: false });
+  const [on, setOn] = useState(true); const [level, setLevel] = useState("balanced"); const [fast, setFast] = useState(false);
+  const [starting, setStarting] = useState(false); const [err, setErr] = useState("");
+  const { job, poll } = useJobPoller();
+  useSaveRun(job, "channels", () => ({ mode: "similar", depth, filters: f }));
+  const list = sources.split(/[\n,]/).map((s) => s.trim()).filter(Boolean);
+
+  async function start() {
+    if (!list.length) { setErr("Вставьте исходные каналы"); return; }
+    setErr(""); setStarting(true);
+    try {
+      const d = await (await fetch("/api/tg/channels/similar", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ accountId: account.id, sources: list.slice(0, 50), depth, dedup, filters: f, protect: on ? level : "off", fast }) })).json();
+      if (!d.ok) throw new Error(d.error || "Ошибка"); poll(d.jobId);
+    } catch (e: any) { setErr(e?.message || "Ошибка"); } finally { setStarting(false); }
+  }
+
+  return (
+    <div className="card ct-card">
+      <div className="ct-hint">👉 Telegram на каждый канал даёт до +10 похожих (до +100 с Premium). Так база растёт экспоненциально: 10 → +14 → +28… Возьмите результат, снова вставьте сюда и запустите — итеративно.</div>
+      <label className="af"><span>Исходные каналы <em className="muted">— вставьте базу (до 50 штук), по одному в строке</em></span><textarea className="input" style={{ minHeight: 110, fontFamily: "ui-monospace,monospace", fontSize: 13 }} value={sources} onChange={(e) => setSources(e.target.value)} placeholder={"@channel1\nhttps://t.me/channel2"} /></label>
+      <div className="muted" style={{ fontSize: 12.5, marginTop: 6 }}>Исходных каналов: <b>{Math.min(list.length, 50)}</b>{list.length > 50 ? " (возьмём первые 50)" : ""}</div>
+      <div className="pz-2col" style={{ marginTop: 12 }}>
+        <label className="af"><span>Глубина расширения</span>
+          <div className="asx-seg">
+            <button className={`asx-seg__b${depth === 1 ? " on" : ""}`} onClick={() => setDepth(1)} type="button">1 — рекомендуется</button>
+            <button className={`asx-seg__b${depth === 2 ? " on" : ""}`} onClick={() => setDepth(2)} type="button">2 — осторожно</button>
+          </div>
+        </label>
+        <label className="pr-chk" style={{ alignSelf: "end" }}><input type="checkbox" checked={dedup} onChange={(e) => setDedup(e.target.checked)} /> <span>Жёсткая дедупликация по channel_id</span></label>
+      </div>
+      {depth === 2 && <div className="tgd-info" style={{ marginTop: 8 }}>⚠ Глубина 2 берёт похожие для похожих — база растёт сильнее, но тематика может сбиваться.</div>}
+      <ChannelFilters f={f} set={(p) => setF({ ...f, ...p })} />
+      <Guard on={on} setOn={setOn} level={level} setLevel={setLevel} fast={fast} setFast={setFast} />
+      {err && <div className="tgd-msg err" style={{ marginTop: 10 }}>⚠ {err}</div>}
+      <div className="pw-row" style={{ marginTop: 14 }}><button className="btn btn-primary" onClick={start} type="button" disabled={starting || !list.length}>{starting ? "Запускаю…" : "▶ Расширить базу"}</button></div>
+      {job && <JobPanel job={job} onControl={(a) => jobControl(job.id, a)} />}
+      {job && (job.channels?.length || 0) > 0 && <ChannelResults rows={job.channels!} onHandoff={onHandoff} />}
+    </div>
+  );
+}
+
+/* ================= 1.6 Резолвинг номеров ================= */
+function ResolveTab({ account }: any) {
+  const [phones, setPhones] = useState("");
+  const [starting, setStarting] = useState(false); const [err, setErr] = useState("");
+  const { job, poll } = useJobPoller();
+  useSaveRun(job, "resolve", () => ({ count: phones.split(/[\n,;]/).filter(Boolean).length }));
+  const list = phones.split(/[\n,;]/).map((s) => s.trim()).filter(Boolean);
+
+  async function onFile(files: FileList | null) {
+    if (!files || !files[0]) return;
+    try { const t = await files[0].text(); setPhones((v) => (v ? v + "\n" : "") + t.slice(0, 200000)); } catch {}
+  }
+  async function start() {
+    if (!list.length) { setErr("Добавьте номера"); return; }
+    setErr(""); setStarting(true);
+    try {
+      const d = await (await fetch("/api/tg/phones/resolve", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ accountId: account.id, phones: list }) })).json();
+      if (!d.ok) throw new Error(d.error || "Ошибка"); poll(d.jobId);
+    } catch (e: any) { setErr(e?.message || "Ошибка"); } finally { setStarting(false); }
+  }
+
+  return (
+    <div className="card ct-card">
+      <div className="ct-hint">👉 Резолвинг «телефон → user_id / @username» через адресную книгу аккаунта (ImportContacts → проверка → DeleteContacts для очистки). Учитываются политики приватности: скрытые номера не находятся.</div>
+      <label className="asx-upload"><input type="file" accept=".txt,.csv" hidden onChange={(e) => onFile(e.target.files)} />📎 Загрузить .txt / .csv</label>
+      <label className="af" style={{ marginTop: 10 }}><span>Список телефонов <em className="muted">— по одному в строке</em></span><textarea className="input" style={{ minHeight: 120, fontFamily: "ui-monospace,monospace", fontSize: 13 }} value={phones} onChange={(e) => setPhones(e.target.value)} placeholder={"+79001234567\n79007654321"} /></label>
+      <div className="muted" style={{ fontSize: 12.5, marginTop: 6 }}>Номеров: <b>{list.length}</b></div>
+      {err && <div className="tgd-msg err" style={{ marginTop: 10 }}>⚠ {err}</div>}
+      <div className="pw-row" style={{ marginTop: 12 }}><button className="btn btn-primary" onClick={start} type="button" disabled={starting || !list.length}>{starting ? "Запускаю…" : "▶ Резолвить номера"}</button></div>
+      {job && <JobPanel job={job} onControl={(a) => jobControl(job.id, a)} />}
+      {job && (job.resolved?.length || 0) > 0 && (
+        <div style={{ marginTop: 16 }}>
+          <div className="pr-found__head"><b>Найдено: {job.resolved!.filter((r: any) => r.found).length} из {job.resolved!.length}</b>
+            <a className="btn btn-sm" onClick={() => download(`resolved_${new Date().toISOString().slice(0, 10)}.csv`, resolvedCSV(job.resolved as any), "text/csv")}>⬇ Экспорт CSV</a>
+          </div>
+          <div className="tg-table-wrap"><table className="tg-table"><thead><tr><th>Телефон</th><th>user_id</th><th>username</th><th>Имя</th><th>Статус</th></tr></thead>
+            <tbody>{job.resolved!.slice(0, 300).map((r: any, i: number) => <tr key={i}><td>{r.phone}</td><td>{r.user_id || "—"}</td><td>{r.username || "—"}</td><td>{r.name || "—"}</td><td>{r.found ? <span className="asx-tag ok">найден</span> : <span className="muted">не найден</span>}</td></tr>)}</tbody>
+          </table></div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ================= 1.7 История и база ================= */
+function HistoryTab({ onHandoff }: { onHandoff: (to: SubId, text: string) => void }) {
+  const [runs, setRuns] = useState<HistoryRun[]>([]);
+  const [open, setOpen] = useState<HistoryRun | null>(null);
+  useEffect(() => { setRuns(loadHistory()); }, []);
+  function del(id: string) { removeRun(id); setRuns(loadHistory()); if (open?.id === id) setOpen(null); }
+  const KIND_LABEL: Record<string, string> = { channels: "Каналы", audience: "Аудитория", resolve: "Резолвинг", content: "Контент" };
+
+  if (open) {
+    const isCh = open.kind === "channels"; const isRes = open.kind === "resolve";
+    const rows: any[] = isCh ? (open.channels || []) : isRes ? (open.resolved || []) : (open.audience || []);
+    return (
+      <div className="card ct-card">
+        <div className="pr-found__head">
+          <div><button className="btn-link" onClick={() => setOpen(null)} type="button">← История</button> <b style={{ marginLeft: 8 }}>{open.title}</b> <span className="muted">· {new Date(open.date).toLocaleString("ru-RU")}</span></div>
+        </div>
+        {isCh && <ChannelResults rows={rows} onHandoff={onHandoff} />}
+        {isRes && (<>
+          <div className="pw-row" style={{ margin: "8px 0" }}><button className="btn btn-sm" onClick={() => download(`resolved.csv`, resolvedCSV(rows as any), "text/csv")} type="button">⬇ CSV</button></div>
+          <div className="tg-table-wrap"><table className="tg-table"><thead><tr><th>Телефон</th><th>user_id</th><th>username</th><th>Имя</th></tr></thead><tbody>{rows.slice(0, 300).map((r, i) => <tr key={i}><td>{r.phone}</td><td>{r.user_id || "—"}</td><td>{r.username || "—"}</td><td>{r.name || "—"}</td></tr>)}</tbody></table></div>
+        </>)}
+        {open.kind === "audience" && (<>
+          <div className="pw-row" style={{ margin: "8px 0", gap: 6 }}>
+            <button className="btn btn-sm" onClick={() => navigator.clipboard?.writeText(audienceLinks(rows as any))} type="button">🔗 Ссылки</button>
+            <button className="btn btn-sm" onClick={() => download(`audience.csv`, audienceCSVClient(rows as any), "text/csv")} type="button">⬇ CSV</button>
+          </div>
+          <div className="tg-table-wrap"><table className="tg-table"><thead><tr><th>user_id</th><th>username</th><th>Имя</th><th>Источник</th></tr></thead><tbody>{rows.slice(0, 300).map((r, i) => <tr key={i}><td>{r.user_id}</td><td>{r.username || "—"}</td><td>{r.name}</td><td>{r.source}</td></tr>)}</tbody></table></div>
+        </>)}
+      </div>
+    );
+  }
+
+  return (
+    <div className="card ct-card">
+      <div className="ct-hint">👉 Все запуски сохраняются автоматически и навсегда. Вернитесь к любой базе в любой момент, откройте её и экспортируйте.</div>
+      {runs.length === 0 ? (
+        <div className="ct-empty"><div>Истории пока нет. Запустите поиск каналов или парсинг — результат появится здесь.</div></div>
+      ) : (
+        <div className="pz-hist">
+          {runs.map((r) => {
+            const cnt = (r.channels?.length || 0) + (r.audience?.length || 0) + (r.resolved?.length || 0);
+            return (
+              <div key={r.id} className="pz-histrow">
+                <span className="pz-histk">{KIND_LABEL[r.kind] || r.kind}</span>
+                <div className="pz-histmain"><b>{r.title}</b><span className="muted">{new Date(r.date).toLocaleString("ru-RU")} · записей: {cnt}</span></div>
+                <button className="btn btn-sm btn-primary" onClick={() => setOpen(r)} type="button">Открыть</button>
+                <button className="user-act del" onClick={() => del(r.id)} type="button">Удалить</button>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

@@ -5,13 +5,24 @@
 
 import { getAccount } from "./tgAccounts";
 
-export type JobKind = "audience" | "content";
-export type JobMode = "participants" | "message_authors" | "comment_authors";
+export type JobKind = "audience" | "content" | "channels" | "resolve";
+export type JobMode = "participants" | "message_authors" | "comment_authors" | "search" | "similar" | "resolve";
 export type JobStatus = "running" | "paused" | "flood" | "done" | "error" | "stopped";
 
 export type AudienceRow = { user_id: string; username: string; name: string; source: string; activity_date: string; premium: boolean };
 export type ContentRow = { text: string; date: string; link: string; views: number; reactions: number; media: string };
+// Канал в базе: числовой id — первичный ключ, username вторичен.
+export type ChannelRow = {
+  id: string; title: string; username: string; link: string;
+  subscribers: number; comments: boolean; language: string; rating: number;
+  type: string; created: string; avgViews: number; postFreq: number; description: string; active: boolean;
+  via?: string; // источник (для «похожих» — от какого канала)
+};
+export type ResolvedRow = { phone: string; user_id: string; username: string; name: string; found: boolean };
 export type LogRow = { t: string; msg: string; kind: "info" | "ok" | "warn" | "err" };
+
+export type ChannelFilters = { minSubs: number; onlyComments: boolean; minRating: number; langs: string[]; onlyActive: boolean };
+export const DEFAULT_CH_FILTERS: ChannelFilters = { minSubs: 0, onlyComments: false, minRating: 1, langs: [], onlyActive: false };
 
 export type Protect = "off" | "conservative" | "balanced" | "aggressive";
 export type AudienceFilters = {
@@ -40,7 +51,10 @@ export type Job = {
   floodSeconds: number;
   audience: AudienceRow[];
   content: ContentRow[];
+  channels: ChannelRow[];
+  resolved: ResolvedRow[];
   logs: LogRow[];
+  title: string; // человекочитаемое имя запуска (для истории)
   createdAt: number;
   updatedAt: number;
   _paused: boolean;
@@ -248,7 +262,7 @@ export function startAudienceJob(accountId: string, optsIn: Partial<AudienceOpts
   const job: Job = {
     id: newId(), kind: "audience", mode: opts.mode, status: "running", source: sources[0], sources,
     progress: 0, found: 0, saved: 0, skipped: 0, target: opts.target,
-    error: "", floodSeconds: 0, audience: [], content: [], logs: [],
+    error: "", floodSeconds: 0, audience: [], content: [], channels: [], resolved: [], logs: [], title: "",
     createdAt: Date.now(), updatedAt: Date.now(), _paused: false, _stop: false,
   };
   jobs.set(job.id, job);
@@ -364,7 +378,7 @@ export function startContentJob(accountId: string, source: string, opts: { days:
   const job: Job = {
     id: newId(), kind: "content", mode: "content", status: "running", source, sources: [source],
     progress: 0, found: 0, saved: 0, skipped: 0, target: Math.min(Math.max(opts.limit || 200, 1), 5000),
-    error: "", floodSeconds: 0, audience: [], content: [], logs: [],
+    error: "", floodSeconds: 0, audience: [], content: [], channels: [], resolved: [], logs: [], title: "",
     createdAt: Date.now(), updatedAt: Date.now(), _paused: false, _stop: false,
   };
   jobs.set(job.id, job);
@@ -417,6 +431,261 @@ async function runContent(job: Job, acc: any, opts: { days: number; keywords: st
 }
 
 // CSV аудитории — БЕЗ номеров телефонов.
+/* ==================== КАНАЛЫ: поиск, похожие, резолвинг ==================== */
+
+function detectLang(text: string): string {
+  const cyr = (text.match(/[а-яё]/gi) || []).length;
+  const lat = (text.match(/[a-z]/gi) || []).length;
+  if (cyr === 0 && lat === 0) return "—";
+  return cyr >= lat ? "ru" : "en";
+}
+// Эвристический рейтинг канала для рассылки (1–10).
+function ratingOf(ch: ChannelRow): number {
+  let s = 5;
+  const vr = ch.subscribers ? ch.avgViews / ch.subscribers : 0; // вовлечённость (просмотры/подписчики)
+  if (vr > 0.3) s += 2; else if (vr > 0.15) s += 1; else if (vr > 0 && vr < 0.05) s -= 1;
+  if (ch.postFreq >= 1) s += 1; else if (ch.postFreq > 0 && ch.postFreq < 0.2) s -= 1;
+  if (ch.description) s += 1;
+  if (ch.comments) s += 1;
+  if (ch.subscribers >= 10000) s += 1; else if (ch.subscribers > 0 && ch.subscribers < 500) s -= 1;
+  if (!ch.active) s -= 2;
+  return Math.max(1, Math.min(10, Math.round(s)));
+}
+// Обогащение канала: подписчики, комментарии, описание, просмотры, активность.
+async function enrichChannel(client: any, Api: any, entity: any): Promise<ChannelRow> {
+  let subscribers = 0, comments = false, description = "";
+  try {
+    const full: any = await client.invoke(new Api.channels.GetFullChannel({ channel: entity }));
+    subscribers = Number(full?.fullChat?.participantsCount || 0);
+    description = String(full?.fullChat?.about || "");
+    comments = !!full?.fullChat?.linkedChatId;
+  } catch {}
+  let avgViews = 0, postFreq = 0, active = false;
+  try {
+    const msgs: any[] = [];
+    for await (const m of client.iterMessages(entity, { limit: 20 })) msgs.push(m);
+    if (msgs.length) {
+      const views = msgs.map((m) => m.views || 0).filter((v) => v > 0);
+      avgViews = views.length ? Math.round(views.reduce((a, b) => a + b, 0) / views.length) : 0;
+      const dates = msgs.map((m) => (m.date || 0) * 1000).filter(Boolean);
+      if (dates.length) {
+        const newest = Math.max(...dates), oldest = Math.min(...dates);
+        const spanDays = Math.max((newest - oldest) / 86400000, 0.5);
+        postFreq = +(((msgs.length - 1) / spanDays)).toFixed(2);
+        active = Date.now() - newest < 30 * 86400000;
+      }
+    }
+  } catch {}
+  const username = entity.username ? "@" + entity.username : "";
+  const type = entity.broadcast ? "Канал" : entity.megagroup ? "Группа" : "Чат";
+  const row: ChannelRow = {
+    id: String(entity.id), title: entity.title || username || String(entity.id), username,
+    link: entity.username ? `https://t.me/${entity.username}` : "",
+    subscribers, comments, language: detectLang((entity.title || "") + " " + description), rating: 0,
+    type, created: dstr(entity.date), avgViews, postFreq, description, active,
+  };
+  row.rating = ratingOf(row);
+  return row;
+}
+
+function passChannel(job: Job, row: ChannelRow, f: ChannelFilters): boolean {
+  if (f.minSubs && row.subscribers < f.minSubs) { log(job, `${row.title}: подписчиков ${row.subscribers} < ${f.minSubs} — пропуск`, "warn"); return false; }
+  if (f.onlyComments && !row.comments) { log(job, `${row.title}: комментарии закрыты — пропуск`, "warn"); return false; }
+  if (f.minRating > 1 && row.rating < f.minRating) { log(job, `${row.title}: рейтинг ${row.rating} < ${f.minRating} — пропуск`, "warn"); return false; }
+  if (f.langs.length && !f.langs.includes(row.language)) { log(job, `${row.title}: язык «${row.language}» не подходит — пропуск`, "warn"); return false; }
+  if (f.onlyActive && !row.active) { log(job, `${row.title}: неактивен (нет свежих постов) — пропуск`, "warn"); return false; }
+  return true;
+}
+
+function mkJob(kind: JobKind, mode: JobMode, title: string, target: number): Job {
+  const job: Job = {
+    id: newId(), kind, mode, status: "running", source: title, sources: [], progress: 0,
+    found: 0, saved: 0, skipped: 0, target, error: "", floodSeconds: 0,
+    audience: [], content: [], channels: [], resolved: [], logs: [], title,
+    createdAt: Date.now(), updatedAt: Date.now(), _paused: false, _stop: false,
+  };
+  jobs.set(job.id, job);
+  return job;
+}
+
+// ---- 1.2 Поиск каналов по ключевым словам (комбинатор ключ × окончание) ----
+export function startChannelSearch(accountId: string, opts: { keywords: string[]; suffixes: string[]; filters: Partial<ChannelFilters>; protect?: Protect; fast?: boolean }): { ok: boolean; jobId?: string; error?: string } {
+  const acc = getAccount(accountId);
+  if (!acc) return { ok: false, error: "Аккаунт Telegram не подключён." };
+  const keywords = (opts.keywords || []).map((s) => String(s).trim()).filter(Boolean);
+  if (!keywords.length) return { ok: false, error: "Добавьте хотя бы одно ключевое слово." };
+  const suffixes = (opts.suffixes || []).map((s) => String(s).trim()).filter(Boolean);
+  const filters: ChannelFilters = { ...DEFAULT_CH_FILTERS, ...(opts.filters || {}) };
+  const job = mkJob("channels", "search", `Поиск: ${keywords.slice(0, 3).join(", ")}${keywords.length > 3 ? "…" : ""}`, 0);
+  void runChannelSearch(job, acc, { keywords, suffixes, filters, protect: opts.protect || "balanced", fast: !!opts.fast });
+  return { ok: true, jobId: job.id };
+}
+
+async function runChannelSearch(job: Job, acc: any, opts: { keywords: string[]; suffixes: string[]; filters: ChannelFilters; protect: Protect; fast: boolean }) {
+  let client: any;
+  const seen = new Set<string>();
+  const delay = delaysFor(opts.protect, opts.fast);
+  try {
+    const { Api } = await import("telegram");
+    client = await makeClient(acc.apiId, acc.apiHash, acc.session);
+    // Комбинатор: декартово произведение ключей и окончаний.
+    const queries: string[] = [];
+    for (const k of opts.keywords) { queries.push(k); for (const s of opts.suffixes) queries.push(`${k} ${s}`); }
+    const uniqQ = Array.from(new Set(queries.map((q) => q.trim()).filter(Boolean)));
+    job.target = uniqQ.length;
+    log(job, `Запросов к поиску Telegram: ${uniqQ.length} (Telegram отдаёт ~10 каналов на запрос — расширяйте базу через «Похожие»)`);
+    for (let qi = 0; qi < uniqQ.length; qi++) {
+      if (!(await gate(job))) break;
+      const q = uniqQ[qi];
+      job.progress = Math.round(((qi + 1) / uniqQ.length) * 100);
+      let res: any;
+      try { res = await client.invoke(new Api.contacts.Search({ q, limit: 25 })); }
+      catch (e: any) {
+        const m = String(e?.errorMessage || e?.message || "");
+        const fw = m.match(/FLOOD_WAIT_(\d+)/);
+        if (fw) { job.status = "flood"; for (let s = Number(fw[1]) + 1; s > 0 && !job._stop; s--) { job.floodSeconds = s; await sleep(1000); } job.floodSeconds = 0; job.status = "running"; }
+        else log(job, `«${q}»: ${cleanErr(e)}`, "warn");
+        continue;
+      }
+      const chats: any[] = res.chats || [];
+      const botCount = (res.users || []).filter((u: any) => u.bot).length;
+      if (botCount) log(job, `«${q}»: боты отсеяны автоматически (${botCount})`);
+      for (const ch of chats) {
+        if (job._stop) break;
+        if (ch.className !== "Channel") continue; // только каналы/супергруппы (есть числовой id)
+        const id = String(ch.id);
+        if (seen.has(id)) { job.skipped++; continue; }
+        seen.add(id);
+        let row: ChannelRow;
+        try { row = await enrichChannel(client, Api, ch); }
+        catch { row = { id, title: ch.title || String(id), username: ch.username ? "@" + ch.username : "", link: ch.username ? `https://t.me/${ch.username}` : "", subscribers: 0, comments: false, language: detectLang(ch.title || ""), rating: 1, type: ch.broadcast ? "Канал" : "Группа", created: dstr(ch.date), avgViews: 0, postFreq: 0, description: "", active: false }; }
+        job.found++;
+        if (!passChannel(job, row, opts.filters)) { job.skipped++; continue; }
+        job.channels.push(row); job.saved++;
+        log(job, `+ ${row.title} · ${row.subscribers} подписчиков · рейтинг ${row.rating}${row.comments ? " · комментарии открыты" : ""}`, "ok");
+        if (delay.user) await sleep(delay.user);
+      }
+      if (delay.chat) await sleep(delay.chat);
+    }
+    if (job.status !== "error" && job.status !== "stopped") { job.status = "done"; job.progress = 100; log(job, `Готово. Каналов в базе: ${job.channels.length}`, "ok"); }
+  } catch (e: any) { job.status = "error"; job.error = cleanErr(e); log(job, cleanErr(e), "err"); }
+  finally { job.updatedAt = Date.now(); try { await client?.disconnect(); } catch {} }
+}
+
+// ---- 1.3 Расширение базы через «Похожие каналы» (GetChannelRecommendations) ----
+export function startSimilarExpand(accountId: string, opts: { sources: string[]; depth: number; dedup: boolean; existing?: string[]; filters: Partial<ChannelFilters>; protect?: Protect; fast?: boolean }): { ok: boolean; jobId?: string; error?: string } {
+  const acc = getAccount(accountId);
+  if (!acc) return { ok: false, error: "Аккаунт Telegram не подключён." };
+  const sources = (opts.sources || []).map((s) => String(s).trim()).filter(Boolean).slice(0, 50);
+  if (!sources.length) return { ok: false, error: "Вставьте исходные каналы (до 50)." };
+  const filters: ChannelFilters = { ...DEFAULT_CH_FILTERS, ...(opts.filters || {}) };
+  const job = mkJob("channels", "similar", `Похожие: ${sources.length} исходных`, sources.length);
+  void runSimilar(job, acc, { sources, depth: Math.min(Math.max(opts.depth || 1, 1), 2), dedup: opts.dedup !== false, existing: opts.existing || [], filters, protect: opts.protect || "balanced", fast: !!opts.fast });
+  return { ok: true, jobId: job.id };
+}
+
+async function runSimilar(job: Job, acc: any, opts: { sources: string[]; depth: number; dedup: boolean; existing: string[]; filters: ChannelFilters; protect: Protect; fast: boolean }) {
+  let client: any;
+  const seen = new Set<string>(opts.existing.map((s) => s)); // уже в базе — не дублируем и не тратим лимиты
+  const delay = delaysFor(opts.protect, opts.fast);
+  try {
+    const { Api } = await import("telegram");
+    client = await makeClient(acc.apiId, acc.apiHash, acc.session);
+    log(job, `Расширение: ${opts.sources.length} исходных, глубина ${opts.depth}${opts.depth === 2 ? " (внимание: тематика может сбиваться)" : ""}`);
+
+    async function recommend(ref: string, level: number, viaTitle: string) {
+      if (job._stop || level > opts.depth) return;
+      let entity: any;
+      try { entity = await client.getEntity(normalize(ref)); }
+      catch (e: any) { log(job, `«${ref}»: ${cleanErr(e)}`, "warn"); return; }
+      const srcId = String(entity.id);
+      if (opts.dedup) seen.add(srcId);
+      let recs: any;
+      try { recs = await client.invoke(new Api.channels.GetChannelRecommendations({ channel: entity })); }
+      catch (e: any) { log(job, `«${entity.title || ref}»: рекомендации недоступны (${cleanErr(e)})`, "warn"); return; }
+      const chats: any[] = recs.chats || [];
+      let dupes = 0;
+      const fresh: any[] = [];
+      for (const ch of chats) {
+        if (ch.className !== "Channel") continue;
+        const id = String(ch.id);
+        if (opts.dedup && seen.has(id)) { dupes++; job.skipped++; continue; }
+        seen.add(id); fresh.push(ch);
+      }
+      log(job, `${entity.title || ref}: рекомендаций ${chats.length}, новых ${fresh.length}, дублей отфильтровано ${dupes}`);
+      for (const ch of fresh) {
+        if (job._stop) break;
+        let row: ChannelRow;
+        try { row = await enrichChannel(client, Api, ch); } catch { continue; }
+        row.via = viaTitle;
+        job.found++;
+        if (!passChannel(job, row, opts.filters)) { job.skipped++; continue; }
+        job.channels.push(row); job.saved++;
+        log(job, `+ ${row.title} · ${row.subscribers} подписчиков · рейтинг ${row.rating}`, "ok");
+        if (delay.user) await sleep(delay.user);
+        if (level < opts.depth) await recommend(row.username || row.id, level + 1, row.title);
+      }
+    }
+
+    for (let i = 0; i < opts.sources.length; i++) {
+      if (job._stop) break;
+      job.progress = Math.round(((i + 1) / opts.sources.length) * 100);
+      await recommend(opts.sources[i], 1, opts.sources[i]);
+      if (delay.chat) await sleep(delay.chat);
+    }
+    if (job.status !== "error" && job.status !== "stopped") { job.status = "done"; job.progress = 100; log(job, `Готово. Новых каналов: ${job.channels.length}`, "ok"); }
+  } catch (e: any) { job.status = "error"; job.error = cleanErr(e); log(job, cleanErr(e), "err"); }
+  finally { job.updatedAt = Date.now(); try { await client?.disconnect(); } catch {} }
+}
+
+// ---- 1.6 Резолвинг номеров (ImportContacts → resolve → DeleteContacts) ----
+export function startPhoneResolve(accountId: string, phones: string[]): { ok: boolean; jobId?: string; error?: string } {
+  const acc = getAccount(accountId);
+  if (!acc) return { ok: false, error: "Аккаунт Telegram не подключён." };
+  const list = Array.from(new Set((phones || []).map((p) => String(p).replace(/[^\d+]/g, "").replace(/^\+/, "")).filter((p) => p.length >= 7)));
+  if (!list.length) return { ok: false, error: "Загрузите список телефонов." };
+  const job = mkJob("resolve", "resolve", `Резолвинг: ${list.length} номеров`, list.length);
+  void runResolve(job, acc, list);
+  return { ok: true, jobId: job.id };
+}
+
+async function runResolve(job: Job, acc: any, phones: string[]) {
+  let client: any;
+  try {
+    const { Api } = await import("telegram");
+    const bigInt = (await import("big-integer")).default;
+    client = await makeClient(acc.apiId, acc.apiHash, acc.session);
+    log(job, `Резолвинг ${phones.length} номеров через адресную книгу аккаунта`);
+    const chunk = 50;
+    for (let i = 0; i < phones.length; i += chunk) {
+      if (!(await gate(job))) break;
+      const batch = phones.slice(i, i + chunk);
+      const contacts = batch.map((phone, k) => new Api.InputPhoneContact({ clientId: bigInt(i + k) as any, phone: "+" + phone, firstName: "c", lastName: String(i + k) }));
+      let res: any;
+      try { res = await client.invoke(new Api.contacts.ImportContacts({ contacts })); }
+      catch (e: any) { log(job, `Партия ${i}: ${cleanErr(e)}`, "warn"); continue; }
+      const users: any[] = res.users || [];
+      const byId = new Map(users.map((u: any) => [String(u.id), u]));
+      const imported: any[] = res.imported || [];
+      const impByClient = new Map(imported.map((im: any) => [String(im.clientId), String(im.userId)]));
+      batch.forEach((phone, k) => {
+        const uid = impByClient.get(String(i + k));
+        const u = uid ? byId.get(uid) : null;
+        if (u) { job.resolved.push({ phone, user_id: String(u.id), username: u.username ? "@" + u.username : "", name: personName(u), found: true }); job.saved++; }
+        else { job.resolved.push({ phone, user_id: "", username: "", name: "", found: false }); }
+        job.found++;
+      });
+      // Чистим адресную книгу аккаунта-парсера.
+      if (users.length) { try { await client.invoke(new Api.contacts.DeleteContacts({ id: users.map((u: any) => new Api.InputUser({ userId: u.id, accessHash: u.accessHash })) })); } catch {} }
+      job.progress = Math.min(99, Math.round(((i + batch.length) / phones.length) * 100));
+      log(job, `Обработано ${Math.min(i + chunk, phones.length)} из ${phones.length}, найдено ${job.saved}`);
+      await sleep(1200);
+    }
+    if (job.status !== "error" && job.status !== "stopped") { job.status = "done"; job.progress = 100; log(job, `Готово. Найдено ${job.saved} из ${phones.length}`, "ok"); }
+  } catch (e: any) { job.status = "error"; job.error = cleanErr(e); log(job, cleanErr(e), "err"); }
+  finally { job.updatedAt = Date.now(); try { await client?.disconnect(); } catch {} }
+}
+
 export function audienceCsv(id: string): string {
   const j = jobs.get(id);
   const head = "user_id,username,name,source,activity_date,premium";
