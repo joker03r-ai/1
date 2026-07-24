@@ -253,10 +253,33 @@ select {
 }
 
 .sidebar__foot {
-  padding: 10px 16px 14px;
+  padding: 10px 12px 14px;
   display: flex;
+  flex-direction: column;
   gap: 8px;
 }
+.sf-card {
+  position: relative; display: flex; align-items: center; gap: 10px;
+  width: 100%; text-align: left; border: 0; cursor: pointer;
+  padding: 10px 12px; border-radius: 13px;
+  transition: transform .12s ease, box-shadow .18s ease, filter .15s;
+}
+.sf-card:hover { transform: translateY(-2px); }
+.sf-card__ico { width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center; font-size: 16px; flex-shrink: 0; background: rgba(255,255,255,.22); }
+.sf-card__txt { display: flex; flex-direction: column; line-height: 1.2; min-width: 0; }
+.sf-card__txt b { font-size: 13px; font-weight: 800; }
+.sf-card__txt em { font-style: normal; font-size: 11px; opacity: .85; }
+.sf-card__arr { margin-left: auto; font-weight: 800; opacity: .8; flex-shrink: 0; }
+/* Заказать бота — яркий градиентный CTA на переднем плане */
+.sf-card--order { background: var(--grad); color: #fff; box-shadow: 0 8px 20px -4px rgba(108,92,231,.5); }
+.sf-card--order:hover { box-shadow: 0 12px 26px -4px rgba(108,92,231,.6); }
+/* Партнёрам — светлая карточка с зелёным акцентом-бейджем */
+.sf-card--partners { background: var(--panel); color: var(--ink); border: 1px solid var(--line); box-shadow: var(--shadow-sm); }
+.sf-card--partners:hover { border-color: var(--violet-100); box-shadow: 0 8px 18px -6px rgba(20,22,40,.18); }
+.sf-card--partners .sf-card__ico { background: var(--violet-050); }
+.sf-card__badge { margin-left: auto; font-size: 11px; font-weight: 800; color: #157347; background: #e7f7ee; border-radius: 999px; padding: 3px 9px; flex-shrink: 0; }
+:root[data-theme="dark"] .sf-card--partners .sf-card__ico { background: #221d38; }
+:root[data-theme="dark"] .sf-card__badge { background: #10241a; color: #4ade80; }
 
 .chip {
   flex: 1;
@@ -4362,3 +4385,20 @@ img, svg, video, canvas { max-width: 100%; }
 .chat-typing { opacity: .7; }
 .chat-composer { display: flex; gap: 8px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); }
 .chat-composer .input { flex: 1; }
+
+/* ================= Главная — панель со вкладками (боты/шаблоны) ================= */
+.home-panel { border: 1px solid var(--line); border-radius: 16px; background: var(--panel); box-shadow: var(--shadow-sm); overflow: hidden; }
+.home-panel__tabs { display: flex; align-items: center; gap: 4px; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+.home-panel__tab { display: inline-flex; align-items: center; gap: 7px; border: 0; background: none; padding: 9px 14px; border-radius: 10px; font-weight: 700; font-size: 13.5px; color: var(--ink-soft); cursor: pointer; }
+.home-panel__tab .ico { width: 16px; height: 16px; }
+.home-panel__tab:hover { background: var(--line-soft); }
+.home-panel__tab.on { background: var(--violet-050); color: var(--violet-700); }
+.home-panel__tab em { font-style: normal; font-size: 11px; font-weight: 800; background: var(--line); color: var(--ink-soft); border-radius: 999px; padding: 1px 7px; }
+.home-panel__tab.on em { background: var(--violet-100); color: var(--violet-700); }
+.home-panel__more { margin-left: auto; font-size: 13px; font-weight: 700; color: var(--violet-700); padding: 0 8px; white-space: nowrap; }
+.home-panel .botcards, .home-panel .tpl3 { padding: 14px; margin: 0; }
+.hp-lrn { margin-top: 14px; }
+@media (max-width: 560px) {
+  .home-panel__tab { padding: 8px 10px; font-size: 12.5px; }
+  .home-panel__more { display: none; }
+}

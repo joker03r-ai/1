@@ -47,11 +47,15 @@ export default function SidebarFoot() {
   return (
     <>
       <div className="sidebar__foot">
-        <button className="chip" onClick={() => setOrder(true)}>
-          {t("brand.orderBot", lang)}
+        <button className="sf-card sf-card--order" onClick={() => setOrder(true)}>
+          <span className="sf-card__ico">🛠</span>
+          <span className="sf-card__txt"><b>{t("brand.orderBot", lang)}</b><em>Сделаем под ключ</em></span>
+          <span className="sf-card__arr">→</span>
         </button>
-        <button className="chip" onClick={() => setPartners(true)}>
-          {t("brand.partners", lang)}
+        <button className="sf-card sf-card--partners" onClick={() => setPartners(true)}>
+          <span className="sf-card__ico">🤝</span>
+          <span className="sf-card__txt"><b>{t("brand.partners", lang)}</b><em>Комиссия 30%</em></span>
+          <span className="sf-card__badge">30%</span>
         </button>
       </div>
 

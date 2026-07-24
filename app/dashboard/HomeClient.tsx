@@ -49,6 +49,7 @@ export default function HomeClient() {
   const [trial, setTrial] = useState(7);
   const [period, setPeriod] = useState<"today" | "7" | "30">("7");
   const [learnOpen, setLearnOpen] = useState(false);
+  const [homeTab, setHomeTab] = useState<"bots" | "templates">("bots");
   const [kb, setKb] = useState(false);
 
   useEffect(() => {
@@ -185,84 +186,9 @@ export default function HomeClient() {
                 </div>
               ))}
             </section>
-          </aside>
 
-          <div className="hp-main">
-            {/* ЧТО СДЕЛАТЬ СЕЙЧАС */}
-            <div className="home-section-title">Что сделать сейчас</div>
-            <section className="recs">
-              {recs.map((r) => (
-                <div key={r.id} className={`rec fade-up${r.done ? " rec--done" : ""}`}>
-                  <div className="rec__ico"><r.Icon className="ico" /></div>
-                  <div className="rec__title">{r.title}{r.done && <span className="rec__ok"><IconCheck className="ico" /></span>}</div>
-                  <div className="rec__desc">{r.desc}</div>
-                  <div className="rec__bar"><span style={{ width: `${r.pct}%` }} /></div>
-                  <div className="rec__foot">
-                    <span className="rec__pct">{r.done ? "Готово" : `${r.pct}%`}</span>
-                    <Link href={r.href} className="rec__btn">{r.done ? "Открыть" : r.step} →</Link>
-                  </div>
-                </div>
-              ))}
-            </section>
-
-        {/* БОТЫ */}
-        <div className="home-row-head">
-          <div className="home-section-title">Мои боты · {bots.length}</div>
-          <Link href="/dashboard/bots" className="home-row-head__more">Все боты →</Link>
-        </div>
-        <section className="botcards">
-          {bots.map((bt) => {
-            const st = botState(bt); const pct = botPct(bt);
-            return (
-              <div key={bt.id} className={`botcard fade-up${bt.id === curBot ? " on" : ""}`} onClick={() => pickBot(bt.id)}>
-                <div className="botcard__top">
-                  <span className="botcard__ava" style={{ background: avatarColor(bt.id) }}>{botInitials(bt.name)}</span>
-                  <div className="botcard__id">
-                    <div className="botcard__name">{bt.name}</div>
-                    <div className="botcard__ch">{bt.tgUsername ? "@" + bt.tgUsername : bt.platform || "Не подключён"}</div>
-                  </div>
-                  <span className={`botcard__st st-${st}`}>{st === "work" && <i className="dot dot--live" />}{st === "warn" && <i className="dot dot--warn" />}{STATE_LABEL[st]}</span>
-                </div>
-                <div className="botcard__meta">
-                  <span>Диалогов: <b>{dialogs}</b></span>
-                  <span>Последнее: <b>{st === "work" ? "онлайн" : "—"}</b></span>
-                </div>
-                <div className="botcard__prog"><div className="botcard__bar"><span style={{ width: `${pct}%` }} /></div><span className="botcard__pct">{pct}%</span></div>
-                <div className="botcard__acts" onClick={(e) => e.stopPropagation()}>
-                  <Link href={bt.scenarioId ? `/dashboard/scenarios/${bt.scenarioId}` : "/dashboard/scenarios"} className="btn btn-sm btn-primary">Открыть</Link>
-                  <Link href="/dashboard/bots" className="btn btn-sm">Проверить</Link>
-                </div>
-              </div>
-            );
-          })}
-          <Link href="/dashboard/create" className="botcard botcard--add">
-            <span className="botcard__addico"><IconPlus className="ico" /></span>
-            <span>Создать бота</span>
-          </Link>
-        </section>
-
-        {/* ШАБЛОНЫ + ОБУЧЕНИЕ (компактная секция) */}
-        <section className="foot2">
-          <div className="foot-tpls">
-            <div className="home-row-head" style={{ margin: "0 0 10px" }}>
-              <div className="home-section-title" style={{ margin: 0 }}>Готовые шаблоны</div>
-              <Link href="/dashboard/scenarios" className="home-row-head__more">Смотреть все →</Link>
-            </div>
-            <div className="tpl3">
-              {featured.map((t) => (
-                <button key={t.id} className="tpl3__c" onClick={() => useTemplate(t.id)} type="button">
-                  <span className="tpl3__ico"><IconLayers className="ico" /></span>
-                  <span className="tpl3__name">{t.name}</span>
-                  <span className="tpl3__desc">{t.description}</span>
-                  <span className="tpl3__cat">{t.category}</span>
-                  <span className="tpl3__use">Использовать →</span>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="foot-learn">
-            <div className="lrn">
+            {/* Обучение — компактно в правой колонке */}
+            <div className="lrn hp-lrn">
               <div className="lrn__head">
                 <span className="lrn__ico"><IconRocket className="ico" /></span>
                 <div>
@@ -286,7 +212,84 @@ export default function HomeClient() {
                 </ol>
               )}
             </div>
+          </aside>
+
+          <div className="hp-main">
+            {/* ЧТО СДЕЛАТЬ СЕЙЧАС */}
+            <div className="home-section-title">Что сделать сейчас</div>
+            <section className="recs">
+              {recs.map((r) => (
+                <div key={r.id} className={`rec fade-up${r.done ? " rec--done" : ""}`}>
+                  <div className="rec__ico"><r.Icon className="ico" /></div>
+                  <div className="rec__title">{r.title}{r.done && <span className="rec__ok"><IconCheck className="ico" /></span>}</div>
+                  <div className="rec__desc">{r.desc}</div>
+                  <div className="rec__bar"><span style={{ width: `${r.pct}%` }} /></div>
+                  <div className="rec__foot">
+                    <span className="rec__pct">{r.done ? "Готово" : `${r.pct}%`}</span>
+                    <Link href={r.href} className="rec__btn">{r.done ? "Открыть" : r.step} →</Link>
+                  </div>
+                </div>
+              ))}
+            </section>
+
+        {/* БОТЫ + ШАБЛОНЫ — единая панель со вкладками */}
+        <section className="home-panel">
+          <div className="home-panel__tabs">
+            <button className={`home-panel__tab${homeTab === "bots" ? " on" : ""}`} onClick={() => setHomeTab("bots")} type="button">
+              <IconBot className="ico" /> Мои боты <em>{bots.length}</em>
+            </button>
+            <button className={`home-panel__tab${homeTab === "templates" ? " on" : ""}`} onClick={() => setHomeTab("templates")} type="button">
+              <IconLayers className="ico" /> Готовые шаблоны
+            </button>
+            <Link href={homeTab === "bots" ? "/dashboard/bots" : "/dashboard/scenarios"} className="home-panel__more">
+              {homeTab === "bots" ? "Все боты" : "Смотреть все"} →
+            </Link>
           </div>
+
+          {homeTab === "bots" ? (
+            <div className="botcards">
+              {bots.map((bt) => {
+                const st = botState(bt); const pct = botPct(bt);
+                return (
+                  <div key={bt.id} className={`botcard fade-up${bt.id === curBot ? " on" : ""}`} onClick={() => pickBot(bt.id)}>
+                    <div className="botcard__top">
+                      <span className="botcard__ava" style={{ background: avatarColor(bt.id) }}>{botInitials(bt.name)}</span>
+                      <div className="botcard__id">
+                        <div className="botcard__name">{bt.name}</div>
+                        <div className="botcard__ch">{bt.tgUsername ? "@" + bt.tgUsername : bt.platform || "Не подключён"}</div>
+                      </div>
+                      <span className={`botcard__st st-${st}`}>{st === "work" && <i className="dot dot--live" />}{st === "warn" && <i className="dot dot--warn" />}{STATE_LABEL[st]}</span>
+                    </div>
+                    <div className="botcard__meta">
+                      <span>Диалогов: <b>{dialogs}</b></span>
+                      <span>Последнее: <b>{st === "work" ? "онлайн" : "—"}</b></span>
+                    </div>
+                    <div className="botcard__prog"><div className="botcard__bar"><span style={{ width: `${pct}%` }} /></div><span className="botcard__pct">{pct}%</span></div>
+                    <div className="botcard__acts" onClick={(e) => e.stopPropagation()}>
+                      <Link href={bt.scenarioId ? `/dashboard/scenarios/${bt.scenarioId}` : "/dashboard/scenarios"} className="btn btn-sm btn-primary">Открыть</Link>
+                      <Link href="/dashboard/bots" className="btn btn-sm">Проверить</Link>
+                    </div>
+                  </div>
+                );
+              })}
+              <Link href="/dashboard/create" className="botcard botcard--add">
+                <span className="botcard__addico"><IconPlus className="ico" /></span>
+                <span>Создать бота</span>
+              </Link>
+            </div>
+          ) : (
+            <div className="tpl3">
+              {featured.map((t) => (
+                <button key={t.id} className="tpl3__c" onClick={() => useTemplate(t.id)} type="button">
+                  <span className="tpl3__ico"><IconLayers className="ico" /></span>
+                  <span className="tpl3__name">{t.name}</span>
+                  <span className="tpl3__desc">{t.description}</span>
+                  <span className="tpl3__cat">{t.category}</span>
+                  <span className="tpl3__use">Использовать →</span>
+                </button>
+              ))}
+            </div>
+          )}
         </section>
           </div>{/* hp-main */}
         </div>{/* hp-cols */}
