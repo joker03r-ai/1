@@ -5,7 +5,7 @@ import Link from "next/link";
 import Topbar from "@/components/Topbar";
 import { IconSpark, IconChevron } from "@/components/icons";
 import { STYLE_LABELS, AssistantStyle, KNOWLEDGE_OPTIONS, Assistant, saveAssistant } from "@/lib/assistant";
-import { uid, upsertScenario, Scenario } from "@/lib/scenarios";
+import { uid, upsertScenario, Scenario, ensureStartTrigger } from "@/lib/scenarios";
 import { addBot } from "@/lib/bots";
 import TgConnect, { TgInfo } from "./TgConnect";
 
@@ -432,13 +432,17 @@ export default function WizardClient() {
       });
       const data = await res.json();
       if (!res.ok || !Array.isArray(data.nodes)) throw new Error(data.error || "bad");
+      // Гарантируем базовый триггер /start с приветствием и публикуем сценарий,
+      // чтобы бот сразу отвечал на /start и не игнорировал команду.
+      const welcome = `Здравствуйте! 👋 Это бот «${biz.name || asstName || "BotPilot"}». Чем могу помочь?`;
+      const withStart = ensureStartTrigger(data.nodes, data.edges || [], welcome);
       const s: Scenario = {
         id: uid("s"),
         name: biz.name ? `${biz.name} — ${tmplObj?.label || goalObj?.label || "бот"}` : `Бот: ${tmplObj?.label || goalObj?.label || "сценарий"}`,
         allChannels: true,
-        published: false,
-        nodes: data.nodes,
-        edges: data.edges || [],
+        published: true,
+        nodes: withStart.nodes,
+        edges: withStart.edges,
         updatedAt: Date.now(),
       };
       // Создаём бота и сохраняем его собственного ассистента.
@@ -458,9 +462,39 @@ export default function WizardClient() {
       setBuilding(false);
       setLaunched(true);
     } catch {
-      // Не удалось собрать через ИИ — ведём в раздел сценариев.
-      setBuilding(false);
-      setError("Не удалось автоматически собрать сценарий. Откройте раздел «Сценарии» и соберите вручную или повторите.");
+      // Не удалось собрать через ИИ — всё равно создаём бота с рабочим /start,
+      // чтобы он не молчал на команду.
+      try {
+        const welcome = `Здравствуйте! 👋 Это бот «${biz.name || asstName || "BotPilot"}». Чем могу помочь?`;
+        const g = ensureStartTrigger([], [], welcome);
+        const s: Scenario = {
+          id: uid("s"),
+          name: biz.name ? `${biz.name} — приветствие` : "Бот — приветствие /start",
+          allChannels: true,
+          published: true,
+          nodes: g.nodes,
+          edges: g.edges,
+          updatedAt: Date.now(),
+        };
+        const bot = addBot({
+          name: biz.name || `Бот: ${tmplObj?.label || goalObj?.label || "сценарий"}`,
+          goal: goalObj?.label,
+          platform: platObj?.label,
+          scenarioId: s.id,
+          status: "active",
+          tgConnected: platform === "tg" && !!tg,
+          tgUsername: tg?.username,
+        });
+        s.botId = bot.id;
+        upsertScenario(s);
+        saveAssistant(bot.id, buildAssistant());
+        setBuiltId(s.id);
+        setBuilding(false);
+        setLaunched(true);
+      } catch {
+        setBuilding(false);
+        setError("Не удалось создать бота. Попробуйте ещё раз.");
+      }
     }
   }
 

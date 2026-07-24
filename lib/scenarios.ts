@@ -248,6 +248,59 @@ export function starterNodes(): { nodes: FlowNode[]; edges: Edge[] } {
   return { nodes, edges };
 }
 
+// Есть ли у сценария рабочий триггер /start (старт бота).
+export function hasStartTrigger(s: Scenario): boolean {
+  return s.nodes.some(
+    (n) => n.kind === "event_start" || (n.kind === "event_message" && /\/?start/i.test(n.text || ""))
+  );
+}
+
+// Гарантирует наличие приветственного триггера /start в графе.
+export function ensureStartTrigger(
+  nodes: FlowNode[],
+  edges: Edge[],
+  welcome: string
+): { nodes: FlowNode[]; edges: Edge[] } {
+  if (nodes.some((n) => n.kind === "event_start")) return { nodes, edges };
+  const start: FlowNode = { id: uid(), kind: "event_start", x: 0, y: 0, title: NODE_META.event_start.label };
+  const cmd: FlowNode = { id: uid(), kind: "event_message", x: 0, y: 0, title: "Сообщение от пользователя", text: "/start", match: "equals" };
+  const hello: FlowNode = { id: uid(), kind: "action_message", x: 0, y: 0, title: NODE_META.action_message.label, text: welcome };
+  const nn = [start, cmd, hello, ...nodes];
+  const ne = [
+    ...edges,
+    { id: uid("e"), from: start.id, to: hello.id },
+    { id: uid("e"), from: cmd.id, to: hello.id },
+  ];
+  arrangeGraph(nn, ne);
+  return { nodes: nn, edges: ne };
+}
+
+// Создаёт (при отсутствии) опубликованный сценарий приветствия /start для бота.
+export function ensureStartScenario(botId: string, botName: string, welcome?: string): Scenario {
+  const list = loadScenarios();
+  const wanted = welcome || `Здравствуйте! 👋 Это бот «${botName}». Чем могу помочь?`;
+  const existing = list.find((s) => s.botId === botId);
+  if (existing) {
+    const g = ensureStartTrigger(existing.nodes, existing.edges, wanted);
+    const upd: Scenario = { ...existing, nodes: g.nodes, edges: g.edges, published: true, updatedAt: Date.now() };
+    upsertScenario(upd);
+    return upd;
+  }
+  const g = ensureStartTrigger([], [], wanted);
+  const s: Scenario = {
+    id: uid("sc"),
+    name: `Приветствие /start — ${botName}`,
+    allChannels: true,
+    published: true,
+    nodes: g.nodes,
+    edges: g.edges,
+    updatedAt: Date.now(),
+    botId,
+  };
+  upsertScenario(s);
+  return s;
+}
+
 export type Template = {
   id: string;
   name: string;

@@ -3276,6 +3276,56 @@ img, svg, video, canvas { max-width: 100%; }
 .cw-plan__table td:last-child { color: var(--ink-soft); white-space: nowrap; }
 @media (max-width: 720px) { .cw-imgs__grid { grid-template-columns: 1fr 1fr; } }
 
+/* ---------- Боты: фактический статус и диагностика Telegram ---------- */
+.bots-card { padding: 0; overflow: hidden; }
+.bots-card.cur { border-color: var(--violet); }
+.bots-card + .bots-card { margin-top: 12px; }
+.bots-card .bots-row { display: flex; align-items: center; gap: 12px; padding: 14px 16px; flex-wrap: wrap; }
+
+.tg-badge { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; border-radius: 999px; padding: 5px 12px; white-space: nowrap; }
+.tg-badge__dot { display: grid; place-items: center; width: 16px; height: 16px; border-radius: 50%; font-size: 10px; color: #fff; }
+.tg-badge.h-ok { background: #e9f9ee; color: #15803d; }
+.tg-badge.h-ok .tg-badge__dot { background: #16a34a; }
+.tg-badge.h-warn { background: #fff5e6; color: #b26a00; }
+.tg-badge.h-warn .tg-badge__dot { background: #f59e0b; }
+.tg-badge.h-err { background: #fdecec; color: #c02626; }
+.tg-badge.h-err .tg-badge__dot { background: #ef4444; }
+.tg-badge.h-off { background: var(--line-soft); color: var(--ink-soft); }
+.tg-badge.h-off .tg-badge__dot { background: #94a3b8; }
+:root[data-theme="dark"] .tg-badge.h-ok { background: #0f2417; }
+:root[data-theme="dark"] .tg-badge.h-warn { background: #2a2010; }
+:root[data-theme="dark"] .tg-badge.h-err { background: #2a1416; }
+
+.tgd { border-top: 1px solid var(--line-soft); padding: 16px; background: var(--panel-2, var(--line-soft)); display: flex; flex-direction: column; gap: 14px; }
+.tgd-steps { display: flex; flex-wrap: wrap; gap: 8px; }
+.tgd-step { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 600; border-radius: 999px; padding: 5px 11px; background: var(--panel); border: 1px solid var(--line); }
+.tgd-step__i { display: grid; place-items: center; width: 16px; height: 16px; border-radius: 50%; color: #fff; font-size: 10px; }
+.tgd-step.ok .tgd-step__i { background: #16a34a; }
+.tgd-step.warn .tgd-step__i { background: #f59e0b; }
+.tgd-step.err .tgd-step__i { background: #ef4444; }
+.tgd-step.ok { color: #15803d; border-color: #bbf7d0; }
+
+.tgd-warn { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; background: #fff7ec; border: 1px solid #fbe0bd; border-radius: 10px; padding: 10px 14px; font-size: 13px; color: #92500a; }
+:root[data-theme="dark"] .tgd-warn { background: #2a2010; border-color: #5b3a1a; }
+.tgd-line { font-size: 12.5px; }
+.tgd-line a { color: var(--violet-700); font-weight: 600; }
+.tgd-line code { font-family: ui-monospace, monospace; font-size: 11.5px; background: var(--panel); border: 1px solid var(--line); border-radius: 5px; padding: 1px 6px; word-break: break-all; }
+
+.tgd-block { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; }
+.tgd-block__t { font-size: 13px; font-weight: 800; margin-bottom: 8px; }
+.tgd-field { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.tgd-field .input { flex: 1; min-width: 160px; }
+.tgd-hint { font-size: 11.5px; margin-top: 6px; }
+.tgd-msg { margin-top: 8px; font-size: 12.5px; font-weight: 600; border-radius: 8px; padding: 8px 10px; }
+.tgd-msg.ok { background: #e9f9ee; color: #15803d; }
+.tgd-msg.err { background: #fdecec; color: #c02626; }
+:root[data-theme="dark"] .tgd-msg.ok { background: #0f2417; }
+:root[data-theme="dark"] .tgd-msg.err { background: #2a1416; }
+.tgd-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.tgd-last { font-size: 16px; font-weight: 800; margin-bottom: 3px; }
+.tgd-errs { margin: 0; padding-left: 16px; font-size: 12px; color: var(--ink-soft); line-height: 1.5; }
+@media (max-width: 720px) { .tgd-grid2 { grid-template-columns: 1fr; } }
+
 /* ---------- Подключение Telegram-бота (шаг «Площадка») ---------- */
 .tgc { margin-top: 14px; border: 2px solid var(--violet-100); background: var(--violet-050); border-radius: 14px; padding: 16px; }
 .tgc--ok { border-color: #bbf7d0; background: #f2fdf6; }

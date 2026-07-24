@@ -9,12 +9,16 @@ import {
   Bot,
   BotStatus,
   STATUS_LABELS,
+  TgHealth,
+  TG_HEALTH,
+  botHealth,
   loadBots,
   getCurrentBotId,
   setCurrentBotId,
   updateBot,
   removeBot,
 } from "@/lib/bots";
+import { loadScenarios, hasStartTrigger, ensureStartScenario, Scenario } from "@/lib/scenarios";
 
 const FILTERS: { id: "all" | BotStatus; label: string }[] = [
   { id: "all", label: "Все" },
@@ -23,41 +27,49 @@ const FILTERS: { id: "all" | BotStatus; label: string }[] = [
   { id: "off", label: "Отключённые" },
 ];
 
+const TOKEN_RE = /^\d{6,}:[A-Za-z0-9_-]{30,}$/;
+
 function initials(name: string): string {
   const p = name.trim().split(/\s+/).filter(Boolean);
   if (!p.length) return "🤖";
   return (p.length === 1 ? p[0].slice(0, 2) : p[0][0] + p[1][0]).toUpperCase();
 }
 
+function when(ts?: number): string {
+  if (!ts) return "—";
+  return new Date(ts).toLocaleString("ru-RU", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+}
+
 export default function BotsClient() {
   const [bots, setBots] = useState<Bot[]>([]);
+  const [scenarios, setScenarios] = useState<Scenario[]>([]);
   const [cur, setCur] = useState("");
   const [filter, setFilter] = useState<"all" | BotStatus>("all");
   const [confirm, setConfirm] = useState<Bot | null>(null);
+  const [openId, setOpenId] = useState<string>("");
 
-  useEffect(() => {
-    setBots(loadBots());
-    setCur(getCurrentBotId());
-  }, []);
+  useEffect(() => { refresh(); }, []);
 
   function refresh() {
     setBots(loadBots());
+    setScenarios(loadScenarios());
     setCur(getCurrentBotId());
   }
   function pick(id: string) {
     setCurrentBotId(id);
     setCur(id);
   }
-  function cycleStatus(bt: Bot) {
-    const order: BotStatus[] = ["active", "draft", "off"];
-    const next = order[(order.indexOf(bt.status) + 1) % order.length];
-    updateBot(bt.id, { status: next });
-    refresh();
-  }
   function remove(bt: Bot) {
     removeBot(bt.id);
     setConfirm(null);
     refresh();
+  }
+
+  function hasPublishedStart(b: Bot): boolean {
+    return scenarios.some((s) => (s.botId === b.id || s.id === b.scenarioId) && s.published && hasStartTrigger(s));
+  }
+  function health(b: Bot): TgHealth {
+    return botHealth(b, hasPublishedStart(b));
   }
 
   const shown = bots.filter((b) => filter === "all" || b.status === filter);
@@ -71,7 +83,7 @@ export default function BotsClient() {
             <h1 className="h1" style={{ marginBottom: 2 }}>Мои боты · {bots.length}</h1>
             <p className="muted" style={{ margin: 0 }}>
               Обучите бота на данных компании, подключите каналы и отвечайте клиентам 24/7.
-              У каждого бота — свой сценарий и ИИ-ассистент.
+              Статус показывает фактическое состояние: подключение, webhook и сценарий /start.
             </p>
           </div>
           <Link href="/dashboard/create" className="btn btn-primary">
@@ -88,32 +100,38 @@ export default function BotsClient() {
         </div>
 
         <div className="bots-list">
-          {shown.map((bt) => (
-            <div key={bt.id} className={`bots-row card${bt.id === cur ? " cur" : ""}`}>
-              <span className="user-ava" style={{ width: 44, height: 44, fontSize: 15, background: avatarColor(bt.id) }}>
-                {initials(bt.name)}
-              </span>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: 700, fontSize: 15 }}>{bt.name}</div>
-                <div className="muted" style={{ fontSize: 13 }}>
-                  {[bt.platform, bt.goal].filter(Boolean).join(" · ") || "Бот"}
+          {shown.map((bt) => {
+            const h = health(bt);
+            const meta = TG_HEALTH[h];
+            const open = openId === bt.id;
+            return (
+              <div key={bt.id} className={`bots-card card${bt.id === cur ? " cur" : ""}`}>
+                <div className="bots-row">
+                  <span className="user-ava" style={{ width: 44, height: 44, fontSize: 15, background: avatarColor(bt.id) }}>
+                    {initials(bt.name)}
+                  </span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 700, fontSize: 15 }}>{bt.name}{bt.tgUsername ? ` · @${bt.tgUsername}` : ""}</div>
+                    <div className="muted" style={{ fontSize: 13 }}>
+                      {[bt.platform, bt.goal].filter(Boolean).join(" · ") || "Бот"}
+                    </div>
+                  </div>
+                  <span className={`tg-badge ${meta.cls}`}><span className="tg-badge__dot">{meta.icon}</span> {meta.label}</span>
+                  <button className={`btn btn-sm${open ? " btn-primary" : ""}`} onClick={() => setOpenId(open ? "" : bt.id)} type="button">
+                    {open ? "Скрыть" : "Диагностика"}
+                  </button>
+                  {bt.id === cur ? (
+                    <span className="bots-cur">Выбран ✓</span>
+                  ) : (
+                    <button className="btn btn-sm" onClick={() => pick(bt.id)}>Выбрать</button>
+                  )}
+                  <button className="user-act del" onClick={() => setConfirm(bt)}>Удалить</button>
                 </div>
+
+                {open && <Diagnostics bot={bt} health={h} startPublished={hasPublishedStart(bt)} onChange={refresh} />}
               </div>
-              <button className={`bots-badge st-${bt.status}`} onClick={() => cycleStatus(bt)} title="Сменить статус">
-                {STATUS_LABELS[bt.status]}
-              </button>
-              {bt.id === cur ? (
-                <span className="bots-cur">Выбран ✓</span>
-              ) : (
-                <button className="btn btn-sm" onClick={() => pick(bt.id)}>Выбрать</button>
-              )}
-              {bt.scenarioId && (
-                <Link href={`/dashboard/scenarios/${bt.scenarioId}`} className="btn btn-sm">Открыть</Link>
-              )}
-              <Link href="/dashboard/assistant" className="btn btn-sm">Ассистент</Link>
-              <button className="user-act del" onClick={() => setConfirm(bt)}>Удалить</button>
-            </div>
-          ))}
+            );
+          })}
           {shown.length === 0 && (
             <div className="muted" style={{ textAlign: "center", padding: 40 }}>
               Ботов в этой категории нет. <Link href="/dashboard/create" style={{ color: "var(--violet-700)", fontWeight: 700 }}>Создать бота →</Link>
@@ -140,5 +158,196 @@ export default function BotsClient() {
         </div>
       )}
     </>
+  );
+}
+
+/* ---------- Диагностика подключения Telegram ---------- */
+
+type Snap = { lastUpdateAt?: number; updates: any[]; errors: { at: number; text: string }[] };
+
+function Diagnostics({ bot, health, startPublished, onChange }: { bot: Bot; health: TgHealth; startPublished: boolean; onChange: () => void }) {
+  const [token, setToken] = useState("");
+  const [show, setShow] = useState(false);
+  const [checking, setChecking] = useState(false);
+  const [checkMsg, setCheckMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [chatId, setChatId] = useState("");
+  const [testMsg, setTestMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [sending, setSending] = useState(false);
+  const [snap, setSnap] = useState<Snap>({ updates: [], errors: [] });
+
+  useEffect(() => { loadSnap(); /* eslint-disable-next-line */ }, [bot.id]);
+
+  async function loadSnap() {
+    try {
+      const res = await fetch(`/api/telegram/updates?botId=${encodeURIComponent(bot.id)}`);
+      const d = await res.json();
+      if (d.ok) setSnap({ lastUpdateAt: d.lastUpdateAt, updates: d.updates || [], errors: d.errors || [] });
+    } catch {}
+  }
+
+  const webhookUrl = typeof window !== "undefined" ? `${window.location.origin}/api/telegram/webhook/${bot.id}` : "";
+
+  async function check() {
+    if (checking) return;
+    if (!TOKEN_RE.test(token.trim())) {
+      setCheckMsg({ ok: false, text: "Введите токен бота (получите у @BotFather)." });
+      return;
+    }
+    setChecking(true);
+    setCheckMsg(null);
+    try {
+      const res = await fetch("/api/telegram/diagnose", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ token: token.trim(), botId: bot.id, webhookUrl }),
+      });
+      const d = await res.json();
+      if (d.tokenValid === false) {
+        updateBot(bot.id, { tgConnected: true, tgTokenValid: false, tgLastCheck: Date.now() });
+        setCheckMsg({ ok: false, text: d.error || "Токен недействителен." });
+      } else if (d.ok) {
+        updateBot(bot.id, {
+          tgConnected: true, tgTokenValid: true, tgWebhookSet: d.webhookSet,
+          tgUsername: d.bot?.username || bot.tgUsername, tgLastCheck: Date.now(),
+        });
+        const wparts = [`Бот @${d.bot?.username || "?"} на связи`];
+        wparts.push(d.webhookSet ? "webhook настроен" : "webhook НЕ настроен");
+        if (d.webhook?.pending) wparts.push(`в очереди ${d.webhook.pending} обновл.`);
+        if (d.webhook?.lastError) wparts.push(`последняя ошибка Telegram: ${d.webhook.lastError}`);
+        setCheckMsg({ ok: true, text: wparts.join(" · ") });
+        setToken("");
+      } else {
+        setCheckMsg({ ok: false, text: d.error || "Не удалось проверить подключение." });
+      }
+    } catch {
+      setCheckMsg({ ok: false, text: "Сервер недоступен. Попробуйте ещё раз." });
+    } finally {
+      setChecking(false);
+      onChange();
+      loadSnap();
+    }
+  }
+
+  async function sendTest() {
+    if (sending) return;
+    setSending(true);
+    setTestMsg(null);
+    try {
+      const res = await fetch("/api/telegram/test", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ botId: bot.id, token: token.trim() || undefined, chatId: chatId.trim() }),
+      });
+      const d = await res.json();
+      setTestMsg(d.ok ? { ok: true, text: "Сообщение отправлено. Проверьте Telegram." } : { ok: false, text: d.error || "Не удалось отправить." });
+    } catch {
+      setTestMsg({ ok: false, text: "Сервер недоступен." });
+    } finally {
+      setSending(false);
+      loadSnap();
+    }
+  }
+
+  function setupStart() {
+    ensureStartScenario(bot.id, bot.name);
+    onChange();
+  }
+
+  const errors = [...(snap.errors || []), ...((bot.tgErrors || []))].sort((a, b) => b.at - a.at).slice(0, 8);
+
+  return (
+    <div className="tgd">
+      {/* Чек-лист состояния */}
+      <div className="tgd-steps">
+        <TgStep ok={!!bot.tgConnected} label="Telegram подключён" />
+        <TgStep ok={bot.tgTokenValid !== false && !!bot.tgConnected} warn={bot.tgTokenValid === undefined} label="Токен действителен" />
+        <TgStep ok={bot.tgWebhookSet === true} warn={bot.tgWebhookSet === undefined} label="Webhook настроен" />
+        <TgStep ok={startPublished} label="Сценарий /start опубликован" />
+      </div>
+
+      {/* Предупреждение про /start */}
+      {!startPublished && (
+        <div className="tgd-warn">
+          <span>⚠ Базовый сценарий <b>/start</b> не опубликован — бот не ответит на первую команду.</span>
+          <button className="btn btn-sm btn-primary" onClick={setupStart} type="button">Настроить /start</button>
+        </div>
+      )}
+      {startPublished && bot.scenarioId && (
+        <div className="tgd-line">
+          Сценарий /start опубликован. <Link href={`/dashboard/scenarios/${bot.scenarioId}`}>Открыть сценарий →</Link>
+        </div>
+      )}
+
+      {/* Проверка подключения */}
+      <div className="tgd-block">
+        <div className="tgd-block__t">Проверить подключение</div>
+        <div className="tgd-field">
+          <input
+            className="input"
+            type={show ? "text" : "password"}
+            value={token}
+            onChange={(e) => setToken(e.target.value)}
+            placeholder="Токен бота от @BotFather"
+            autoComplete="off"
+            spellCheck={false}
+            style={{ fontFamily: "ui-monospace, monospace" }}
+          />
+          <button className="btn btn-sm" type="button" onClick={() => setShow((v) => !v)}>{show ? "🙈" : "👁"}</button>
+          <button className="btn btn-sm btn-primary" type="button" onClick={check} disabled={checking}>
+            {checking ? "Проверяем…" : "Проверить подключение"}
+          </button>
+        </div>
+        <div className="tgd-hint muted">🔒 Токен уходит только на сервер для проверки, не сохраняется в браузере и не показывается целиком.</div>
+        {checkMsg && <div className={`tgd-msg ${checkMsg.ok ? "ok" : "err"}`}>{checkMsg.ok ? "✓ " : "⚠ "}{checkMsg.text}</div>}
+        <div className="tgd-line muted">Webhook-адрес: <code>{webhookUrl}</code></div>
+      </div>
+
+      {/* Тестовое сообщение */}
+      <div className="tgd-block">
+        <div className="tgd-block__t">Отправить тестовое сообщение</div>
+        <div className="tgd-field">
+          <input className="input" value={chatId} onChange={(e) => setChatId(e.target.value.replace(/[^\d-]/g, ""))} placeholder="Ваш Chat ID (узнать: @userinfobot)" inputMode="numeric" />
+          <button className="btn btn-sm btn-primary" type="button" onClick={sendTest} disabled={sending}>{sending ? "Отправляем…" : "Отправить тест"}</button>
+        </div>
+        {testMsg && <div className={`tgd-msg ${testMsg.ok ? "ok" : "err"}`}>{testMsg.ok ? "✓ " : "⚠ "}{testMsg.text}</div>}
+      </div>
+
+      {/* Последнее сообщение и журнал */}
+      <div className="tgd-grid2">
+        <div className="tgd-block">
+          <div className="tgd-block__t">Последнее полученное сообщение</div>
+          <div className="tgd-last">{when(snap.lastUpdateAt)}</div>
+          {snap.updates[0] ? (
+            <div className="muted" style={{ fontSize: 12.5 }}>
+              {snap.updates[0].isStart ? "/start" : "сообщение"} от {snap.updates[0].from}: «{String(snap.updates[0].text).slice(0, 40)}»
+            </div>
+          ) : (
+            <div className="muted" style={{ fontSize: 12.5 }}>Сообщений пока не приходило. Напишите боту <b>/start</b> в Telegram.</div>
+          )}
+        </div>
+        <div className="tgd-block">
+          <div className="tgd-block__t">Журнал ошибок</div>
+          {errors.length === 0 ? (
+            <div className="muted" style={{ fontSize: 12.5 }}>Ошибок нет.</div>
+          ) : (
+            <ul className="tgd-errs">
+              {errors.map((e, i) => (
+                <li key={i}><span className="muted">{when(e.at)}</span> — {e.text}</li>
+              ))}
+            </ul>
+          )}
+          <button className="btn-link" type="button" onClick={loadSnap} style={{ marginTop: 6 }}>Обновить</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TgStep({ ok, warn, label }: { ok: boolean; warn?: boolean; label: string }) {
+  const cls = ok ? "ok" : warn ? "warn" : "err";
+  return (
+    <div className={`tgd-step ${cls}`}>
+      <span className="tgd-step__i">{ok ? "✓" : warn ? "?" : "✕"}</span> {label}
+    </div>
   );
 }

@@ -2,6 +2,8 @@
 
 export type BotStatus = "active" | "draft" | "off";
 
+export type TgErr = { at: number; text: string };
+
 export type Bot = {
   id: string;
   name: string;
@@ -13,7 +15,40 @@ export type Bot = {
   // Подключение Telegram: только безопасные метаданные (без самого токена).
   tgConnected?: boolean;
   tgUsername?: string;
+  // Фактическое состояние подключения (заполняется проверкой «Проверить подключение»).
+  tgTokenValid?: boolean;
+  tgWebhookSet?: boolean;
+  tgLastCheck?: number; // когда последний раз проверяли
+  tgLastUpdateAt?: number; // дата последнего полученного сообщения
+  tgErrors?: TgErr[]; // журнал ошибок
 };
+
+// Фактическое состояние бота (важнее формального «активен»).
+export type TgHealth = "disconnected" | "token_invalid" | "webhook_missing" | "start_missing" | "ready";
+
+export const TG_HEALTH: Record<TgHealth, { label: string; cls: string; icon: string }> = {
+  disconnected: { label: "Telegram не подключён", cls: "h-off", icon: "○" },
+  token_invalid: { label: "Токен недействителен", cls: "h-err", icon: "✕" },
+  webhook_missing: { label: "Webhook не настроен", cls: "h-warn", icon: "!" },
+  start_missing: { label: "Сценарий /start не опубликован", cls: "h-warn", icon: "!" },
+  ready: { label: "Бот готов к работе", cls: "h-ok", icon: "✓" },
+};
+
+// hasPublishedStart вычисляется в клиенте по сценариям бота.
+export function botHealth(b: Bot, hasPublishedStart: boolean): TgHealth {
+  if (!b.tgConnected) return "disconnected";
+  if (b.tgTokenValid === false) return "token_invalid";
+  if (b.tgWebhookSet === false) return "webhook_missing";
+  if (!hasPublishedStart) return "start_missing";
+  return "ready";
+}
+
+export function logBotError(id: string, text: string) {
+  const b = loadBots().find((x) => x.id === id);
+  if (!b) return;
+  const errors = [{ at: Date.now(), text }, ...(b.tgErrors || [])].slice(0, 30);
+  updateBot(id, { tgErrors: errors });
+}
 
 export const STATUS_LABELS: Record<BotStatus, string> = {
   active: "активен",
