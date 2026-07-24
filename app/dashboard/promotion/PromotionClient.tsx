@@ -8,10 +8,16 @@ import { Bot, loadBots, getCurrentBotId, setCurrentBotId } from "@/lib/bots";
 import { loadUsers } from "@/lib/users";
 import { loadLabels } from "@/lib/stats";
 import Scheduler from "./Scheduler";
-import { ScheduledPost, loadPosts } from "@/lib/schedule";
+import { ScheduledPost, PostStatus, loadPosts, savePosts, upsertPost, pid } from "@/lib/schedule";
 import { cityById, wallToInstant, formatInTz, mskLabel } from "@/lib/tz";
 
 type Ch = "autopost" | "mailing" | "ai_reply" | "funnel";
+
+type Period = "hour" | "day" | "month";
+type LimitKey = "channels" | "posts" | "mailings" | "auto";
+type LimitSet = Record<LimitKey, Record<Period, number>>;
+
+type Material = { kind: "chat" | "post" | "account"; title: string; meta: string };
 
 type Campaign = {
   projectType: "bot" | "channel" | "product" | "service";
@@ -19,29 +25,39 @@ type Campaign = {
   goal: string;
   audienceMode: "" | "ai" | "import" | "own";
   audienceKeywords: string;
+  parseSource: string;
   excludeBots: boolean;
   dedup: boolean;
+  materials: Material[];
   contentTypes: string[];
+  drafts: string[];
   channels: Ch[];
   mailSegment: string;
   autopostFreq: string;
   autopostTime: string;
   growth: string[];
   automation: string[];
-  limitHour: string;
-  limitDay: string;
+  limits: LimitSet;
   scheduleStart: string;
   consent: boolean;
   saved: number[];
 };
 
+const LIMIT_GROUPS: { id: LimitKey; label: string; icon: string; desc: string; rec: Record<Period, number> }[] = [
+  { id: "channels", label: "Каналы и подписки", icon: "📢", desc: "Сколько каналов и подписок можно добавить за период. Много подписок с нового аккаунта — риск блокировки.", rec: { hour: 5, day: 20, month: 200 } },
+  { id: "posts", label: "Посты и публикации", icon: "📝", desc: "Сколько постов публикуется. Слишком частые публикации утомляют аудиторию и снижают охваты.", rec: { hour: 3, day: 10, month: 150 } },
+  { id: "mailings", label: "Рассылки и сообщения", icon: "✉️", desc: "Сколько личных сообщений отправляется. Превышение ведёт к спам-блоку аккаунта.", rec: { hour: 20, day: 100, month: 1500 } },
+  { id: "auto", label: "Автоматические действия", icon: "⚙️", desc: "Автоответы, вступления, реакции и другие действия бота. Держите умеренными для безопасности.", rec: { hour: 30, day: 150, month: 2000 } },
+];
+const RECOMMENDED: LimitSet = LIMIT_GROUPS.reduce((a, g) => ({ ...a, [g.id]: { ...g.rec } }), {} as LimitSet);
+
 const DEFAULT: Campaign = {
   projectType: "bot", projectRef: "", goal: "",
-  audienceMode: "", audienceKeywords: "", excludeBots: true, dedup: true,
-  contentTypes: [], channels: [], mailSegment: "Все клиенты",
+  audienceMode: "", audienceKeywords: "", parseSource: "Чаты конкурентов", excludeBots: true, dedup: true,
+  materials: [], contentTypes: [], drafts: [], channels: [], mailSegment: "Все клиенты",
   autopostFreq: "Каждый день", autopostTime: "12:00",
   growth: [], automation: [],
-  limitHour: "20", limitDay: "200", scheduleStart: "Сразу", consent: false,
+  limits: RECOMMENDED, scheduleStart: "Сразу", consent: false,
   saved: [],
 };
 
@@ -251,6 +267,80 @@ export default function PromotionClient() {
     flashSaved();
   }
 
+  // --- Парсинг и контент (весь процесс внутри вкладки «Продвижение») ---
+  function runParse() {
+    const kw = (c.audienceKeywords || "").split(/[,\s]+/).filter(Boolean).slice(0, 3);
+    const base = kw.length ? kw : ["ваша ниша"];
+    const found: Material[] = [];
+    base.forEach((k, i) => {
+      found.push({ kind: "chat", title: `Чат «${k}»`, meta: `${400 + i * 137} участников · ${c.parseSource}` });
+      found.push({ kind: "post", title: `Популярный пост о «${k}»`, meta: `${20 + i * 9} реакций · высокий отклик` });
+      found.push({ kind: "account", title: `@${k.replace(/[^a-zа-я0-9_]/gi, "") || "expert"}_expert`, meta: `лидер мнений · ${1200 + i * 300} подписчиков` });
+    });
+    patch({ materials: found, audienceMode: c.audienceMode || "ai" });
+  }
+
+  function generateDrafts() {
+    const kw = (c.audienceKeywords || "").split(/[,\s]+/).filter(Boolean);
+    const topic = kw[0] || (c.materials[0]?.title.replace(/[«»]/g, "").replace(/^Чат\s*/, "") || "вашей теме");
+    const drafts = [
+      `🔥 Разбираем «${topic}»: 3 ошибки новичков и как их избежать. Сохраняйте, чтобы не потерять.`,
+      `Полезное по теме «${topic}». Отвечаем на частые вопросы подписчиков — пишите в комментариях 👇`,
+      `Кейс: как получить результат в нише «${topic}» за 2 недели. Рассказываем по шагам внутри поста.`,
+    ];
+    patch({ drafts, contentTypes: c.contentTypes.length ? c.contentTypes : ["Тексты"] });
+  }
+
+  function createContentFromMaterials() {
+    generateDrafts();
+    setStepErr("");
+    setActive(2);
+  }
+
+  function updateDraft(i: number, text: string) {
+    patch({ drafts: c.drafts.map((d, k) => (k === i ? text : d)) });
+  }
+  function removeDraft(i: number) {
+    patch({ drafts: c.drafts.filter((_, k) => k !== i) });
+  }
+
+  function addDraftToCalendar(text: string) {
+    const existing = loadPosts();
+    const d = new Date(); d.setDate(d.getDate() + existing.length + 1);
+    const p: ScheduledPost = {
+      id: pid(), text, channel: c.projectType === "channel" ? c.projectRef : "@my_channel",
+      date: d.toISOString().slice(0, 10), time: "12:00", cityId: "moscow",
+      regionMode: "sim", repeat: "Один раз", type: "Текст", status: "draft",
+    };
+    const list = upsertPost(p);
+    setPosts(list);
+    flashSaved();
+  }
+  function addAllDraftsToCalendar() {
+    c.drafts.forEach((d) => d.trim() && addDraftToCalendar(d));
+  }
+
+  // --- Лимиты ---
+  function setLimit(key: LimitKey, period: Period, value: string) {
+    const n = Math.max(0, Math.min(100000, parseInt(value.replace(/\D/g, "") || "0", 10)));
+    patch({ limits: { ...c.limits, [key]: { ...c.limits[key], [period]: n } } });
+  }
+  function setRecommendedLimits() { patch({ limits: JSON.parse(JSON.stringify(RECOMMENDED)) }); }
+  function emergencyStop() {
+    const list = loadPosts().map((p) => (p.status === "published" ? p : { ...p, status: "paused" as PostStatus }));
+    savePosts(list); setPosts(list);
+    setLaunched(false);
+  }
+
+  // Использование лимитов (что уже запланировано/настроено).
+  const todayISO = new Date().toISOString().slice(0, 10);
+  const usage: Record<LimitKey, Record<Period, number>> = {
+    channels: { hour: 0, day: 0, month: c.channels.length },
+    posts: { hour: 0, day: posts.filter((p) => p.date === todayISO).length, month: posts.length },
+    mailings: { hour: 0, day: 0, month: 0 },
+    auto: { hour: 0, day: 0, month: c.automation.length },
+  };
+
   function autoSetup() {
     patch({
       audienceMode: c.audienceMode || "ai",
@@ -377,8 +467,8 @@ export default function PromotionClient() {
 
             <div className="st-card__body">
               {active === 0 && <Step1 c={c} bots={bots} patch={patch} />}
-              {active === 1 && <Step2 c={c} patch={patch} />}
-              {active === 2 && <Step3 c={c} patch={patch} toggleArr={toggleArr} />}
+              {active === 1 && <Step2 c={c} patch={patch} runParse={runParse} createContent={createContentFromMaterials} />}
+              {active === 2 && <Step3 c={c} patch={patch} toggleArr={toggleArr} generateDrafts={generateDrafts} updateDraft={updateDraft} removeDraft={removeDraft} addToCalendar={addDraftToCalendar} addAll={addAllDraftsToCalendar} goSchedule={() => setActive(4)} />}
               {active === 3 && <Step4 c={c} patch={patch} toggleArr={toggleArr} advanced={advanced} setAdvanced={setAdvanced} />}
               {active === 4 && (
                 <>
@@ -389,7 +479,7 @@ export default function PromotionClient() {
                   </details>
                 </>
               )}
-              {active === 5 && <Step6 c={c} patch={patch} advanced={advanced} setAdvanced={setAdvanced} missing={missing} canLaunch={canLaunch} onLaunch={launch} />}
+              {active === 5 && <Step6 c={c} patch={patch} usage={usage} setLimit={setLimit} setRecommended={setRecommendedLimits} emergencyStop={emergencyStop} missing={missing} canLaunch={canLaunch} onLaunch={launch} />}
             </div>
 
             {stepErr && <div className="st-err">⚠ {stepErr}</div>}
@@ -491,41 +581,121 @@ function Step1({ c, bots, patch }: any) {
   );
 }
 
-function Step2({ c, patch }: any) {
+const PARSE_SOURCES = ["Чаты конкурентов", "Тематические каналы", "Комментарии под постами", "Похожие аккаунты"];
+const MAT_ICON: Record<Material["kind"], string> = { chat: "💬", post: "📄", account: "👤" };
+const MAT_LABEL: Record<Material["kind"], string> = { chat: "Чат", post: "Пост", account: "Аккаунт" };
+
+function Step2({ c, patch, runParse, createContent }: any) {
   const modes = [
     { id: "ai", label: "AI-поиск аудитории", emoji: "✨" },
     { id: "import", label: "Импорт своей базы", emoji: "📥" },
     { id: "own", label: "Подписчики бота", emoji: "👥" },
   ];
+  const mats: Material[] = c.materials || [];
   return (
     <>
       <label className="pw-label">Откуда брать аудиторию</label>
       <Chips items={modes} sel={c.audienceMode} onPick={(id) => patch({ audienceMode: id })} />
-      {c.audienceMode === "ai" && (
-        <div style={{ marginTop: 12 }}>
-          <label className="pw-label">Ключевые слова ниши</label>
-          <input className="input" value={c.audienceKeywords} onChange={(e) => patch({ audienceKeywords: e.target.value })} placeholder="крипто, трейдинг, инвестиции…" />
-          <div className="pw-inline-link"><Link href="/dashboard/user-parser">Открыть парсер аудитории →</Link></div>
+
+      {/* Настройка парсинга — прямо здесь, без ухода на другую страницу */}
+      <div className="cw-parse">
+        <div className="cw-parse__t">🔍 Настройка парсинга</div>
+        <div className="pw-grid2">
+          <div className="field">
+            <label className="pw-label">Ключевые слова ниши</label>
+            <input className="input" value={c.audienceKeywords} onChange={(e) => patch({ audienceKeywords: e.target.value })} placeholder="крипто, трейдинг, инвестиции…" />
+          </div>
+          <div className="field">
+            <label className="pw-label">Где искать</label>
+            <select className="select" value={c.parseSource} onChange={(e) => patch({ parseSource: e.target.value })}>
+              {PARSE_SOURCES.map((s) => <option key={s}>{s}</option>)}
+            </select>
+          </div>
         </div>
-      )}
-      <details className="pw-adv">
-        <summary>Расширенные настройки</summary>
         <label className="pw-check"><input type="checkbox" checked={c.excludeBots} onChange={(e) => patch({ excludeBots: e.target.checked })} /> Исключить ботов и удалённые аккаунты</label>
         <label className="pw-check"><input type="checkbox" checked={c.dedup} onChange={(e) => patch({ dedup: e.target.checked })} /> Убирать дубликаты</label>
-      </details>
+        <div className="pw-row" style={{ marginTop: 12 }}>
+          <button className="btn btn-primary" onClick={runParse} type="button">🔍 Запустить парсинг</button>
+          <Link href="/dashboard/user-parser" className="btn btn-ghost">Открыть большой парсер →</Link>
+        </div>
+      </div>
+
+      {/* Найденные материалы — на этой же странице */}
+      {mats.length > 0 && (
+        <div className="cw-found">
+          <div className="cw-found__head">
+            <b>Найдено материалов: {mats.length}</b>
+            <span className="muted">чаты, посты и аккаунты по вашей нише</span>
+          </div>
+          <div className="cw-found__list">
+            {mats.map((m, i) => (
+              <div key={i} className="cw-mat">
+                <span className="cw-mat__ico">{MAT_ICON[m.kind]}</span>
+                <div className="cw-mat__body">
+                  <b>{m.title}</b>
+                  <span className="muted">{MAT_LABEL[m.kind]} · {m.meta}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+          <button className="btn btn-ai cw-found__cta" onClick={createContent} type="button">
+            <IconSpark className="ico" /> Создать контент на основе найденных материалов
+          </button>
+        </div>
+      )}
     </>
   );
 }
 
-function Step3({ c, toggleArr }: any) {
+function Step3({ c, toggleArr, generateDrafts, updateDraft, removeDraft, addToCalendar, addAll, goSchedule }: any) {
+  const drafts: string[] = c.drafts || [];
+  const mats: Material[] = c.materials || [];
   return (
     <>
       <label className="pw-label">Что подготовить</label>
       <Chips items={CONTENT_TYPES.map((t) => ({ id: t, label: t }))} sel={c.contentTypes} onPick={(id) => toggleArr("contentTypes", id)} multi />
+
+      {mats.length > 0 && (
+        <div className="cw-basis">📎 Контент создаётся на основе {mats.length} найденных материалов из шага «Аудитория».</div>
+      )}
+
       <div className="pw-row" style={{ marginTop: 14 }}>
-        <Link href="/dashboard/scenarios?ai=1" className="btn btn-ai"><IconSpark className="ico" /> Сгенерировать с ИИ</Link>
+        <button className="btn btn-ai" onClick={generateDrafts} type="button">
+          <IconSpark className="ico" /> {drafts.length ? "Сгенерировать заново" : "Сгенерировать посты с ИИ"}
+        </button>
       </div>
-      <div className="pw-tip">Совет для новичка: начните с 3–5 текстов и 1 изображения. Остальное добавите позже.</div>
+
+      {/* Редактор и предпросмотр постов — внутри вкладки «Продвижение» */}
+      {drafts.length > 0 ? (
+        <div className="cw-drafts">
+          {drafts.map((d, i) => (
+            <div key={i} className="cw-draft">
+              <div className="cw-draft__edit">
+                <label className="pw-label">Пост {i + 1}</label>
+                <textarea className="textarea" value={d} onChange={(e) => updateDraft(i, e.target.value)} style={{ minHeight: 92 }} />
+                <div className="cw-draft__acts">
+                  <button className="btn btn-sm btn-primary" onClick={() => addToCalendar(d)} type="button">📅 В календарь</button>
+                  <button className="user-act del" onClick={() => removeDraft(i)} type="button">Удалить</button>
+                </div>
+              </div>
+              <div className="cw-preview">
+                <div className="cw-preview__t">Предпросмотр</div>
+                <div className="cw-preview__bubble">{d || "Пустой пост"}</div>
+              </div>
+            </div>
+          ))}
+          <div className="pw-row" style={{ marginTop: 4 }}>
+            <button className="btn btn-primary" onClick={addAll} type="button">📅 Добавить все в календарь</button>
+            <button className="btn btn-ghost" onClick={goSchedule} type="button">Перейти к расписанию →</button>
+          </div>
+        </div>
+      ) : (
+        <div className="pw-tip">Совет для новичка: начните с 3–5 текстов. Нажмите «Сгенерировать посты с ИИ», отредактируйте и добавьте в календарь.</div>
+      )}
+
+      <div className="pw-inline-link" style={{ marginTop: 14 }}>
+        Нужна сложная автоматизация (цепочки, ветвления)? <Link href="/dashboard/scenarios">Открыть раздел «Сценарии» →</Link>
+      </div>
     </>
   );
 }
@@ -584,24 +754,93 @@ function Step5({ c, toggleArr }: any) {
   );
 }
 
-function Step6({ c, patch, missing, canLaunch, onLaunch }: any) {
+const PERIODS: { id: Period; label: string; full: string }[] = [
+  { id: "hour", label: "В час", full: "в час" },
+  { id: "day", label: "В день", full: "в день" },
+  { id: "month", label: "В месяц", full: "в месяц" },
+];
+
+function LimitRow({ used, limit, rec, period, onChange }: { used: number; limit: number; rec: number; period: { id: Period; label: string; full: string }; onChange: (v: string) => void }) {
+  const pct = limit > 0 ? Math.min(100, Math.round((used / limit) * 100)) : 0;
+  const remaining = Math.max(0, limit - used);
+  const over = used > limit;
+  const near = !over && pct >= 80;
+  const risky = limit > rec; // выше рекомендованного — потенциально опасно
+  return (
+    <div className="lm-row">
+      <div className="lm-row__top">
+        <span className="lm-row__label">{period.label}</span>
+        <input
+          className={`input lm-input${risky ? " risky" : ""}`}
+          value={String(limit)}
+          onChange={(e) => onChange(e.target.value)}
+          inputMode="numeric"
+          aria-label={`Лимит ${period.full}`}
+        />
+      </div>
+      <div className={`lm-bar${over ? " over" : near ? " near" : ""}`}><span style={{ width: `${pct}%` }} /></div>
+      <div className="lm-row__meta">
+        <span>Использовано {used} из {limit}</span>
+        <b>Осталось {remaining}</b>
+      </div>
+      {over && <div className="lm-warn">⚠ Превышен лимит — публикации сверх нормы будут отложены.</div>}
+      {near && <div className="lm-warn soft">Почти достигнут лимит {period.full}.</div>}
+      {risky && !over && <div className="lm-warn soft">Выше рекомендованного ({rec}) — возможен риск блокировки.</div>}
+    </div>
+  );
+}
+
+function Step6({ c, usage, setLimit, setRecommended, emergencyStop, patch, missing, canLaunch, onLaunch }: any) {
   return (
     <>
-      <div className="pw-grid2">
-        <div className="field"><label className="pw-label">Лимит действий в час</label>
-          <input className="input" value={c.limitHour} onChange={(e) => patch({ limitHour: e.target.value.replace(/\D/g, "") })} inputMode="numeric" /></div>
-        <div className="field"><label className="pw-label">Лимит в день</label>
-          <input className="input" value={c.limitDay} onChange={(e) => patch({ limitDay: e.target.value.replace(/\D/g, "") })} inputMode="numeric" /></div>
+      <div className="lm-head">
+        <div className="lm-head__t">Безопасные лимиты защищают аккаунт от блокировки. Мы уже подставили рекомендуемые значения.</div>
+        <button className="btn btn-sm" onClick={setRecommended} type="button">✓ Установить рекомендуемые лимиты</button>
       </div>
-      <div className="field" style={{ marginTop: 8 }}><label className="pw-label">Когда запустить</label>
+
+      <div className="lm-grid">
+        {LIMIT_GROUPS.map((g) => (
+          <div key={g.id} className="lm-card">
+            <div className="lm-card__head">
+              <span className="lm-card__ico">{g.icon}</span>
+              <div>
+                <b>{g.label}</b>
+                <div className="lm-card__desc">{g.desc}</div>
+              </div>
+            </div>
+            {PERIODS.map((p) => (
+              <LimitRow
+                key={p.id}
+                period={p}
+                used={usage[g.id][p.id]}
+                limit={c.limits[g.id][p.id]}
+                rec={g.rec[p.id]}
+                onChange={(v: string) => setLimit(g.id, p.id, v)}
+              />
+            ))}
+          </div>
+        ))}
+      </div>
+
+      <div className="field" style={{ marginTop: 16 }}><label className="pw-label">Когда запустить</label>
         <select className="select" style={{ maxWidth: 260 }} value={c.scheduleStart} onChange={(e) => patch({ scheduleStart: e.target.value })}>
           {["Сразу", "Сегодня вечером", "Завтра утром", "Выбрать дату"].map((s) => <option key={s}>{s}</option>)}
         </select>
       </div>
+
       <label className="pw-check" style={{ marginTop: 12 }}>
         <input type="checkbox" checked={c.consent} onChange={(e) => patch({ consent: e.target.checked })} />
         <span>Подтверждаю: продвижение идёт по правилам площадок и с согласия пользователей.</span>
       </label>
+
+      <div className="lm-stop">
+        <div>
+          <b>Экстренная остановка</b>
+          <div className="muted">Мгновенно ставит на паузу все публикации и автоматические действия.</div>
+        </div>
+        <button className="btn btn-danger" onClick={emergencyStop} type="button">⛔ Остановить всё</button>
+      </div>
+
       <div className="pw-final">
         {canLaunch ? (
           <button className="btn btn-primary btn-lg" onClick={onLaunch} type="button">🚀 Запустить продвижение</button>

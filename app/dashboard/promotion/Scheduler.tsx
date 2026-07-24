@@ -104,6 +104,37 @@ export default function Scheduler({ channel, onChange }: { channel: string; onCh
     return formatInTz(instant, c.tz);
   }
 
+  // Пересечения: посты в один день, время и канал.
+  const overlapKeys = useMemo(() => {
+    const seen = new Map<string, number>();
+    posts.forEach((p) => { const k = `${p.date}|${p.time}|${p.channel}`; seen.set(k, (seen.get(k) || 0) + 1); });
+    return new Set([...seen.entries()].filter(([, n]) => n > 1).map(([k]) => k));
+  }, [posts]);
+  const isOverlap = (p: { date: string; time: string; channel: string }) => overlapKeys.has(`${p.date}|${p.time}|${p.channel}`);
+  const editingOverlap = editing ? posts.some((p) => p.id !== editing.id && p.date === editing.date && p.time === editing.time && p.channel === editing.channel) : false;
+
+  // Неделя (пн–вс вокруг курсора) и день.
+  const weekCells = useMemo(() => {
+    const d = new Date(cursor); const dow = (d.getDay() + 6) % 7;
+    const monday = new Date(d); monday.setDate(d.getDate() - dow);
+    return Array.from({ length: 7 }, (_, i) => { const x = new Date(monday); x.setDate(monday.getDate() + i); return ymd(x); });
+  }, [cursor]);
+  const dayStr = ymd(cursor);
+  const dayPostsSorted = useMemo(() => posts.filter((p) => p.date === dayStr).sort((a, b) => a.time.localeCompare(b.time)), [posts, dayStr]);
+
+  function shiftCursor(dir: number) {
+    const d = new Date(cursor);
+    if (view === "month") d.setMonth(d.getMonth() + dir);
+    else if (view === "week") d.setDate(d.getDate() + dir * 7);
+    else d.setDate(d.getDate() + dir);
+    setCursor(d);
+  }
+  const navLabel = view === "month"
+    ? cursor.toLocaleDateString("ru-RU", { month: "long", year: "numeric" })
+    : view === "week"
+    ? `${human(weekCells[0])} — ${human(weekCells[6])}`
+    : cursor.toLocaleDateString("ru-RU", { weekday: "long", day: "numeric", month: "long" });
+
   return (
     <div className="sc">
       {/* Верхняя строка: режим публикации + виды + ИИ */}
@@ -125,11 +156,12 @@ export default function Scheduler({ channel, onChange }: { channel: string; onCh
           </button>
         ))}
         <div style={{ flex: 1 }} />
-        {view === "month" && (
+        {view !== "list" && (
           <div className="sc-nav">
-            <button onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() - 1, 1))} type="button">‹</button>
-            <b>{cursor.toLocaleDateString("ru-RU", { month: "long", year: "numeric" })}</b>
-            <button onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1))} type="button">›</button>
+            <button onClick={() => shiftCursor(-1)} type="button">‹</button>
+            <b>{navLabel}</b>
+            <button onClick={() => shiftCursor(1)} type="button">›</button>
+            <button className="sc-today" onClick={() => setCursor(new Date())} type="button">Сегодня</button>
           </div>
         )}
       </div>
@@ -152,12 +184,13 @@ export default function Scheduler({ channel, onChange }: { channel: string; onCh
                 {dayPosts.slice(0, 3).map((p) => (
                   <div
                     key={p.id}
-                    className={`sc-chip ${STATUS_COLOR[p.status]}`}
+                    className={`sc-chip ${STATUS_COLOR[p.status]}${isOverlap(p) ? " clash" : ""}`}
                     draggable
                     onDragStart={(e) => e.dataTransfer.setData("id", p.id)}
                     onClick={(e) => { e.stopPropagation(); setEditing(p); }}
+                    title={isOverlap(p) ? "Пересечение: несколько постов в это время" : ""}
                   >
-                    {p.time} {p.text.slice(0, 14) || "Без текста"}
+                    {isOverlap(p) ? "⚠ " : ""}{p.time} {p.text.slice(0, 12) || "Без текста"}
                   </div>
                 ))}
                 {dayPosts.length > 3 && <div className="sc-more">+{dayPosts.length - 3}</div>}
@@ -167,15 +200,74 @@ export default function Scheduler({ channel, onChange }: { channel: string; onCh
         </div>
       )}
 
-      {/* Список / Неделя / День — единый список публикаций */}
-      {view !== "month" && (
+      {/* Неделя — 7 колонок */}
+      {view === "week" && (
+        <div className="sc-week">
+          {weekCells.map((date) => {
+            const dayPosts = posts.filter((p) => p.date === date).sort((a, b) => a.time.localeCompare(b.time));
+            const d = new Date(date + "T00:00:00");
+            return (
+              <div
+                key={date}
+                className={`sc-wcol${date === todayStr() ? " today" : ""}`}
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={(e) => { const id = e.dataTransfer.getData("id"); if (id) movePost(id, date); }}
+              >
+                <div className="sc-wcol__h">
+                  <span>{d.toLocaleDateString("ru-RU", { weekday: "short" })}</span>
+                  <b>{date.slice(8)}</b>
+                </div>
+                <div className="sc-wcol__body">
+                  {dayPosts.map((p) => (
+                    <div
+                      key={p.id}
+                      className={`sc-chip ${STATUS_COLOR[p.status]}${isOverlap(p) ? " clash" : ""}`}
+                      draggable
+                      onDragStart={(e) => e.dataTransfer.setData("id", p.id)}
+                      onClick={() => setEditing(p)}
+                    >
+                      {isOverlap(p) ? "⚠ " : ""}{p.time} {p.text.slice(0, 16) || "Без текста"}
+                    </div>
+                  ))}
+                  <button className="sc-wadd" onClick={() => openCreate(date)} type="button">+ пост</button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* День — колонка по времени */}
+      {view === "day" && (
+        <div className="sc-dayview">
+          <div className="sc-dayview__head">
+            <b>{cursor.toLocaleDateString("ru-RU", { weekday: "long", day: "numeric", month: "long" })}</b>
+            <button className="btn btn-sm btn-primary" onClick={() => openCreate(dayStr)} type="button">+ Публикация</button>
+          </div>
+          {dayPostsSorted.length === 0 && <div className="muted" style={{ padding: 16 }}>На этот день публикаций нет.</div>}
+          {dayPostsSorted.map((p) => (
+            <div key={p.id} className="sc-dayrow" onClick={() => setEditing(p)}>
+              <div className="sc-dayrow__time">{p.time}<span className="muted">Мск</span></div>
+              <span className={`sc-dot ${STATUS_COLOR[p.status]}`} />
+              <div className="sc-listrow__main">
+                <b>{isOverlap(p) ? "⚠ " : ""}{p.text.slice(0, 48) || "Без текста"}</b>
+                <span className="muted">{p.channel} · {p.type}</span>
+              </div>
+              <span className={`sc-badge ${STATUS_COLOR[p.status]}`}>{STATUS_LABELS[p.status]}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Список — все публикации */}
+      {view === "list" && (
         <div className="sc-list">
           {sorted.length === 0 && <div className="muted" style={{ padding: 16 }}>Публикаций пока нет. Нажмите «+ Публикация» или «Составить расписание с ИИ».</div>}
           {sorted.map((p) => (
             <div key={p.id} className="sc-listrow">
               <span className={`sc-dot ${STATUS_COLOR[p.status]}`} />
               <div className="sc-listrow__main">
-                <b>{human(p.date)} · {p.time}</b>
+                <b>{isOverlap(p) ? "⚠ " : ""}{human(p.date)} · {p.time}</b>
                 <span className="muted">{p.text.slice(0, 40) || "Без текста"} · {p.channel}</span>
               </div>
               <span className={`sc-badge ${STATUS_COLOR[p.status]}`}>{STATUS_LABELS[p.status]}</span>
@@ -253,6 +345,10 @@ export default function Scheduler({ channel, onChange }: { channel: string; onCh
                   <b>По местному времени</b><span>В каждом городе пост выходит в выбранное местное время (напр. 12:00).</span>
                 </button>
               </div>
+
+              {editingOverlap && (
+                <div className="sc-clashwarn">⚠ На это время в этом канале уже есть публикация. Измените время, чтобы посты не пересекались.</div>
+              )}
 
               {/* Пересчёт времени */}
               <div className="sc-recalc">
