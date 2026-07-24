@@ -673,11 +673,83 @@ function AccountsTab({ accounts, current, onReload, onPick }: any) {
           ))}
         </div>
       )}
-      <div style={{ marginTop: 16 }}>
-        <div className="pz-sub">Добавить аккаунт по номеру телефона</div>
-        <LoginCard onDone={onReload} />
-        <div className="tgd-info" style={{ marginTop: 12 }}>📁 Импорт папок <b>TData</b> и файлов <b>.session</b> доступен в десктоп-версии парсера (в вебе Telegram не даёт читать локальные сессии из соображений безопасности). Здесь используйте вход по номеру.</div>
+      <div className="pz-add">
+        <div className="pz-addcol">
+          <div className="pz-sub">Добавить по номеру телефона</div>
+          <LoginCard onDone={onReload} />
+        </div>
+        <div className="pz-addcol">
+          <div className="pz-sub">Импорт готовой сессии</div>
+          <ImportCard onDone={onReload} />
+        </div>
       </div>
+    </div>
+  );
+}
+
+/* ---------- Импорт: строка сессии / JSON / .session / TData(zip) ---------- */
+const IMPORT_FMT = [
+  { id: "string", label: "Строка сессии", hint: "GramJS/Telethon StringSession (начинается с «1»)", file: false, accept: "" },
+  { id: "json", label: "JSON", hint: "session_string ИЛИ auth_key + dc_id (+ app_id/app_hash)", file: true, accept: ".json,application/json" },
+  { id: "session", label: "Файл .session", hint: "Telethon SQLite или текстовая сессия", file: true, accept: ".session" },
+  { id: "tdata", label: "TData / ZIP", hint: "ZIP с .session/.json внутри (бандл session+json)", file: true, accept: ".zip" },
+];
+function ImportCard({ onDone }: { onDone: () => void }) {
+  const [fmt, setFmt] = useState("string");
+  const [apiId, setApiId] = useState(""); const [apiHash, setApiHash] = useState("");
+  const [text, setText] = useState("");
+  const [file, setFile] = useState<{ name: string; base64: string } | null>(null);
+  const [busy, setBusy] = useState(false); const [err, setErr] = useState(""); const [ok, setOk] = useState("");
+  const cur = IMPORT_FMT.find((f) => f.id === fmt)!;
+  const jsonPaste = fmt === "json";
+
+  function toB64(ab: ArrayBuffer): string {
+    const bytes = new Uint8Array(ab); let bin = ""; const chunk = 0x8000;
+    for (let i = 0; i < bytes.length; i += chunk) bin += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, i + chunk)) as any);
+    return btoa(bin);
+  }
+  async function onFile(files: FileList | null) {
+    const f = files?.[0]; if (!f) return;
+    try { const ab = await f.arrayBuffer(); setFile({ name: f.name, base64: toB64(ab) }); setErr(""); } catch { setErr("Не удалось прочитать файл"); }
+  }
+  async function run() {
+    setErr(""); setOk(""); setBusy(true);
+    try {
+      const body: any = { format: fmt, apiId, apiHash };
+      if (fmt === "string" || (jsonPaste && !file)) body.text = text;
+      if (file) body.base64 = file.base64;
+      const d = await (await fetch("/api/tg/auth/import", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) })).json();
+      if (!d.ok) throw new Error(d.error || "Не удалось импортировать");
+      setOk("Аккаунт импортирован ✓"); setText(""); setFile(null); onDone();
+    } catch (e: any) { setErr(e?.message || "Ошибка импорта"); } finally { setBusy(false); }
+  }
+  const canRun = (fmt === "string" ? text.trim().length > 10 : jsonPaste ? (!!file || text.trim().length > 2) : !!file);
+
+  return (
+    <div className="card pr-card" style={{ maxWidth: 560 }}>
+      <div className="pz-fmt">
+        {IMPORT_FMT.map((f) => <button key={f.id} className={`pz-fmtb${fmt === f.id ? " on" : ""}`} onClick={() => { setFmt(f.id); setFile(null); setErr(""); setOk(""); }} type="button">{f.label}</button>)}
+      </div>
+      <div className="muted" style={{ fontSize: 12, marginTop: 8 }}>{cur.hint}</div>
+
+      {(fmt === "string" || jsonPaste) && (
+        <label className="af" style={{ marginTop: 10 }}><span>{fmt === "string" ? "Строка сессии" : "JSON (вставьте или загрузите файл ниже)"}</span>
+          <textarea className="input" style={{ minHeight: fmt === "string" ? 70 : 96, fontFamily: "ui-monospace,monospace", fontSize: 12 }} value={text} onChange={(e) => setText(e.target.value)} placeholder={fmt === "string" ? "1BQANOTA…" : '{ "session": "1BQ…", "app_id": 123, "app_hash": "abc…" }'} />
+        </label>
+      )}
+      {cur.file && (
+        <label className="asx-upload" style={{ marginTop: 10 }}><input type="file" accept={cur.accept} hidden onChange={(e) => onFile(e.target.files)} />📎 {file ? file.name : `Загрузить ${cur.label}`}</label>
+      )}
+
+      <div className="pw-grid2" style={{ marginTop: 10 }}>
+        <div className="field"><label className="pw-label">api_id</label><input className="input" value={apiId} onChange={(e) => setApiId(e.target.value)} placeholder="из JSON или my.telegram.org" /></div>
+        <div className="field"><label className="pw-label">api_hash</label><input className="input" value={apiHash} onChange={(e) => setApiHash(e.target.value)} placeholder="можно оставить, если есть в JSON" /></div>
+      </div>
+
+      {err && <div className="tgd-msg err" style={{ marginTop: 10 }}>⚠ {err}</div>}
+      {ok && <div className="tgd-msg ok" style={{ marginTop: 10 }}>{ok}</div>}
+      <button className="btn btn-primary" style={{ marginTop: 12 }} onClick={run} type="button" disabled={busy || !canRun}>{busy ? "Проверяю сессию…" : "Импортировать"}</button>
+      <div className="tgd-info" style={{ marginTop: 10 }}>Сессия проверяется реальным подключением и шифруется на сервере. Настоящую папку <b>TData</b> от Telegram Desktop сконвертируйте в .session/JSON (например, opentele) и загрузите здесь.</div>
     </div>
   );
 }
