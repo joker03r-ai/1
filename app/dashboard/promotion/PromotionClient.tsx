@@ -7,6 +7,9 @@ import { IconSpark } from "@/components/icons";
 import { Bot, loadBots, getCurrentBotId, setCurrentBotId } from "@/lib/bots";
 import { loadUsers } from "@/lib/users";
 import { loadLabels } from "@/lib/stats";
+import Scheduler from "./Scheduler";
+import { ScheduledPost, loadPosts } from "@/lib/schedule";
+import { cityById, wallToInstant, formatInTz } from "@/lib/tz";
 
 type Ch = "autopost" | "mailing" | "ai_reply" | "funnel";
 
@@ -73,7 +76,7 @@ const STEPS = [
   { title: "Аудитория", short: "Кому показываем", hint: "Выберите, где брать аудиторию: AI-поиск, импорт или своя база." },
   { title: "Контент", short: "Что публикуем", hint: "Отметьте, что подготовить. Можно сгенерировать с ИИ." },
   { title: "Каналы продвижения", short: "Как продвигаем", hint: "Выберите способы: автопостинг, рассылки, AI-ответы, воронки." },
-  { title: "Рост и автоматизация", short: "Усиление (необязательно)", hint: "Подключите механики роста и автоматизацию — по желанию." },
+  { title: "Расписание и автоматизация", short: "Календарь и публикации", hint: "Спланируйте посты в календаре, задайте время и часовые пояса." },
   { title: "Проверка и запуск", short: "Лимиты и согласие", hint: "Задайте лимиты, подтвердите правила и запустите." },
 ];
 
@@ -85,6 +88,7 @@ export default function PromotionClient() {
   const [launched, setLaunched] = useState(false);
   const [leads, setLeads] = useState(0);
   const [clients, setClients] = useState(0);
+  const [posts, setPosts] = useState<ScheduledPost[]>([]);
 
   useEffect(() => {
     try {
@@ -92,6 +96,7 @@ export default function PromotionClient() {
       setBots(b);
       setClients(loadUsers().length);
       setLeads(loadLabels().find((l) => l.id === "sl_lead")?.count || 0);
+      setPosts(loadPosts());
       const raw = localStorage.getItem(KEY);
       if (raw) setC({ ...DEFAULT, ...JSON.parse(raw) });
       else setC((p) => ({ ...p, projectRef: getCurrentBotId() || b[0]?.id || "" }));
@@ -112,13 +117,24 @@ export default function PromotionClient() {
   }
 
   // Завершённость шагов.
+  // Ближайшая публикация и счётчик для сводки.
+  const sortedPosts = [...posts].filter((p) => p.status !== "published").sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
+  const nextPost = sortedPosts[0];
+  const plannedCount = posts.length;
+
+  function schedTime(p: ScheduledPost, cityId: string): string {
+    if (p.regionMode === "local") return p.time;
+    const instant = wallToInstant(p.date, p.time, cityById(p.cityId)?.tz || "Europe/Moscow");
+    return formatInTz(instant, cityById(cityId)?.tz || "Europe/Moscow");
+  }
+
   const isDone = (i: number): boolean => {
     switch (i) {
       case 0: return !!c.projectRef && !!c.goal;
       case 1: return c.saved.includes(1) || c.audienceMode !== "";
       case 2: return c.saved.includes(2) || c.contentTypes.length > 0;
       case 3: return c.channels.length > 0;
-      case 4: return c.saved.includes(4) || c.growth.length > 0 || c.automation.length > 0;
+      case 4: return posts.length > 0;
       case 5: return c.consent;
       default: return false;
     }
@@ -126,11 +142,14 @@ export default function PromotionClient() {
   const doneCount = STEPS.filter((_, i) => isDone(i)).length;
   const progress = Math.round((doneCount / STEPS.length) * 100);
 
-  // Обязательные шаги для запуска: проект+цель, каналы, согласие.
+  // Проверка перед запуском.
   const missing: string[] = [];
-  if (!isDone(0)) missing.push("выбрать проект и цель");
+  if (!c.projectRef) missing.push("выбрать проект");
+  if (!c.goal) missing.push("выбрать цель");
   if (!isDone(3)) missing.push("выбрать способ продвижения");
-  if (!c.consent) missing.push("подтвердить правила в шаге 6");
+  if (c.contentTypes.length === 0) missing.push("добавить контент");
+  if (posts.length === 0) missing.push("запланировать публикацию");
+  if (!c.consent) missing.push("подтвердить правила");
   const canLaunch = missing.length === 0;
 
   function saveStep(i: number) {
@@ -166,29 +185,22 @@ export default function PromotionClient() {
     <>
       <Topbar crumbs={["Основной проект", "Продвижение"]} />
       <div className="content" style={{ maxWidth: 1180 }}>
-        {/* Верхняя панель */}
-        <div className="pw-top">
-          <div className="pw-top__l">
-            <h1 className="h1" style={{ marginBottom: 4 }}>Продвижение</h1>
-            <p className="muted" style={{ margin: 0 }}>Настройте кампанию за 6 шагов — от цели до запуска, всё в одном окне.</p>
+        {/* Компактная шапка: заголовок + прогресс + кнопки в одной зоне */}
+        <div className="pw-bar">
+          <div className="pw-bar__title">
+            <h1 className="h1" style={{ margin: 0, fontSize: 20 }}>Продвижение</h1>
+            <span className="pw-bar__sub">Кампания за 6 шагов — в одном окне</span>
           </div>
-          <div className="pw-top__r">
-            <button className="btn btn-ai pw-autobtn" onClick={autoSetup} type="button">
-              <IconSpark className="ico" /> Настроить автоматически с ИИ
-            </button>
-            <div className="pw-launch">
-              <button className="btn btn-primary btn-lg" onClick={launch} disabled={!canLaunch}>🚀 Запустить продвижение</button>
-              {!canLaunch && <div className="pw-launch__hint">Осталось: {missing.join(", ")}.</div>}
-            </div>
+          <div className="pw-bar__prog">
+            <div className="pw-bar__progrow"><span>Заполнено {doneCount} из {STEPS.length}</span><b>{progress}%</b></div>
+            <div className="pw-progress__bar"><span style={{ width: `${progress}%` }} /></div>
+          </div>
+          <div className="pw-bar__actions">
+            <button className="btn btn-ghost btn-sm" onClick={autoSetup} type="button"><IconSpark className="ico" /> Настроить с ИИ</button>
+            <button className="btn btn-primary" onClick={launch} disabled={!canLaunch}>🚀 Запустить продвижение</button>
           </div>
         </div>
-        <div className="pw-progress">
-          <div className="pw-progress__row">
-            <span>Заполнено {doneCount} из {STEPS.length} шагов</span>
-            <b>{progress}%</b>
-          </div>
-          <div className="pw-progress__bar"><span style={{ width: `${progress}%` }} /></div>
-        </div>
+        {!canLaunch && <div className="pw-bar__hint">Чтобы запустить, осталось: {missing.join(", ")}.</div>}
 
         {/* Результаты после запуска */}
         {launched && (
@@ -244,7 +256,15 @@ export default function PromotionClient() {
                       {i === 1 && <Step2 c={c} patch={patch} advanced={advanced} setAdvanced={setAdvanced} toggle={() => {}} />}
                       {i === 2 && <Step3 c={c} patch={patch} toggleArr={toggleArr} />}
                       {i === 3 && <Step4 c={c} patch={patch} toggleArr={toggleArr} advanced={advanced} setAdvanced={setAdvanced} />}
-                      {i === 4 && <Step5 c={c} toggleArr={toggleArr} />}
+                      {i === 4 && (
+                        <>
+                          <Scheduler channel={c.projectType === "channel" ? c.projectRef : "@my_channel"} onChange={setPosts} />
+                          <details className="pw-adv" style={{ marginTop: 16 }}>
+                            <summary>Механики роста и автоматизация</summary>
+                            <div style={{ marginTop: 10 }}><Step5 c={c} toggleArr={toggleArr} /></div>
+                          </details>
+                        </>
+                      )}
                       {i === 5 && <Step6 c={c} patch={patch} advanced={advanced} setAdvanced={setAdvanced} missing={missing} canLaunch={canLaunch} onLaunch={launch} />}
 
                       {i < 5 && (
@@ -268,7 +288,24 @@ export default function PromotionClient() {
               <SumRow label="Аудитория" value={audienceName} ok={isDone(1)} />
               <SumRow label="Контент" value={c.contentTypes.length ? `${c.contentTypes.length} тип(а)` : "—"} ok={isDone(2)} />
               <SumRow label="Продвижение" value={channelNames} ok={isDone(3)} />
-              <SumRow label="Расписание" value={c.scheduleStart} ok />
+
+              {/* Расписание */}
+              <div className="pw-sched">
+                <div className="pw-sched__t">📅 Расписание</div>
+                {nextPost ? (
+                  <>
+                    <div className="pw-sched__row"><span>Ближайший пост</span><b>{new Date(nextPost.date + "T00:00:00").toLocaleDateString("ru-RU", { day: "numeric", month: "long" })}</b></div>
+                    <div className="pw-sched__row"><span>Москва</span><b>{schedTime(nextPost, "moscow")}</b></div>
+                    <div className="pw-sched__row"><span>Иркутск</span><b>{schedTime(nextPost, "irkutsk")}</b></div>
+                    <div className="pw-sched__row"><span>Улан-Удэ</span><b>{schedTime(nextPost, "ulanude")}</b></div>
+                    <div className="pw-sched__row"><span>Режим</span><b>{nextPost.regionMode === "local" ? "По местному" : "Одновременно"}</b></div>
+                    <div className="pw-sched__row"><span>Запланировано</span><b>{plannedCount} публ.</b></div>
+                  </>
+                ) : (
+                  <div className="pw-sched__empty">Публикации не запланированы</div>
+                )}
+              </div>
+
               <div className="pw-summary__ready">
                 <span>Готовность</span>
                 <b className={canLaunch ? "ok" : "warn"}>{canLaunch ? "Готово к запуску" : `${doneCount}/6 шагов`}</b>
