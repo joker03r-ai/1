@@ -90,8 +90,13 @@ export default function Sidebar() {
         </button>
         {!collapsed && (
           <div className="sidebar__brand">
-            <span className="brand-logo">🤖</span>
-            <span>BotPilot</span>
+            <span className="brand-logo" aria-hidden>
+              <svg viewBox="0 0 24 24">
+                <path d="M20.6 3.4 3.7 11c-.75.34-.68 1.43.1 1.66l4.53 1.35 1.35 4.53c.23.78 1.32.85 1.66.1L20.6 3.4z" fill="#fff" />
+                <path d="M20.6 3.4 9.78 14.02l.35 4.52 2.02-3.28" fill="rgba(255,255,255,.5)" />
+              </svg>
+            </span>
+            <span className="brand-word">Bot<span>Pilot</span></span>
           </div>
         )}
       </div>

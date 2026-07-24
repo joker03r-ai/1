@@ -377,8 +377,8 @@ function CalendarView({ mode, cursor, posts, cityId, onOpen, onMove }: any) {
             <div key={i} className={`cc-cell${dim ? " dim" : ""}${isToday ? " today" : ""}`} onDragOver={(e) => e.preventDefault()} onDrop={dropDate(s)}>
               <div className="cc-cell__h"><span>{d.getDate()}</span>{isToday && <em>сегодня</em>}</div>
               <div className="cc-cell__b">
-                {items.slice(0, mode === "week" ? 12 : 4).map((p: ScheduledPost) => <PostChip key={p.id} p={p} cityId={cityId} onOpen={onOpen} onDragStart={onDrag(p.id)} />)}
-                {items.length > (mode === "week" ? 12 : 4) && <span className="cc-more">+{items.length - (mode === "week" ? 12 : 4)}</span>}
+                {items.slice(0, mode === "week" ? 12 : 3).map((p: ScheduledPost) => <PostChip key={p.id} p={p} cityId={cityId} onOpen={onOpen} onDragStart={onDrag(p.id)} />)}
+                {items.length > (mode === "week" ? 12 : 3) && <span className="cc-more">+{items.length - (mode === "week" ? 12 : 3)}</span>}
               </div>
             </div>
           );
