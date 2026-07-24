@@ -112,14 +112,18 @@ export default function Sidebar() {
           <div className="sidebar__promo">
             <div className="promo-top">
               <span className="promo-gift">🎁</span>
-              <div>
+              <div className="promo-info">
                 <div className="title">{t("brand.trial", lang)}</div>
                 <div className="sub">
                   {days > 0
-                    ? `${lang === "en" ? "Left" : "Осталось"} ${days} ${lang === "en" ? "day(s)" : daysWord(days)} · ${lang === "en" ? "all features" : "все функции"}`
-                    : lang === "en" ? "Trial ended" : "Пробный период завершён"}
+                    ? lang === "en" ? "all features open" : "все функции открыты"
+                    : lang === "en" ? "Trial ended" : "период завершён"}
                 </div>
               </div>
+            </div>
+            <div className="promo-days">
+              <span>{days > 0 ? (lang === "en" ? "Left" : "Осталось") : (lang === "en" ? "Ended" : "Завершён")}</span>
+              <b>{days > 0 ? `${days} ${lang === "en" ? "d" : daysWord(days)}` : "0"}</b>
             </div>
             <div className="promo-bar"><span style={{ width: `${(days / TRIAL_DAYS) * 100}%` }} /></div>
             <Link href="/dashboard/billing" className="promo-btn">{t("brand.choosePlan", lang)}</Link>

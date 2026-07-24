@@ -30,7 +30,7 @@ export const STR: Dict = {
 
   "brand.createAi": { ru: "Создать бота с помощью ИИ", en: "Create a bot with AI" },
 
-  "brand.trial": { ru: "🎁 Пробный период", en: "🎁 Free trial" },
+  "brand.trial": { ru: "Пробный период", en: "Free trial" },
   "brand.trialLeft": { ru: "Осталось 7 дней · все функции", en: "7 days left · all features" },
   "brand.choosePlan": { ru: "Выбрать тариф", en: "Choose a plan" },
   "brand.orderBot": { ru: "Заказать бота", en: "Order a bot" },
