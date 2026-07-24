@@ -64,15 +64,27 @@ export default function AssistantClient() {
             <div className="asx-bar__kbtop"><span>База знаний</span><b>{kbPct}%</b></div>
             <div className="asx-mini"><span style={{ width: `${kbPct}%` }} /></div>
           </div>
-          <div className="asx-bar__btns">
-            <button className={`btn btn-primary btn-sm${mode === "ai" ? "" : ""}`} onClick={() => setMode("ai")} type="button"><IconSpark className="ico" /> Настроить с помощью ИИ</button>
-            <button className="btn btn-sm" onClick={() => setMode("manual")} type="button">Заполнить вручную</button>
+          <div className="asx-modeseg">
+            <span className="asx-modeseg__l">Заполнение</span>
+            <div className="asx-seg">
+              <button className={`asx-seg__b${mode === "ai" ? " on" : ""}`} onClick={() => setMode("ai")} type="button"><IconSpark className="ico" /> С помощью ИИ</button>
+              <button className={`asx-seg__b${mode === "manual" ? " on" : ""}`} onClick={() => setMode("manual")} type="button">Вручную</button>
+            </div>
           </div>
-          <label className="asx-toggle" title="Ответы с помощью ИИ">
+          <label className="asx-toggle" title="Отвечает ли бот клиентам с помощью ИИ">
             <span className="asx-toggle__l">ИИ-ответы</span>
             <span className="sw"><input type="checkbox" checked={a.aiEnabled} onChange={(e) => patch({ aiEnabled: e.target.checked })} /><span className="sw__t" /></span>
           </label>
           <span className={`asx-saved${flash ? " show" : ""}`}>✓ Сохранено</span>
+        </div>
+
+        {/* Ориентир: понятная последовательность из трёх шагов */}
+        <div className="asx-flow">
+          <span className={ready ? "done" : "on"}><i>1</i> Заполните базу знаний</span>
+          <b>→</b>
+          <span className={a.aiEnabled ? "done" : ready ? "on" : ""}><i>2</i> Включите ИИ-ответы</span>
+          <b>→</b>
+          <span className={a.aiEnabled ? "on" : ""}><i>3</i> Проверьте в чате справа</span>
         </div>
 
         <div className="asx-grid">

@@ -158,50 +158,52 @@ export default function HomeClient() {
           </div>
         </section>
 
-        {/* ЧТО СДЕЛАТЬ СЕЙЧАС */}
-        <div className="home-section-title">Что сделать сейчас</div>
-        <section className="recs">
-          {recs.map((r) => (
-            <div key={r.id} className={`rec fade-up${r.done ? " rec--done" : ""}`}>
-              <div className="rec__ico"><r.Icon className="ico" /></div>
-              <div className="rec__title">{r.title}{r.done && <span className="rec__ok"><IconCheck className="ico" /></span>}</div>
-              <div className="rec__desc">{r.desc}</div>
-              <div className="rec__bar"><span style={{ width: `${r.pct}%` }} /></div>
-              <div className="rec__foot">
-                <span className="rec__pct">{r.done ? "Готово" : `${r.pct}%`}</span>
-                <Link href={r.href} className="rec__btn">{r.done ? "Открыть" : r.step} →</Link>
+        <div className="hp-cols">
+          {/* ПОКАЗАТЕЛИ — справа, всегда на виду */}
+          <aside className="hp-side">
+            <div className="hp-side__head">
+              <div className="home-section-title" style={{ margin: 0 }}>Основные показатели</div>
+              <div className="seg seg--sm">
+                <button className={period === "today" ? "on" : ""} onClick={() => setPeriod("today")} type="button">Сегодня</button>
+                <button className={period === "7" ? "on" : ""} onClick={() => setPeriod("7")} type="button">7 дней</button>
+                <button className={period === "30" ? "on" : ""} onClick={() => setPeriod("30")} type="button">30 дней</button>
               </div>
             </div>
-          ))}
-        </section>
-
-        {/* ПОКАЗАТЕЛИ */}
-        <div className="home-row-head">
-          <div className="home-section-title">Основные показатели</div>
-          <div className="seg seg--sm">
-            <button className={period === "today" ? "on" : ""} onClick={() => setPeriod("today")} type="button">Сегодня</button>
-            <button className={period === "7" ? "on" : ""} onClick={() => setPeriod("7")} type="button">7 дней</button>
-            <button className={period === "30" ? "on" : ""} onClick={() => setPeriod("30")} type="button">30 дней</button>
-          </div>
-        </div>
-        <section className="mets">
-          {metrics.map((m) => (
-            <div key={m.key} className={`met fade-up ${m.cls}`}>
-              <div className="met__head"><span className="met__ico"><m.Icon className="ico" /></span><span className="met__label">{m.label}</span></div>
-              {m.value > 0 ? (
-                <>
-                  <div className="met__val">{m.money ? `${m.value} ₽` : m.value}</div>
-                  <div className="met__row"><Spark up={m.value > 0} /><span className="met__delta">{periodLabel}</span></div>
-                </>
-              ) : (
-                <div className="met__empty">
-                  <div className="met__emptytext">{m.empty}</div>
-                  <Link href={m.href} className="met__emptybtn">{m.action} →</Link>
+            <section className="mets mets--side">
+              {metrics.map((m) => (
+                <div key={m.key} className={`met met--row fade-up ${m.cls}`}>
+                  <span className="met__ico"><m.Icon className="ico" /></span>
+                  <div className="met__mid">
+                    <span className="met__label">{m.label}</span>
+                    {m.value > 0
+                      ? <span className="met__delta">{periodLabel}</span>
+                      : <Link href={m.href} className="met__emptybtn">{m.action} →</Link>}
+                  </div>
+                  {m.value > 0
+                    ? <span className="met__val">{m.money ? `${m.value} ₽` : m.value}</span>
+                    : <span className="met__zero">—</span>}
                 </div>
-              )}
-            </div>
-          ))}
-        </section>
+              ))}
+            </section>
+          </aside>
+
+          <div className="hp-main">
+            {/* ЧТО СДЕЛАТЬ СЕЙЧАС */}
+            <div className="home-section-title">Что сделать сейчас</div>
+            <section className="recs">
+              {recs.map((r) => (
+                <div key={r.id} className={`rec fade-up${r.done ? " rec--done" : ""}`}>
+                  <div className="rec__ico"><r.Icon className="ico" /></div>
+                  <div className="rec__title">{r.title}{r.done && <span className="rec__ok"><IconCheck className="ico" /></span>}</div>
+                  <div className="rec__desc">{r.desc}</div>
+                  <div className="rec__bar"><span style={{ width: `${r.pct}%` }} /></div>
+                  <div className="rec__foot">
+                    <span className="rec__pct">{r.done ? "Готово" : `${r.pct}%`}</span>
+                    <Link href={r.href} className="rec__btn">{r.done ? "Открыть" : r.step} →</Link>
+                  </div>
+                </div>
+              ))}
+            </section>
 
         {/* БОТЫ */}
         <div className="home-row-head">
@@ -286,6 +288,8 @@ export default function HomeClient() {
             </div>
           </div>
         </section>
+          </div>{/* hp-main */}
+        </div>{/* hp-cols */}
       </div>
     </>
   );

@@ -134,6 +134,15 @@ export default function SupportWidget() {
                   </a>
                 </div>
 
+                <a className="support__tip" href="/dashboard/chats">
+                  <span className="support__tip-ico">💬</span>
+                  <span className="support__tip-txt">
+                    <b>Отвечать клиентам вручную</b>
+                    <em>Раздел «Чаты» — подключите Telegram и отвечайте сами, когда нужно</em>
+                  </span>
+                  <span className="support__tip-arr">→</span>
+                </a>
+
                 <div className="support__hist-label">
                   <span>История</span>
                 </div>
