@@ -4402,3 +4402,17 @@ img, svg, video, canvas { max-width: 100%; }
   .home-panel__tab { padding: 8px 10px; font-size: 12.5px; }
   .home-panel__more { display: none; }
 }
+
+/* Настройки — выбор иллюстрации героя (10 вариантов) */
+.set-ills { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+.set-ill { display: flex; flex-direction: column; align-items: center; gap: 5px; border: 1px solid var(--line); background: var(--panel); border-radius: 12px; padding: 9px 4px 7px; cursor: pointer; transition: border-color .12s, transform .1s, box-shadow .15s; }
+.set-ill:hover { border-color: var(--violet-100); transform: translateY(-1px); }
+.set-ill.on { border-color: var(--violet); background: var(--violet-050); box-shadow: 0 0 0 2px var(--violet-100); }
+.set-ill__orb { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; color: #fff; box-shadow: 0 4px 10px rgba(20,22,40,.18); }
+.set-ill__orb .ico { width: 18px; height: 18px; }
+.set-ill__l { font-size: 10.5px; font-weight: 700; color: var(--ink-soft); text-align: center; line-height: 1.1; }
+.set-ill.on .set-ill__l { color: var(--violet-700); }
+@media (max-width: 520px) { .set-ills { grid-template-columns: repeat(4, 1fr); } .set-ill__l { display: none; } }
+
+/* Иллюстрация героя уважает переключатель анимации */
+:root[data-anim="off"] .orb__ring, :root[data-anim="off"] .orb__node, :root[data-anim="off"] .orb__glow, :root[data-anim="off"] .orb__core { animation: none !important; }

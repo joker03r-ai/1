@@ -7,7 +7,11 @@ import Topbar from "@/components/Topbar";
 import {
   IconSpark, IconChat, IconUsers, IconSend, IconStore, IconBot, IconPlus,
   IconBook, IconCalendar, IconArrowRight, IconLayers, IconRocket, IconCheck,
+  IconChart, IconGlobe,
 } from "@/components/icons";
+import { ILLUSTS, loadIllust } from "@/lib/appPrefs";
+
+const ILL_ICONS: Record<string, any> = { bot: IconBot, send: IconSend, spark: IconSpark, users: IconUsers, chat: IconChat, chart: IconChart, store: IconStore, layers: IconLayers, globe: IconGlobe, rocket: IconRocket };
 import { loadUsers, avatarColor } from "@/lib/users";
 import { loadLabels } from "@/lib/stats";
 import { TEMPLATES, buildTemplate, upsertScenario, uid, Scenario, loadScenarios, hasStartTrigger } from "@/lib/scenarios";
@@ -50,6 +54,7 @@ export default function HomeClient() {
   const [period, setPeriod] = useState<"today" | "7" | "30">("7");
   const [learnOpen, setLearnOpen] = useState(false);
   const [homeTab, setHomeTab] = useState<"bots" | "templates">("bots");
+  const [illust, setIllust] = useState(0);
   const [kb, setKb] = useState(false);
 
   useEffect(() => {
@@ -64,7 +69,15 @@ export default function HomeClient() {
       setPostsCount(loadPosts().length);
       setTrial(trialDaysLeft());
       setKb(kbFilled(loadAssistant(cur)));
+      setIllust(loadIllust());
     } catch {}
+  }, []);
+
+  // Живое обновление иллюстрации при смене в настройках.
+  useEffect(() => {
+    const h = () => setIllust(loadIllust());
+    window.addEventListener("sb-illust", h);
+    return () => window.removeEventListener("sb-illust", h);
   }, []);
 
   function pickBot(id: string) { setCurBot(id); setCurrentBotId(id); setKb(kbFilled(loadAssistant(id))); }
@@ -124,6 +137,14 @@ export default function HomeClient() {
     router.push(`/dashboard/scenarios/${s.id}`);
   }
 
+  // Выбранная иллюстрация героя.
+  const ill = ILLUSTS[illust] || ILLUSTS[0];
+  const IllCore = ILL_ICONS[ill.core] || IconBot;
+  const IllN0 = ILL_ICONS[ill.nodes[0]] || IconSend;
+  const IllN1 = ILL_ICONS[ill.nodes[1]] || IconSpark;
+  const IllN2 = ILL_ICONS[ill.nodes[2]] || IconUsers;
+  const illGlow = "rgba(125,120,245,.5)";
+
   return (
     <>
       <Topbar crumbs={["Основной проект", "Главная"]} />
@@ -148,13 +169,13 @@ export default function HomeClient() {
           </div>
           <div className="hero__r">
             <div className="orb" aria-hidden>
-              <span className="orb__glow" />
+              <span className="orb__glow" style={{ background: `radial-gradient(circle, ${illGlow} , transparent 70%)` }} />
               <span className="orb__ring orb__ring--1" />
               <span className="orb__ring orb__ring--2" />
-              <span className="orb__core"><IconBot className="ico" /></span>
-              <span className="orb__node n-tg"><IconSend className="ico" /></span>
-              <span className="orb__node n-ai"><IconSpark className="ico" /></span>
-              <span className="orb__node n-cl"><IconUsers className="ico" /></span>
+              <span className="orb__core" style={{ background: ill.grad }}><IllCore className="ico" /></span>
+              <span className="orb__node n-tg"><IllN0 className="ico" /></span>
+              <span className="orb__node n-ai"><IllN1 className="ico" /></span>
+              <span className="orb__node n-cl"><IllN2 className="ico" /></span>
             </div>
           </div>
         </section>

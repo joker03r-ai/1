@@ -144,8 +144,8 @@ export function applyTheme(t: Theme) {
   else de.removeAttribute("data-skin");
   // Цвет шрифта зависит от темы (автоконтроль контраста).
   applyFontColor(loadFontColor());
-  if (loadAccent() === "custom") applyCustomHue(loadHue());
-  applyLogo(loadLogo());
+  applyCustomHue(loadHue()); // акцент управляется ползунком оттенка
+  applyLogoHue(loadLogoHue());
 }
 export function saveTheme(t: Theme) {
   try { localStorage.setItem("sb_theme", t); } catch {}
@@ -180,6 +180,45 @@ export function applyLogo(c: LogoColor) {
 export function saveLogo(c: LogoColor) {
   try { localStorage.setItem("sb_logo", c); } catch {}
   applyLogo(c);
+}
+
+// ---- Цвет логотипа ползунком (оттенок 0..360) ----
+export function loadLogoHue(): number {
+  if (typeof window === "undefined") return 258;
+  const v = Number(localStorage.getItem("sb_logo_hue"));
+  return Number.isFinite(v) && v >= 0 ? v : 258;
+}
+export function applyLogoHue(h: number) {
+  if (typeof document === "undefined") return;
+  const h2 = (h + 40) % 360;
+  document.documentElement.style.setProperty("--logo-grad", `linear-gradient(140deg, hsl(${h} 78% 62%), hsl(${h2} 78% 60%))`);
+}
+export function saveLogoHue(h: number) {
+  try { localStorage.setItem("sb_logo_hue", String(h)); } catch {}
+  applyLogoHue(h);
+}
+
+// ---- Иллюстрация героя на главной (10 вариантов) ----
+export const ILLUSTS: { id: number; label: string; core: string; nodes: [string, string, string]; grad: string }[] = [
+  { id: 0, label: "Ассистент", core: "bot", nodes: ["send", "spark", "users"], grad: "linear-gradient(150deg,#5b8cff,#8b5cf6)" },
+  { id: 1, label: "Ракета", core: "rocket", nodes: ["spark", "chart", "send"], grad: "linear-gradient(150deg,#f97316,#ec4899)" },
+  { id: 2, label: "Магия ИИ", core: "spark", nodes: ["bot", "chat", "layers"], grad: "linear-gradient(150deg,#8b5cf6,#22d3ee)" },
+  { id: 3, label: "Общение", core: "chat", nodes: ["users", "send", "spark"], grad: "linear-gradient(150deg,#3b82f6,#06b6d4)" },
+  { id: 4, label: "Аудитория", core: "users", nodes: ["chat", "send", "chart"], grad: "linear-gradient(150deg,#10b981,#3b82f6)" },
+  { id: 5, label: "Продажи", core: "store", nodes: ["chart", "users", "send"], grad: "linear-gradient(150deg,#16a34a,#84cc16)" },
+  { id: 6, label: "Аналитика", core: "chart", nodes: ["spark", "users", "layers"], grad: "linear-gradient(150deg,#6366f1,#a855f7)" },
+  { id: 7, label: "Рассылки", core: "send", nodes: ["users", "chat", "spark"], grad: "linear-gradient(150deg,#0ea5e9,#6366f1)" },
+  { id: 8, label: "Сценарии", core: "layers", nodes: ["bot", "spark", "send"], grad: "linear-gradient(150deg,#f59e0b,#f97316)" },
+  { id: 9, label: "Глобально", core: "globe", nodes: ["users", "send", "chat"], grad: "linear-gradient(150deg,#ec4899,#8b5cf6)" },
+];
+export function loadIllust(): number {
+  if (typeof window === "undefined") return 0;
+  const v = Number(localStorage.getItem("sb_illust"));
+  return Number.isFinite(v) && v >= 0 && v < ILLUSTS.length ? v : 0;
+}
+export function saveIllust(n: number) {
+  try { localStorage.setItem("sb_illust", String(n)); } catch {}
+  if (typeof window !== "undefined") window.dispatchEvent(new Event("sb-illust"));
 }
 
 // ---- Цвет шрифта (чёрный / тёмно-серый / белый) с автоконтролем контраста ----

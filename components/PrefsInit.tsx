@@ -2,15 +2,15 @@
 
 import { useEffect } from "react";
 import {
-  applyAccent, loadAccent, loadLang, applyTheme, loadTheme,
+  loadLang, applyTheme, loadTheme,
   applyFontColor, loadFontColor, applyDensity, loadDensity,
   applyGrad, loadGrad, applyAnim, loadAnim, watchSystemTheme,
 } from "@/lib/appPrefs";
 
 // Применяет сохранённые настройки внешнего вида при загрузке.
+// Акцент и цвет логотипа задаются оттенком (ползунком) внутри applyTheme.
 export default function PrefsInit() {
   useEffect(() => {
-    applyAccent(loadAccent());
     applyTheme(loadTheme());
     applyFontColor(loadFontColor());
     applyDensity(loadDensity());

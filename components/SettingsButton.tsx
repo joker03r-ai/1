@@ -4,12 +4,15 @@ import { useEffect, useState } from "react";
 import { IconGear } from "./icons";
 import { useEsc } from "@/lib/useEsc";
 import {
-  ACCENTS, Accent, Theme, THEMES, FontColor, Density, GradIntensity, isThemeDark,
-  loadAccent, saveAccent, loadTheme, saveTheme, loadHue, saveHue,
+  Theme, THEMES, FontColor, Density, GradIntensity, isThemeDark,
+  loadTheme, saveTheme, loadHue, saveHue,
   loadFontColor, saveFontColor, loadDensity, saveDensity, loadGrad, saveGrad, loadAnim, saveAnim,
-  LOGO_COLORS, LogoColor, loadLogo, saveLogo,
+  loadLogoHue, saveLogoHue, ILLUSTS, loadIllust, saveIllust,
 } from "@/lib/appPrefs";
+import { IconBot, IconSend, IconSpark, IconUsers, IconChat, IconChart, IconStore, IconLayers, IconGlobe, IconRocket } from "./icons";
 import { t } from "@/lib/i18n";
+
+const ILL_ICONS: Record<string, any> = { bot: IconBot, send: IconSend, spark: IconSpark, users: IconUsers, chat: IconChat, chart: IconChart, store: IconStore, layers: IconLayers, globe: IconGlobe, rocket: IconRocket };
 
 const FONTS: { id: FontColor; label: string }[] = [
   { id: "black", label: "Чёрный" },
@@ -24,18 +27,18 @@ const GRADS: { id: GradIntensity; label: string }[] = [
 
 export default function SettingsButton() {
   const [open, setOpen] = useState(false);
-  const [accent, setAccent] = useState<Accent>("violet");
   const [theme, setTheme] = useState<Theme>("light");
   const [hue, setHue] = useState(265);
+  const [logoHue, setLogoHue] = useState(258);
   const [font, setFont] = useState<FontColor>("black");
-  const [logo, setLogo] = useState<LogoColor>("violet");
+  const [illust, setIllust] = useState(0);
   const [density, setDensity] = useState<Density>("standard");
   const [grad, setGrad] = useState<GradIntensity>("normal");
   const [anim, setAnim] = useState(true);
 
   useEffect(() => {
-    setAccent(loadAccent()); setTheme(loadTheme()); setHue(loadHue());
-    setFont(loadFontColor()); setDensity(loadDensity()); setGrad(loadGrad()); setAnim(loadAnim()); setLogo(loadLogo());
+    setTheme(loadTheme()); setHue(loadHue()); setLogoHue(loadLogoHue());
+    setFont(loadFontColor()); setDensity(loadDensity()); setGrad(loadGrad()); setAnim(loadAnim()); setIllust(loadIllust());
   }, []);
   useEsc(open, () => setOpen(false));
 
@@ -80,33 +83,34 @@ export default function SettingsButton() {
             </div>
             {font === "white" && !themeDark && <div className="hint" style={{ marginTop: 6 }}>Белый шрифт доступен только в тёмных темах — на светлом фоне применён чёрный.</div>}
 
-            {/* Акцент */}
+            {/* Акцент — только ползунок оттенка */}
             <div className="set-label" style={{ marginTop: 16 }}>Акцентный цвет</div>
-            <div className="set-accents">
-              {ACCENTS.map((a) => (
-                <button key={a.id} className={`set-accent${accent === a.id ? " on" : ""}`} onClick={() => { setAccent(a.id); saveAccent(a.id); }} title={a.label}>
-                  <span className="set-accent__dot" style={{ background: a.color }}>{accent === a.id && "✓"}</span>
-                  <span>{a.label}</span>
-                </button>
-              ))}
-            </div>
-            <div className="set-hue" style={{ marginTop: 10 }}>
-              <span className="set-hue__swatch" style={{ background: `hsl(${hue} 72% 55%)` }}>{accent === "custom" && "✓"}</span>
-              <input className="set-hue__range" type="range" min={0} max={360} value={hue} onChange={(e) => { const h = Number(e.target.value); setHue(h); setAccent("custom"); saveHue(h); }} aria-label="Свой оттенок" />
+            <div className="set-hue">
+              <span className="set-hue__swatch" style={{ background: `hsl(${hue} 72% 55%)` }} />
+              <input className="set-hue__range" type="range" min={0} max={360} value={hue} onChange={(e) => { const h = Number(e.target.value); setHue(h); saveHue(h); }} aria-label="Оттенок акцента" />
             </div>
 
-            {/* Цвет логотипа */}
+            {/* Цвет логотипа — ползунок оттенка */}
             <div className="set-label" style={{ marginTop: 16 }}>Цвет логотипа</div>
-            <div className="set-logos">
-              {LOGO_COLORS.map((l) => (
-                <button key={l.id} className={`set-logo${logo === l.id ? " on" : ""}`} onClick={() => { setLogo(l.id); saveLogo(l.id); }} title={l.label} type="button">
-                  <span className="set-logo__mark" style={{ background: l.grad }}>
-                    <svg viewBox="0 0 24 24" aria-hidden><path d="M20.6 3.4 3.7 11c-.75.34-.68 1.43.1 1.66l4.53 1.35 1.35 4.53c.23.78 1.32.85 1.66.1L20.6 3.4z" fill="#fff" /></svg>
-                    {logo === l.id && <i className="set-logo__ok">✓</i>}
-                  </span>
-                  <span>{l.label}</span>
-                </button>
-              ))}
+            <div className="set-hue">
+              <span className="set-logo__mark" style={{ background: `linear-gradient(140deg, hsl(${logoHue} 78% 62%), hsl(${(logoHue + 40) % 360} 78% 60%))` }}>
+                <svg viewBox="0 0 24 24" aria-hidden><path d="M20.6 3.4 3.7 11c-.75.34-.68 1.43.1 1.66l4.53 1.35 1.35 4.53c.23.78 1.32.85 1.66.1L20.6 3.4z" fill="#fff" /></svg>
+              </span>
+              <input className="set-hue__range" type="range" min={0} max={360} value={logoHue} onChange={(e) => { const h = Number(e.target.value); setLogoHue(h); saveLogoHue(h); }} aria-label="Оттенок логотипа" />
+            </div>
+
+            {/* Иллюстрация героя */}
+            <div className="set-label" style={{ marginTop: 16 }}>Иллюстрация на главной</div>
+            <div className="set-ills">
+              {ILLUSTS.map((il) => {
+                const Core = ILL_ICONS[il.core] || IconBot;
+                return (
+                  <button key={il.id} className={`set-ill${illust === il.id ? " on" : ""}`} onClick={() => { setIllust(il.id); saveIllust(il.id); }} title={il.label} type="button">
+                    <span className="set-ill__orb" style={{ background: il.grad }}><Core className="ico" /></span>
+                    <span className="set-ill__l">{il.label}</span>
+                  </button>
+                );
+              })}
             </div>
 
             {/* Плотность */}
