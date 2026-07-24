@@ -19,7 +19,7 @@ import {
   removeBot,
 } from "@/lib/bots";
 import { loadScenarios, hasStartTrigger, ensureStartScenario, Scenario } from "@/lib/scenarios";
-import { loadAssistant } from "@/lib/assistant";
+import { loadAssistant, kbText, behaviorInstruction } from "@/lib/assistant";
 import { DEFAULT_BOT, BotConfig } from "@/lib/types";
 
 const FILTERS: { id: "all" | BotStatus; label: string }[] = [
@@ -75,26 +75,20 @@ export default function BotsClient() {
     const m = s?.nodes.find((n) => n.kind === "action_message" && n.text);
     return m?.text || "";
   }
-  // Конфиг ИИ-ассистента бота — чтобы в Telegram бот отвечал по теме, а не шаблоном.
-  function aiConfig(b: Bot): BotConfig {
+  // Конфиг ИИ-ассистента бота — база знаний + поведение + провайдер/ключ.
+  function aiConfig(b: Bot): any {
     const a = loadAssistant(b.id);
-    let base: Partial<BotConfig> = {};
-    try { const raw = localStorage.getItem("sb_bot_config"); if (raw) base = JSON.parse(raw); } catch {}
-    const knowledge = [
-      (base.knowledge || "").trim(),
-      (a.knowledge || []).join("\n").trim(),
-      a.examples?.length ? "Примеры вопросов и ответов:\n" + a.examples.map((e) => `Вопрос: ${e.q}\nОтвет: ${e.a}`).join("\n\n") : "",
-    ].filter(Boolean).join("\n\n");
-    const neutral = "Ты — вежливый ассистент компании. Отвечай по существу на вопрос клиента, коротко и по делу. Если точного ответа нет в базе знаний — не выдумывай, предложи оставить контакт для связи с менеджером.";
     return {
       ...DEFAULT_BOT,
       id: b.id,
       name: a.name || b.name || DEFAULT_BOT.name,
       goal: /телефон|phone|контакт|заяв/i.test(b.goal || "") ? "get_phone" : "consult",
-      knowledge, // может быть пустой — тогда ассистент отвечает без «легенды про дрели»
-      instruction: (a.role || base.instruction || neutral).trim(),
-      extraContext: a.forbidden ? "Запрещённые темы (не обсуждать): " + a.forbidden : (base.extraContext || ""),
-      stopWord: base.stopWord || DEFAULT_BOT.stopWord,
+      knowledge: kbText(a), // структурированная база знаний (может быть пустой)
+      instruction: behaviorInstruction(a), // стиль, язык, длина, обращение, «нет ответа»
+      extraContext: "",
+      stopWord: DEFAULT_BOT.stopWord,
+      // Провайдер/ключ для ответов в Telegram. Если ИИ выключен — встроенная модель.
+      _ai: a.aiEnabled ? { provider: a.provider, apiKey: a.apiKey, model: a.model } : { provider: "builtin" },
     };
   }
   function health(b: Bot): TgHealth {

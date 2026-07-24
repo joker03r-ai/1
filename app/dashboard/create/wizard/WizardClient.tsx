@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import Topbar from "@/components/Topbar";
 import { IconSpark, IconChevron } from "@/components/icons";
-import { STYLE_LABELS, AssistantStyle, KNOWLEDGE_OPTIONS, Assistant, saveAssistant } from "@/lib/assistant";
+import { STYLE_LABELS, AssistantStyle, KNOWLEDGE_OPTIONS, Assistant, DEFAULT_ASSISTANT, saveAssistant } from "@/lib/assistant";
 import { uid, upsertScenario, Scenario, ensureStartTrigger } from "@/lib/scenarios";
 import { addBot } from "@/lib/bots";
 import TgConnect, { TgInfo } from "./TgConnect";
@@ -360,12 +360,16 @@ export default function WizardClient() {
   // Собирает объект ассистента из текущих ответов мастера.
   function buildAssistant(): Assistant {
     return {
+      ...DEFAULT_ASSISTANT,
       name: asstName,
       style: asstStyle,
       styleCustom: asstStyleCustom,
       knowledge: asstKnow,
       forbidden: "",
       examples: [],
+      // Заполняем структурированную базу знаний из брифа, чтобы бот сразу отвечал по теме.
+      kbCompany: biz.about || "",
+      kbServices: biz.products || "",
       role:
         `Ты — ${asstName}, ИИ-ассистент компании «${biz.name || "—"}». ` +
         `Общайся ${styleText()}. ${biz.about ? "О компании: " + biz.about + ". " : ""}` +

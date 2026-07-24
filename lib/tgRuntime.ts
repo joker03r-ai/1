@@ -173,8 +173,9 @@ export async function handleUpdate(botId: string, update: any) {
     const { generateReply } = await import("./ai");
     const { DEFAULT_BOT } = await import("./types");
     const bot = r.aiBot || DEFAULT_BOT;
+    const override = (r.aiBot && r.aiBot._ai) || undefined;
     const hist: ChatMsg[] = [...(r.histories[key] || []), { role: "user" as const, content: text }];
-    const { reply } = await generateReply(bot as any, hist as any);
+    const { reply } = await generateReply(bot as any, hist as any, override);
     const next: ChatMsg[] = [...hist, { role: "assistant" as const, content: reply }];
     r.histories[key] = next.slice(-12);
     await sendTo(botId, token, chatId, reply);

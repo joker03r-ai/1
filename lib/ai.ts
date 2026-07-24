@@ -43,37 +43,48 @@ export function isStopWord(bot: BotConfig, text: string): boolean {
   return text.trim().toLowerCase().includes(w);
 }
 
-async function callClaude(
-  bot: BotConfig,
-  history: ChatMessage[]
-): Promise<string> {
-  const apiKey = process.env.ANTHROPIC_API_KEY!;
-  const model = process.env.ANTHROPIC_MODEL || "claude-haiku-4-5-20251001";
-  const baseUrl = process.env.ANTHROPIC_BASE_URL || "https://api.anthropic.com";
+export type AiOverride = { provider?: "builtin" | "anthropic" | "openai"; apiKey?: string; model?: string };
 
+// Вызов нейросети: провайдер и ключ можно передать из настроек ассистента
+// (override) или взять из переменных окружения сервера.
+async function callProvider(bot: BotConfig, history: ChatMessage[], ov: AiOverride): Promise<string> {
+  const system = buildSystemPrompt(bot);
+  const msgs = history.map((m) => ({ role: m.role, content: m.content }));
+  let provider: "anthropic" | "openai" = "anthropic";
+  if (ov.provider === "openai") provider = "openai";
+  else if (ov.provider === "anthropic") provider = "anthropic";
+  else if (!process.env.ANTHROPIC_API_KEY && process.env.OPENAI_API_KEY) provider = "openai";
+
+  if (provider === "openai") {
+    const apiKey = ov.apiKey || process.env.OPENAI_API_KEY;
+    if (!apiKey) throw new Error("Не указан ключ OpenAI");
+    const model = ov.model || "gpt-4o-mini";
+    const res = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify({ model, max_tokens: 700, messages: [{ role: "system", content: system }, ...msgs] }),
+    });
+    if (!res.ok) { const d = await res.text().catch(() => ""); throw new Error(`OpenAI ${res.status}: ${d.slice(0, 200)}`); }
+    const data = await res.json();
+    return (data.choices?.[0]?.message?.content || "").trim() || "Извините, не удалось сформировать ответ.";
+  }
+
+  // Anthropic (по умолчанию)
+  const apiKey = ov.apiKey || process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) throw new Error("Не указан ключ Anthropic");
+  const model = ov.model || process.env.ANTHROPIC_MODEL || "claude-haiku-4-5-20251001";
+  const baseUrl = process.env.ANTHROPIC_BASE_URL || "https://api.anthropic.com";
   const res = await fetch(`${baseUrl}/v1/messages`, {
     method: "POST",
-    headers: {
-      "content-type": "application/json",
-      "x-api-key": apiKey,
-      "anthropic-version": "2023-06-01",
-    },
-    body: JSON.stringify({
-      model,
-      max_tokens: 700,
-      system: buildSystemPrompt(bot),
-      messages: history.map((m) => ({ role: m.role, content: m.content })),
-    }),
+    headers: { "content-type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
+    body: JSON.stringify({ model, max_tokens: 700, system, messages: msgs }),
   });
-
   if (!res.ok) {
     const detail = await res.text().catch(() => "");
     throw new Error(`Anthropic API error ${res.status}: ${detail.slice(0, 200)}`);
   }
   const data = await res.json();
-  const text = Array.isArray(data.content)
-    ? data.content.map((c: any) => c.text || "").join("")
-    : "";
+  const text = Array.isArray(data.content) ? data.content.map((c: any) => c.text || "").join("") : "";
   return text.trim() || "Извините, не удалось сформировать ответ.";
 }
 
@@ -124,22 +135,23 @@ function mockReply(bot: BotConfig, history: ChatMessage[]): string {
 
 export async function generateReply(
   bot: BotConfig,
-  history: ChatMessage[]
+  history: ChatMessage[],
+  override?: AiOverride
 ): Promise<{ reply: string; source: "claude" | "mock" | "operator" }> {
   const lastUser = [...history].reverse().find((m) => m.role === "user");
   if (lastUser && isStopWord(bot, lastUser.content)) {
-    return {
-      reply: "Хорошо, сейчас соединю с оператором :)",
-      source: "operator",
-    };
+    return { reply: "Хорошо, сейчас соединю с оператором :)", source: "operator" };
   }
 
-  if (process.env.ANTHROPIC_API_KEY) {
+  const ov = override || {};
+  const hasUserKey = ov.provider && ov.provider !== "builtin" && !!ov.apiKey;
+  const hasEnvKey = !!process.env.ANTHROPIC_API_KEY || !!process.env.OPENAI_API_KEY;
+
+  if (hasUserKey || (ov.provider !== "openai" && ov.provider !== "anthropic" && hasEnvKey) || (hasEnvKey && ov.provider === "builtin")) {
     try {
-      const reply = await callClaude(bot, history);
+      const reply = await callProvider(bot, history, ov);
       return { reply, source: "claude" };
-    } catch (e) {
-      // При ошибке API мягко падаем в демо-режим, не роняя чат.
+    } catch {
       return { reply: mockReply(bot, history), source: "mock" };
     }
   }
