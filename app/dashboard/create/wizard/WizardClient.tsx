@@ -7,6 +7,7 @@ import { IconSpark, IconChevron } from "@/components/icons";
 import { STYLE_LABELS, AssistantStyle, KNOWLEDGE_OPTIONS, Assistant, saveAssistant } from "@/lib/assistant";
 import { uid, upsertScenario, Scenario } from "@/lib/scenarios";
 import { addBot } from "@/lib/bots";
+import TgConnect, { TgInfo } from "./TgConnect";
 
 type Goal = { id: string; label: string; emoji: string; desc: string; prepares: string[] };
 type Tmpl = { id: string; label: string; emoji: string; desc: string; result: string; example: { me: boolean; text: string }[] };
@@ -80,9 +81,9 @@ const PLATFORMS: Platform[] = [
     time: "≈ 2 минуты",
     steps: [
       "Откройте @BotFather в Telegram",
-      "Команда /newbot → задайте имя бота",
-      "Скопируйте выданный токен",
-      "Вставьте токен в разделе «Каналы»",
+      "Отправьте команду /newbot и создайте бота",
+      "Скопируйте полученный токен",
+      "Вставьте токен в поле ниже и нажмите «Проверить и подключить»",
     ],
   },
   {
@@ -268,6 +269,9 @@ export default function WizardClient() {
 
   const [goal, setGoal] = useState<string>("");
   const [platform, setPlatform] = useState<string>("");
+  // Подключение Telegram-бота (метаданные без самого токена).
+  const [tg, setTg] = useState<TgInfo | null>(null);
+  const [connectLater, setConnectLater] = useState(false);
   const [biz, setBiz] = useState({ name: "", about: "", products: "", clients: "", contacts: "", schedule: "", site: "" });
   const [tmpl, setTmpl] = useState<string>("");
   const [asstName, setAsstName] = useState("Анна");
@@ -294,9 +298,11 @@ export default function WizardClient() {
   const platObj = PLATFORMS.find((p) => p.id === platform);
   const tmplObj = TEMPLATES.find((t) => t.id === tmpl);
 
+  // На шаге площадки для Telegram требуем подключение бота (или «Подключить позже»).
+  const platformOk = platform === "tg" ? (!!tg || connectLater) : !!platform;
   const canNext =
     (step === 0 && !!goal) ||
-    (step === 1 && !!platform) ||
+    (step === 1 && platformOk) ||
     (step === 2 && biz.name.trim().length > 0) ||
     (step === 3 && !!tmpl) ||
     step === 4 ||
@@ -442,6 +448,8 @@ export default function WizardClient() {
         platform: platObj?.label,
         scenarioId: s.id,
         status: "active",
+        tgConnected: platform === "tg" && !!tg,
+        tgUsername: tg?.username,
       });
       s.botId = bot.id;
       upsertScenario(s);
@@ -535,7 +543,15 @@ export default function WizardClient() {
                     <li key={i}>{s}</li>
                   ))}
                 </ol>
-                <div className="wz-connect__note">Подключение можно завершить после создания — в разделе «Каналы».</div>
+                {platObj.id === "tg" ? (
+                  <TgConnect
+                    connected={tg}
+                    onConnected={(info) => { setTg(info); setConnectLater(false); }}
+                    onDisconnect={() => setTg(null)}
+                  />
+                ) : (
+                  <div className="wz-connect__note">Подключить площадку можно после создания — в разделе «Каналы».</div>
+                )}
               </div>
             ) : (
               <div className="wz-hint">💡 Подсказка: выберите площадку — покажем пошаговую инструкцию подключения.</div>
@@ -774,6 +790,9 @@ export default function WizardClient() {
             <Link href="/dashboard/create" className="btn">← Отмена</Link>
           )}
           <div style={{ flex: 1 }} />
+          {step === 1 && platform === "tg" && !tg && !connectLater && (
+            <button className="btn-link wz-later" onClick={() => setConnectLater(true)} type="button">Подключить позже</button>
+          )}
           {step < 5 ? (
             <button className="btn btn-primary" onClick={() => setStep((s) => s + 1)} disabled={!canNext}>
               Далее →

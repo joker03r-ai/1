@@ -10,6 +10,9 @@ export type Bot = {
   scenarioId?: string;
   status: BotStatus;
   createdAt: number;
+  // Подключение Telegram: только безопасные метаданные (без самого токена).
+  tgConnected?: boolean;
+  tgUsername?: string;
 };
 
 export const STATUS_LABELS: Record<BotStatus, string> = {
@@ -59,6 +62,8 @@ export function addBot(partial: Omit<Partial<Bot>, "id" | "createdAt">): Bot {
     scenarioId: partial.scenarioId,
     status: partial.status || "active",
     createdAt: Date.now(),
+    tgConnected: partial.tgConnected,
+    tgUsername: partial.tgUsername,
   };
   saveBots([...loadBots(), bot]);
   setCurrentBotId(bot.id);
