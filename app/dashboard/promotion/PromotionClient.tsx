@@ -18,6 +18,7 @@ type LimitKey = "channels" | "posts" | "mailings" | "auto";
 type LimitSet = Record<LimitKey, Record<Period, number>>;
 
 type Material = { kind: "chat" | "post" | "account"; title: string; meta: string };
+type PlanItem = { day: string; theme: string; format: string };
 
 type Campaign = {
   projectType: "bot" | "channel" | "product" | "service";
@@ -31,6 +32,8 @@ type Campaign = {
   materials: Material[];
   contentTypes: string[];
   drafts: string[];
+  images: string[];
+  plan: PlanItem[];
   channels: Ch[];
   mailSegment: string;
   autopostFreq: string;
@@ -54,7 +57,7 @@ const RECOMMENDED: LimitSet = LIMIT_GROUPS.reduce((a, g) => ({ ...a, [g.id]: { .
 const DEFAULT: Campaign = {
   projectType: "bot", projectRef: "", goal: "",
   audienceMode: "", audienceKeywords: "", parseSource: "Чаты конкурентов", excludeBots: true, dedup: true,
-  materials: [], contentTypes: [], drafts: [], channels: [], mailSegment: "Все клиенты",
+  materials: [], contentTypes: [], drafts: [], images: [], plan: [], channels: [], mailSegment: "Все клиенты",
   autopostFreq: "Каждый день", autopostTime: "12:00",
   growth: [], automation: [],
   limits: RECOMMENDED, scheduleStart: "Сразу", consent: false,
@@ -268,33 +271,84 @@ export default function PromotionClient() {
   }
 
   // --- Парсинг и контент (весь процесс внутри вкладки «Продвижение») ---
+  function keywords(): string[] {
+    return (c.audienceKeywords || "").split(/[,\s]+/).filter(Boolean);
+  }
+  function topicOf(): string {
+    const kw = keywords();
+    if (kw[0]) return kw[0];
+    const m = c.materials[0]?.title.replace(/[«»]/g, "").replace(/^Чат\s*/, "").replace(/^Популярный пост о\s*/, "");
+    return m || "вашей теме";
+  }
+
   function runParse() {
-    const kw = (c.audienceKeywords || "").split(/[,\s]+/).filter(Boolean).slice(0, 3);
-    const base = kw.length ? kw : ["ваша ниша"];
+    const base = keywords().slice(0, 3);
+    const list = base.length ? base : ["ваша ниша"];
     const found: Material[] = [];
-    base.forEach((k, i) => {
-      found.push({ kind: "chat", title: `Чат «${k}»`, meta: `${400 + i * 137} участников · ${c.parseSource}` });
+    // Несколько чатов на каждое ключевое слово — «поиск чатов».
+    list.forEach((k, i) => {
+      found.push({ kind: "chat", title: `Чат «${k}»`, meta: `${420 + i * 137} участников · ${c.parseSource}` });
+      found.push({ kind: "chat", title: `${k.charAt(0).toUpperCase() + k.slice(1)} — обсуждения`, meta: `${1200 + i * 210} участников · активный` });
       found.push({ kind: "post", title: `Популярный пост о «${k}»`, meta: `${20 + i * 9} реакций · высокий отклик` });
-      found.push({ kind: "account", title: `@${k.replace(/[^a-zа-я0-9_]/gi, "") || "expert"}_expert`, meta: `лидер мнений · ${1200 + i * 300} подписчиков` });
+      found.push({ kind: "account", title: `@${(k.replace(/[^a-zа-я0-9_]/gi, "") || "expert")}_expert`, meta: `лидер мнений · ${1200 + i * 300} подписчиков` });
     });
     patch({ materials: found, audienceMode: c.audienceMode || "ai" });
   }
 
-  function generateDrafts() {
-    const kw = (c.audienceKeywords || "").split(/[,\s]+/).filter(Boolean);
-    const topic = kw[0] || (c.materials[0]?.title.replace(/[«»]/g, "").replace(/^Чат\s*/, "") || "вашей теме");
-    const drafts = [
-      `🔥 Разбираем «${topic}»: 3 ошибки новичков и как их избежать. Сохраняйте, чтобы не потерять.`,
-      `Полезное по теме «${topic}». Отвечаем на частые вопросы подписчиков — пишите в комментариях 👇`,
-      `Кейс: как получить результат в нише «${topic}» за 2 недели. Рассказываем по шагам внутри поста.`,
-    ];
-    patch({ drafts, contentTypes: c.contentTypes.length ? c.contentTypes : ["Тексты"] });
+  function genImage(topic: string, i: number): string {
+    const pairs = [["#7c5cff", "#b892ff"], ["#2b6ef6", "#5aa2ff"], ["#16a34a", "#4ade80"], ["#f59e0b", "#fbbf24"]];
+    const [a, b] = pairs[i % pairs.length];
+    const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").slice(0, 22);
+    const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='640' height='400'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='${a}'/><stop offset='1' stop-color='${b}'/></linearGradient></defs><rect width='640' height='400' fill='url(#g)'/><circle cx='540' cy='90' r='120' fill='rgba(255,255,255,.12)'/><text x='44' y='215' font-family='Arial,sans-serif' font-size='40' font-weight='700' fill='#ffffff'>${esc(topic)}</text><text x='44' y='268' font-family='Arial,sans-serif' font-size='22' fill='rgba(255,255,255,.85)'>Изображение ${i + 1}</text></svg>`;
+    return "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
+  }
+
+  function generateContent() {
+    const types = c.contentTypes.length ? c.contentTypes : ["Тексты"];
+    const topic = topicOf();
+    const upd: Partial<Campaign> = { contentTypes: types };
+    if (types.includes("Тексты")) {
+      upd.drafts = [
+        `🔥 Разбираем «${topic}»: 3 ошибки новичков и как их избежать. Сохраняйте, чтобы не потерять.`,
+        `Полезное по теме «${topic}». Отвечаем на частые вопросы подписчиков — пишите в комментариях 👇`,
+        `Кейс: как получить результат в нише «${topic}» за 2 недели. Рассказываем по шагам внутри поста.`,
+      ];
+    }
+    if (types.includes("Изображения")) {
+      upd.images = [genImage(topic, 0), genImage(topic, 1), genImage(topic, 2)];
+    }
+    if (types.includes("Контент-план")) {
+      const days = ["Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота", "Воскресенье"];
+      const themes = ["Полезный совет", "Разбор ошибки", "Кейс / результат", "Ответы на вопросы", "Оффер / акция", "Развлекательный пост", "Итоги недели"];
+      const formats = ["Текст", "Текст + фото", "Опрос", "Текст", "Текст + фото", "Видео", "Текст"];
+      upd.plan = days.map((d, i) => ({ day: d, theme: `${themes[i]} — «${topic}»`, format: formats[i] }));
+    }
+    patch(upd);
   }
 
   function createContentFromMaterials() {
-    generateDrafts();
+    generateContent();
     setStepErr("");
     setActive(2);
+  }
+
+  function addImageToCalendar(topic: string, i: number) {
+    addDraftToCalendarTyped(`🖼 Изображение к теме «${topic}» (${i + 1})`, "Изображение");
+  }
+  function addPlanToCalendar() {
+    const existing = loadPosts();
+    const startLen = existing.length;
+    const list = c.plan.map((it, i) => {
+      const d = new Date(); d.setDate(d.getDate() + startLen + i + 1);
+      const p: ScheduledPost = {
+        id: pid(), text: it.theme, channel: c.projectType === "channel" ? c.projectRef : "@my_channel",
+        date: d.toISOString().slice(0, 10), time: "12:00", cityId: "moscow",
+        regionMode: "sim", repeat: "Каждую неделю", type: it.format, status: "draft",
+      };
+      return p;
+    });
+    const all = [...existing, ...list];
+    savePosts(all); setPosts(all); flashSaved();
   }
 
   function updateDraft(i: number, text: string) {
@@ -304,18 +358,19 @@ export default function PromotionClient() {
     patch({ drafts: c.drafts.filter((_, k) => k !== i) });
   }
 
-  function addDraftToCalendar(text: string) {
+  function addDraftToCalendarTyped(text: string, type: string) {
     const existing = loadPosts();
     const d = new Date(); d.setDate(d.getDate() + existing.length + 1);
     const p: ScheduledPost = {
       id: pid(), text, channel: c.projectType === "channel" ? c.projectRef : "@my_channel",
       date: d.toISOString().slice(0, 10), time: "12:00", cityId: "moscow",
-      regionMode: "sim", repeat: "Один раз", type: "Текст", status: "draft",
+      regionMode: "sim", repeat: "Один раз", type, status: "draft",
     };
     const list = upsertPost(p);
     setPosts(list);
     flashSaved();
   }
+  function addDraftToCalendar(text: string) { addDraftToCalendarTyped(text, "Текст"); }
   function addAllDraftsToCalendar() {
     c.drafts.forEach((d) => d.trim() && addDraftToCalendar(d));
   }
@@ -468,7 +523,7 @@ export default function PromotionClient() {
             <div className="st-card__body">
               {active === 0 && <Step1 c={c} bots={bots} patch={patch} />}
               {active === 1 && <Step2 c={c} patch={patch} runParse={runParse} createContent={createContentFromMaterials} />}
-              {active === 2 && <Step3 c={c} patch={patch} toggleArr={toggleArr} generateDrafts={generateDrafts} updateDraft={updateDraft} removeDraft={removeDraft} addToCalendar={addDraftToCalendar} addAll={addAllDraftsToCalendar} goSchedule={() => setActive(4)} />}
+              {active === 2 && <Step3 c={c} patch={patch} toggleArr={toggleArr} generateContent={generateContent} updateDraft={updateDraft} removeDraft={removeDraft} addToCalendar={addDraftToCalendar} addAll={addAllDraftsToCalendar} addImage={addImageToCalendar} addPlan={addPlanToCalendar} topic={topicOf()} goSchedule={() => setActive(4)} />}
               {active === 3 && <Step4 c={c} patch={patch} toggleArr={toggleArr} advanced={advanced} setAdvanced={setAdvanced} />}
               {active === 4 && (
                 <>
@@ -647,9 +702,17 @@ function Step2({ c, patch, runParse, createContent }: any) {
   );
 }
 
-function Step3({ c, toggleArr, generateDrafts, updateDraft, removeDraft, addToCalendar, addAll, goSchedule }: any) {
+function Step3({ c, toggleArr, generateContent, updateDraft, removeDraft, addToCalendar, addAll, addImage, addPlan, topic, goSchedule }: any) {
   const drafts: string[] = c.drafts || [];
+  const images: string[] = c.images || [];
+  const plan: PlanItem[] = c.plan || [];
   const mats: Material[] = c.materials || [];
+  const types: string[] = c.contentTypes || [];
+  const wantText = types.includes("Тексты") || types.length === 0;
+  const wantImg = types.includes("Изображения");
+  const wantPlan = types.includes("Контент-план");
+  const hasAny = drafts.length > 0 || images.length > 0 || plan.length > 0;
+
   return (
     <>
       <label className="pw-label">Что подготовить</label>
@@ -660,13 +723,17 @@ function Step3({ c, toggleArr, generateDrafts, updateDraft, removeDraft, addToCa
       )}
 
       <div className="pw-row" style={{ marginTop: 14 }}>
-        <button className="btn btn-ai" onClick={generateDrafts} type="button">
-          <IconSpark className="ico" /> {drafts.length ? "Сгенерировать заново" : "Сгенерировать посты с ИИ"}
+        <button className="btn btn-ai" onClick={generateContent} type="button">
+          <IconSpark className="ico" /> {hasAny ? "Сгенерировать заново" : "Сгенерировать контент с ИИ"}
         </button>
       </div>
 
-      {/* Редактор и предпросмотр постов — внутри вкладки «Продвижение» */}
-      {drafts.length > 0 ? (
+      {!hasAny && (
+        <div className="pw-tip">Выберите, что подготовить (тексты, изображения, контент-план), и нажмите «Сгенерировать контент с ИИ». Всё можно отредактировать здесь же.</div>
+      )}
+
+      {/* Тексты */}
+      {wantText && drafts.length > 0 && (
         <div className="cw-drafts">
           {drafts.map((d, i) => (
             <div key={i} className="cw-draft">
@@ -684,13 +751,45 @@ function Step3({ c, toggleArr, generateDrafts, updateDraft, removeDraft, addToCa
               </div>
             </div>
           ))}
-          <div className="pw-row" style={{ marginTop: 4 }}>
-            <button className="btn btn-primary" onClick={addAll} type="button">📅 Добавить все в календарь</button>
-            <button className="btn btn-ghost" onClick={goSchedule} type="button">Перейти к расписанию →</button>
+        </div>
+      )}
+
+      {/* Изображения */}
+      {wantImg && images.length > 0 && (
+        <div className="cw-imgs">
+          <div className="cw-sec__t">🖼 Изображения</div>
+          <div className="cw-imgs__grid">
+            {images.map((src, i) => (
+              <div key={i} className="cw-img">
+                <img src={src} alt={`Изображение ${i + 1}`} />
+                <button className="btn btn-sm btn-primary" onClick={() => addImage(topic, i)} type="button">📅 В календарь</button>
+              </div>
+            ))}
           </div>
         </div>
-      ) : (
-        <div className="pw-tip">Совет для новичка: начните с 3–5 текстов. Нажмите «Сгенерировать посты с ИИ», отредактируйте и добавьте в календарь.</div>
+      )}
+
+      {/* Контент-план */}
+      {wantPlan && plan.length > 0 && (
+        <div className="cw-plan">
+          <div className="cw-sec__t">📅 Контент-план на неделю</div>
+          <table className="cw-plan__table">
+            <thead><tr><th>День</th><th>Тема</th><th>Формат</th></tr></thead>
+            <tbody>
+              {plan.map((it, i) => (
+                <tr key={i}><td>{it.day}</td><td>{it.theme}</td><td>{it.format}</td></tr>
+              ))}
+            </tbody>
+          </table>
+          <button className="btn btn-sm btn-primary" onClick={addPlan} type="button" style={{ marginTop: 10 }}>📅 Добавить весь план в календарь</button>
+        </div>
+      )}
+
+      {hasAny && (
+        <div className="pw-row" style={{ marginTop: 16 }}>
+          {drafts.length > 0 && <button className="btn btn-primary" onClick={addAll} type="button">📅 Добавить все тексты в календарь</button>}
+          <button className="btn btn-ghost" onClick={goSchedule} type="button">Перейти к расписанию →</button>
+        </div>
       )}
 
       <div className="pw-inline-link" style={{ marginTop: 14 }}>

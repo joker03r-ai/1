@@ -150,17 +150,18 @@ export default function Scheduler({ channel, onChange }: { channel: string; onCh
 
       {/* Переключатель видов */}
       <div className="sc-views">
-        {(["month", "week", "day", "list"] as const).map((v) => (
-          <button key={v} className={`sc-view${view === v ? " on" : ""}`} onClick={() => setView(v)} type="button">
-            {v === "month" ? "Месяц" : v === "week" ? "Неделя" : v === "day" ? "День" : "Список"}
-          </button>
-        ))}
-        <div style={{ flex: 1 }} />
+        <div className="sc-viewbtns">
+          {(["month", "week", "day", "list"] as const).map((v) => (
+            <button key={v} className={`sc-view${view === v ? " on" : ""}`} onClick={() => setView(v)} type="button">
+              {v === "month" ? "Месяц" : v === "week" ? "Неделя" : v === "day" ? "День" : "Список"}
+            </button>
+          ))}
+        </div>
         {view !== "list" && (
           <div className="sc-nav">
-            <button onClick={() => shiftCursor(-1)} type="button">‹</button>
+            <button onClick={() => shiftCursor(-1)} type="button" aria-label="Назад">‹</button>
             <b>{navLabel}</b>
-            <button onClick={() => shiftCursor(1)} type="button">›</button>
+            <button onClick={() => shiftCursor(1)} type="button" aria-label="Вперёд">›</button>
             <button className="sc-today" onClick={() => setCursor(new Date())} type="button">Сегодня</button>
           </div>
         )}
