@@ -29,7 +29,7 @@ const MAIN = [
   { href: "/dashboard/scenarios", key: "nav.scenarios", Icon: IconFlow },
   { href: "/dashboard/assistant", key: "nav.assistant", Icon: IconSpark },
   { href: "/dashboard/users", key: "nav.clients", Icon: IconUsers },
-  { href: "/dashboard/mailings", key: "nav.promo", Icon: IconSend },
+  { href: "/dashboard/promotion", key: "nav.promo", Icon: IconSend },
   { href: "/dashboard/stats", key: "nav.analytics", Icon: IconChart },
 ];
 
