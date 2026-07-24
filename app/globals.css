@@ -2549,8 +2549,14 @@ a.docs-card:hover { box-shadow: var(--shadow); transform: translateY(-1px); bord
 /* ---------- Цвет шрифта (автоконтроль контраста) ---------- */
 :root[data-ink="gray"] { --ink:#3f4656; }
 :root[data-theme="dark"][data-ink="gray"] { --ink:#b6bdce; }
-/* Белый — только на тёмном фоне (на светлом applyFontColor откатывает к чёрному) */
-:root[data-theme="dark"][data-ink="white"] { --ink:#ffffff; --ink-soft:#e6e9f2; --ink-faint:#b7bfd0; }
+/* Белый — только на тёмном фоне (на светлом applyFontColor откатывает к чёрному).
+   Делаем по-настоящему белым: и основной, и вторичный, и приглушённый текст —
+   иначе интерфейс выглядел «не совсем белым» из-за серых --ink-soft/--ink-faint. */
+:root[data-theme="dark"][data-ink="white"],
+:root[data-theme="dark"][data-skin="graphite"][data-ink="white"],
+:root[data-theme="dark"][data-skin="night"][data-ink="white"] {
+  --ink:#ffffff; --ink-soft:#f4f6fd; --ink-faint:#dfe4f2;
+}
 
 /* ---------- Интенсивность градиентов ---------- */
 :root[data-grad="off"] { --grad:var(--violet); --grad-soft:var(--violet); }

@@ -39,7 +39,7 @@ const BASE_FILTERS: { id: string; label: string }[] = [
   { id: "skipBots", label: "Пропустить ботов" },
   { id: "skipDeleted", label: "Пропустить удалённых" },
   { id: "skipScam", label: "Пропустить заблокированных / scam" },
-  { id: "onlyActive", label: "Только активные пользователи" },
+  { id: "onlyActive", label: "Были в сети (до 30 дней)" },
 ];
 const PROFILE_FILTERS: { id: string; label: string; premium?: boolean }[] = [
   { id: "onlyUsername", label: "Только с username" },

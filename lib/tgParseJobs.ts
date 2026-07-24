@@ -90,11 +90,13 @@ function passFilters(u: any, f: AudienceFilters, checkStatus = false): boolean {
   if (f.onlyUsername && !u.username) return false;
   if (f.onlyPhoto && !hasPhoto(u)) return false;
   if (f.onlyPremium && !u.premium) return false;
-  // «Только активные» имеет смысл лишь для списка участников (где есть статус).
-  // В режиме «по сообщениям» пользователь активен по факту написанного сообщения.
+  // «Были в сети до 30 дней»: оставляем Online / Recently / LastWeek / LastMonth,
+  // отсеиваем LongAgo, Empty и скрытый статус. Имеет смысл для списка участников
+  // (в режиме «по сообщениям» пользователь активен по факту сообщения).
   if (f.onlyActive && checkStatus) {
     const st = u.status?.className || "";
-    if (st === "UserStatusEmpty" || st === "UserStatusLastMonth") return false;
+    const ok = st === "UserStatusOnline" || st === "UserStatusRecently" || st === "UserStatusLastWeek" || st === "UserStatusLastMonth";
+    if (!ok) return false;
   }
   return true;
 }
@@ -591,7 +593,14 @@ async function runSimilar(job: Job, acc: any, opts: { sources: string[]; depth: 
   try {
     const { Api } = await import("telegram");
     client = await makeClient(acc.apiId, acc.apiHash, acc.session);
+    // Метод может отсутствовать в старой версии GramJS — честно сообщаем.
+    if (!(Api.channels as any).GetChannelRecommendations) {
+      job.status = "error";
+      job.error = "Метод «Похожие каналы» недоступен в текущей версии Telegram API (GramJS). Обновите пакет telegram или используйте поиск по ключевым словам.";
+      log(job, job.error, "err"); return;
+    }
     log(job, `Расширение: ${opts.sources.length} исходных, глубина ${opts.depth}${opts.depth === 2 ? " (внимание: тематика может сбиваться)" : ""}`);
+    let recFails = 0;
 
     async function recommend(ref: string, level: number, viaTitle: string) {
       if (job._stop || level > opts.depth) return;
@@ -602,7 +611,7 @@ async function runSimilar(job: Job, acc: any, opts: { sources: string[]; depth: 
       if (opts.dedup) seen.add(srcId);
       let recs: any;
       try { recs = await client.invoke(new Api.channels.GetChannelRecommendations({ channel: entity })); }
-      catch (e: any) { log(job, `«${entity.title || ref}»: рекомендации недоступны (${cleanErr(e)})`, "warn"); return; }
+      catch (e: any) { recFails++; log(job, `«${entity.title || ref}»: рекомендации недоступны (${cleanErr(e)})`, "warn"); return; }
       const chats: any[] = recs.chats || [];
       let dupes = 0;
       const fresh: any[] = [];
@@ -633,7 +642,11 @@ async function runSimilar(job: Job, acc: any, opts: { sources: string[]; depth: 
       await recommend(opts.sources[i], 1, opts.sources[i]);
       if (delay.chat) await sleep(delay.chat);
     }
-    if (job.status !== "error" && job.status !== "stopped") { job.status = "done"; job.progress = 100; log(job, `Готово. Новых каналов: ${job.channels.length}`, "ok"); }
+    if (job.status !== "error" && job.status !== "stopped") {
+      job.status = "done"; job.progress = 100;
+      if (job.channels.length === 0 && recFails > 0) log(job, "Похожие каналы не получены. Часто помогает Premium-аккаунт (до 100 рекомендаций) или расширение через поиск по ключевым словам.", "warn");
+      log(job, `Готово. Новых каналов: ${job.channels.length}`, "ok");
+    }
   } catch (e: any) { job.status = "error"; job.error = cleanErr(e); log(job, cleanErr(e), "err"); }
   finally { job.updatedAt = Date.now(); try { await client?.disconnect(); } catch {} }
 }
