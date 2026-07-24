@@ -3025,6 +3025,101 @@ img, svg, video, canvas { max-width: 100%; }
 .pw-sched__row b { color: var(--ink); }
 .pw-sched__empty { font-size: 12.5px; color: var(--ink-faint); }
 
+/* ---------- Продвижение: горизонтальный пошаговый мастер ---------- */
+.st-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+.st-h1 { margin: 0; font-size: 22px; }
+.st-head__sub { font-size: 13.5px; color: var(--violet-700); font-weight: 700; margin-top: 4px; }
+
+/* Шкала из шести шагов */
+.st-bar { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; background: var(--panel); border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--shadow-sm); padding: 10px; margin-bottom: 12px; }
+.st-step { position: relative; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 8px; padding: 14px 6px 12px; background: none; border: 0; border-radius: 12px; cursor: pointer; transition: background .15s; }
+.st-step--current { background: var(--violet-050); }
+.st-step__line { position: absolute; top: 28px; left: -50%; width: 100%; height: 2px; background: var(--line); z-index: 0; }
+.st-step:first-child .st-step__line { display: none; }
+.st-step--done .st-step__line, .st-step--current .st-step__line { background: #16a34a; }
+.st-step__dot { position: relative; z-index: 1; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; font-size: 13px; }
+.st-step--empty .st-step__dot { background: var(--panel); border: 2px solid var(--line); color: var(--ink-faint); }
+.st-step--current .st-step__dot { background: var(--violet); color: #fff; box-shadow: 0 0 0 4px var(--violet-050); }
+.st-step--done .st-step__dot { background: #16a34a; color: #fff; }
+.st-step--error .st-step__dot { background: var(--panel); border: 2px solid #ef4444; color: #ef4444; }
+.st-step__labels { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; gap: 1px; }
+.st-step__simple { font-size: 13.5px; font-weight: 700; color: var(--ink); }
+.st-step__pro { font-size: 11.5px; color: var(--ink-soft); }
+.st-step--current .st-step__simple { color: var(--violet-700); }
+.st-step--error .st-step__simple { color: #ef4444; }
+.st-step--locked { cursor: default; }
+.st-step--locked .st-step__simple, .st-step--locked .st-step__pro { opacity: .55; }
+.st-step__opt { font-size: 10.5px; color: var(--ink-faint); background: var(--line-soft); border-radius: 999px; padding: 1px 8px; margin-top: 3px; }
+.st-lock { font-size: 13px; color: #b26a00; background: #fff7ec; border: 1px solid #fbe0bd; border-radius: 10px; padding: 8px 14px; margin-bottom: 12px; }
+
+/* Мобильная шапка шага */
+.st-mob { display: none; margin-bottom: 12px; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; }
+.st-mob__top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+.st-mob__step { font-size: 12.5px; font-weight: 700; color: var(--violet-700); }
+.st-mob__toggle { border: 0; background: none; color: var(--violet-700); font-weight: 700; font-size: 13px; cursor: pointer; }
+.st-mob__name { font-size: 16px; font-weight: 800; margin-bottom: 9px; }
+
+/* Сетка: карточка + панель */
+.st-grid { display: grid; grid-template-columns: 1fr 320px; gap: 20px; align-items: start; }
+
+/* Рабочая карточка */
+.st-card { border: 1px solid var(--line); border-radius: 16px; background: var(--panel); box-shadow: var(--shadow-sm); padding: 22px 24px; }
+.st-card__head { display: flex; gap: 14px; align-items: flex-start; margin-bottom: 14px; }
+.st-card__num { width: 34px; height: 34px; border-radius: 50%; background: var(--violet); color: #fff; font-weight: 800; display: grid; place-items: center; flex-shrink: 0; }
+.st-card__headtext { flex: 1; min-width: 0; }
+.st-card__title { margin: 0; font-size: 20px; font-weight: 800; }
+.st-card__desc { margin: 5px 0 0; font-size: 14px; color: var(--ink-soft); line-height: 1.5; }
+.st-card__opt { font-size: 11px; font-weight: 600; color: var(--ink-faint); background: var(--line-soft); border-radius: 999px; padding: 3px 10px; flex-shrink: 0; white-space: nowrap; }
+.st-ai { display: flex; gap: 8px; align-items: flex-start; background: var(--violet-050); color: var(--violet-700); border-radius: 12px; padding: 11px 14px; font-size: 13.5px; line-height: 1.5; margin-bottom: 18px; }
+.st-ai .ico { flex-shrink: 0; margin-top: 2px; }
+.st-err { margin-top: 16px; color: #ef4444; font-size: 13.5px; font-weight: 600; background: #fef2f2; border: 1px solid #fecaca; border-radius: 10px; padding: 10px 14px; }
+:root[data-theme="dark"] .st-err { background: #2a1416; border-color: #5b1a1a; }
+
+/* Нижняя панель действий */
+.st-actions { display: flex; align-items: center; gap: 12px; margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--line-soft); flex-wrap: wrap; }
+.st-actions__right { margin-left: auto; display: flex; gap: 10px; }
+.st-saved { font-size: 12.5px; color: #16a34a; font-weight: 600; opacity: 0; transition: opacity .2s; }
+.st-saved.show { opacity: 1; }
+
+/* Панель «Ваше продвижение» */
+.st-panel { position: sticky; top: 74px; }
+.st-panel__card { border: 1px solid var(--line); border-radius: 16px; background: var(--panel); box-shadow: var(--shadow-sm); padding: 18px; }
+.st-panel__t { font-weight: 800; font-size: 15px; margin-bottom: 12px; }
+.st-prow { display: flex; justify-content: space-between; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--line-soft); font-size: 13px; }
+.st-prow__l { color: var(--ink-soft); flex-shrink: 0; }
+.st-prow__v { font-weight: 700; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.st-prow__v.ok { color: #15a34a; }
+.st-prow__v.muted { color: var(--ink-faint); font-weight: 600; }
+.st-panel__ready { display: flex; justify-content: space-between; align-items: center; margin-top: 12px; font-size: 13px; color: var(--ink-soft); }
+.st-panel__ready b.ok { color: #15a34a; }
+.st-panel__ready b.warn { color: #b26a00; }
+.st-todo { margin-top: 14px; background: var(--line-soft); border-radius: 12px; padding: 12px; }
+.st-todo__t { font-size: 12.5px; font-weight: 800; margin-bottom: 6px; }
+.st-todo__item { display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; border: 0; background: none; padding: 6px 8px; border-radius: 8px; font-size: 13px; color: var(--ink); cursor: pointer; font-weight: 600; }
+.st-todo__item:hover { background: var(--panel); color: var(--violet-700); }
+.st-todo__mark { color: var(--violet); font-weight: 800; }
+.st-panel__launch { width: 100%; margin-top: 14px; }
+
+@media (max-width: 1040px) {
+  .st-grid { grid-template-columns: 1fr; }
+  .st-panel { position: static; }
+}
+@media (max-width: 860px) {
+  .st-bar { grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .st-step__line { display: none; }
+}
+@media (max-width: 760px) {
+  .st-head__sub { display: none; }
+  .st-mob { display: block; }
+  .st-bar { display: none; grid-template-columns: 1fr; }
+  .st-bar--open { display: grid; }
+  .st-bar--open .st-step { flex-direction: row; text-align: left; gap: 12px; padding: 10px; }
+  .st-bar--open .st-step__labels { align-items: flex-start; }
+  .st-actions__right { margin-left: 0; width: 100%; }
+  .st-actions__right .btn { flex: 1; }
+  .st-card { padding: 18px 16px; }
+}
+
 /* ---------- Планировщик публикаций (шаг 5) ---------- */
 .sc { display: flex; flex-direction: column; gap: 12px; }
 .sc-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }

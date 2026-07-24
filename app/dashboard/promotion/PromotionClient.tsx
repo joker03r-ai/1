@@ -9,7 +9,7 @@ import { loadUsers } from "@/lib/users";
 import { loadLabels } from "@/lib/stats";
 import Scheduler from "./Scheduler";
 import { ScheduledPost, loadPosts } from "@/lib/schedule";
-import { cityById, wallToInstant, formatInTz } from "@/lib/tz";
+import { cityById, wallToInstant, formatInTz, mskLabel } from "@/lib/tz";
 
 type Ch = "autopost" | "mailing" | "ai_reply" | "funnel";
 
@@ -72,12 +72,48 @@ const GROWTH = ["Реферальные ссылки", "Промокоды", "К
 const AUTOMATION = ["CRM", "API", "Webhooks", "Триггеры"];
 
 const STEPS = [
-  { title: "Проект и цель", short: "Что и зачем продвигаем", hint: "Выберите проект и одну цель — от неё зависят рекомендации." },
-  { title: "Аудитория", short: "Кому показываем", hint: "Выберите, где брать аудиторию: AI-поиск, импорт или своя база." },
-  { title: "Контент", short: "Что публикуем", hint: "Отметьте, что подготовить. Можно сгенерировать с ИИ." },
-  { title: "Каналы продвижения", short: "Как продвигаем", hint: "Выберите способы: автопостинг, рассылки, AI-ответы, воронки." },
-  { title: "Расписание и автоматизация", short: "Календарь и публикации", hint: "Спланируйте посты в календаре, задайте время и часовые пояса." },
-  { title: "Проверка и запуск", short: "Лимиты и согласие", hint: "Задайте лимиты, подтвердите правила и запустите." },
+  {
+    simple: "Что продвигаем?",
+    pro: "Проект и цель",
+    card: "Выберите бота, Telegram-канал, товар или услугу и одну цель. Это поможет настроить подходящий сценарий продвижения.",
+    ai: "Начните с одного бота и цели «Подписчики» — так проще оценить первый результат.",
+    optional: false,
+  },
+  {
+    simple: "Кому показываем?",
+    pro: "Аудитория",
+    card: "Укажите, где брать аудиторию: AI-поиск по нише, импорт своей базы или подписчики бота.",
+    ai: "Для старта включите AI-поиск и задайте 2–3 ключевых слова вашей ниши.",
+    optional: true,
+  },
+  {
+    simple: "Что публикуем?",
+    pro: "Контент",
+    card: "Отметьте, что подготовить: тексты, изображения, контент-план. Можно сгенерировать с помощью ИИ.",
+    ai: "Достаточно 3–5 текстов и одного изображения — остальное добавите позже.",
+    optional: true,
+  },
+  {
+    simple: "Где продвигаем?",
+    pro: "Каналы продвижения",
+    card: "Выберите способы продвижения: автопостинг, рассылки, AI-ответы, автоворонки.",
+    ai: "Новичку хватит автопостинга и AI-ответов — это самый простой старт.",
+    optional: false,
+  },
+  {
+    simple: "Когда публикуем?",
+    pro: "Расписание",
+    card: "Спланируйте публикации в календаре, задайте время и часовые пояса. ИИ может составить расписание за вас.",
+    ai: "Публикуйте 1 раз в день в активное время аудитории. Нажмите «Умное расписание».",
+    optional: false,
+  },
+  {
+    simple: "Проверка и запуск",
+    pro: "Запуск",
+    card: "Задайте лимиты, подтвердите правила площадок и запустите продвижение.",
+    ai: "Оставьте лимиты по умолчанию — они безопасны для нового аккаунта.",
+    optional: false,
+  },
 ];
 
 export default function PromotionClient() {
@@ -89,6 +125,10 @@ export default function PromotionClient() {
   const [leads, setLeads] = useState(0);
   const [clients, setClients] = useState(0);
   const [posts, setPosts] = useState<ScheduledPost[]>([]);
+  const [lockMsg, setLockMsg] = useState("");
+  const [stepErr, setStepErr] = useState("");
+  const [savedFlash, setSavedFlash] = useState(false);
+  const [stepsOpen, setStepsOpen] = useState(false);
 
   useEffect(() => {
     try {
@@ -103,6 +143,12 @@ export default function PromotionClient() {
     } catch {}
   }, []);
 
+  function flashSaved() {
+    setSavedFlash(true);
+    window.clearTimeout((flashSaved as any)._t);
+    (flashSaved as any)._t = window.setTimeout(() => setSavedFlash(false), 1800);
+  }
+
   function patch(p: Partial<Campaign>) {
     setC((prev) => {
       const next = { ...prev, ...p };
@@ -110,6 +156,8 @@ export default function PromotionClient() {
       return next;
     });
     setLaunched(false);
+    setStepErr("");
+    flashSaved();
   }
   function toggleArr(field: "contentTypes" | "channels" | "growth" | "automation", v: string) {
     const cur = c[field] as string[];
@@ -152,11 +200,55 @@ export default function PromotionClient() {
   if (!c.consent) missing.push("подтвердить правила");
   const canLaunch = missing.length === 0;
 
-  function saveStep(i: number) {
+  // Визуальное состояние шага в шкале.
+  function stepState(i: number): "done" | "current" | "error" | "empty" {
+    if (i === active) return "current";
+    if (isDone(i)) return "done";
+    // Ошибка: обязательный шаг пропущен, а следующий уже заполнен.
+    if (!STEPS[i].optional && STEPS.some((_, k) => k > i && isDone(k))) return "error";
+    return "empty";
+  }
+
+  // Переход к шагу. Пока не выбран проект и цель — остальные шаги заблокированы.
+  function goStep(i: number) {
+    if (i > 0 && !isDone(0)) {
+      setLockMsg("Сначала выберите проект и цель.");
+      window.clearTimeout((goStep as any)._t);
+      (goStep as any)._t = window.setTimeout(() => setLockMsg(""), 2600);
+      return;
+    }
+    setLockMsg("");
+    setStepErr("");
+    setAdvanced(false);
+    setStepsOpen(false);
+    setActive(i);
+  }
+
+  // Что нужно заполнить, чтобы уйти с обязательного шага.
+  function stepBlocker(i: number): string {
+    if (STEPS[i].optional) return "";
+    switch (i) {
+      case 0: return !c.projectRef ? "Выберите проект." : !c.goal ? "Выберите цель продвижения." : "";
+      case 3: return c.channels.length === 0 ? "Выберите хотя бы один способ продвижения." : "";
+      case 4: return posts.length === 0 ? "Запланируйте хотя бы одну публикацию." : "";
+      case 5: return !c.consent ? "Подтвердите правила площадок." : "";
+      default: return "";
+    }
+  }
+
+  function saveAndContinue(i: number) {
+    const blocker = stepBlocker(i);
+    if (blocker) { setStepErr(blocker); return; }
     const saved = c.saved.includes(i) ? c.saved : [...c.saved, i];
     patch({ saved });
+    flashSaved();
     setAdvanced(false);
     if (i < STEPS.length - 1) setActive(i + 1);
+  }
+
+  function saveDraft() {
+    try { localStorage.setItem(KEY, JSON.stringify(c)); } catch {}
+    flashSaved();
   }
 
   function autoSetup() {
@@ -181,26 +273,63 @@ export default function PromotionClient() {
   const audienceName = c.audienceMode === "ai" ? "AI-поиск" : c.audienceMode === "import" ? "Импорт базы" : c.audienceMode === "own" ? "Своя база" : "—";
   const channelNames = c.channels.map((id) => CHANNELS.find((x) => x.id === id)?.label).filter(Boolean).join(", ") || "—";
 
+  const nextPostLabel = nextPost
+    ? `${new Date(nextPost.date + "T00:00:00").toLocaleDateString("ru-RU", { day: "numeric", month: "long" })}, ${schedTime(nextPost, "moscow")} МСК`
+    : "";
+  const tzLabel = nextPost ? `${cityById(nextPost.cityId)?.name || "Москва"} · ${mskLabel(cityById(nextPost.cityId)?.tz || "Europe/Moscow")}` : "—";
+
+  // Осталось сделать — конкретные действия с переходом к нужному шагу.
+  const todos: { t: string; step: number }[] = [];
+  if (!isDone(0)) todos.push({ t: "Выбрать проект и цель", step: 0 });
+  if (c.channels.length === 0) todos.push({ t: "Выбрать каналы продвижения", step: 3 });
+  if (c.contentTypes.length === 0) todos.push({ t: "Добавить контент", step: 2 });
+  if (posts.length === 0) todos.push({ t: "Запланировать публикацию", step: 4 });
+  if (!c.consent) todos.push({ t: "Подтвердить правила и запустить", step: 5 });
+
+  const cur = STEPS[active];
+
   return (
     <>
       <Topbar crumbs={["Основной проект", "Продвижение"]} />
-      <div className="content" style={{ maxWidth: 1180 }}>
-        {/* Компактная шапка: заголовок + прогресс + кнопки в одной зоне */}
-        <div className="pw-bar">
-          <div className="pw-bar__title">
-            <h1 className="h1" style={{ margin: 0, fontSize: 20 }}>Продвижение</h1>
-            <span className="pw-bar__sub">Кампания за 6 шагов — в одном окне</span>
+      <div className="content" style={{ maxWidth: 1240 }}>
+        {/* Шапка: заголовок + номер активного шага */}
+        <div className="st-head">
+          <div>
+            <h1 className="h1 st-h1">Продвижение</h1>
+            <div className="st-head__sub">Шаг {active + 1} из {STEPS.length} — {cur.pro}</div>
           </div>
-          <div className="pw-bar__prog">
-            <div className="pw-bar__progrow"><span>Заполнено {doneCount} из {STEPS.length}</span><b>{progress}%</b></div>
-            <div className="pw-progress__bar"><span style={{ width: `${progress}%` }} /></div>
-          </div>
-          <div className="pw-bar__actions">
-            <button className="btn btn-ghost btn-sm" onClick={autoSetup} type="button"><IconSpark className="ico" /> Настроить с ИИ</button>
-            <button className="btn btn-primary" onClick={launch} disabled={!canLaunch}>🚀 Запустить продвижение</button>
-          </div>
+          <button className="btn btn-ghost btn-sm" onClick={autoSetup} type="button"><IconSpark className="ico" /> Настроить с ИИ</button>
         </div>
-        {!canLaunch && <div className="pw-bar__hint">Чтобы запустить, осталось: {missing.join(", ")}.</div>}
+
+        {/* Мобильная шапка шага */}
+        <div className="st-mob">
+          <div className="st-mob__top">
+            <span className="st-mob__step">Шаг {active + 1} из {STEPS.length}</span>
+            <button className="st-mob__toggle" onClick={() => setStepsOpen((v) => !v)} type="button">{stepsOpen ? "Скрыть шаги" : "Все шаги"}</button>
+          </div>
+          <div className="st-mob__name">{cur.simple}</div>
+          <div className="pw-progress__bar"><span style={{ width: `${progress}%` }} /></div>
+        </div>
+
+        {/* Горизонтальная шкала из шести шагов */}
+        <div className={`st-bar${stepsOpen ? " st-bar--open" : ""}`}>
+          {STEPS.map((s, i) => {
+            const state = stepState(i);
+            const locked = i > 0 && !isDone(0);
+            return (
+              <button key={i} className={`st-step st-step--${state}${locked ? " st-step--locked" : ""}`} onClick={() => goStep(i)} type="button">
+                <span className="st-step__line" />
+                <span className="st-step__dot">{state === "done" ? "✓" : i + 1}</span>
+                <span className="st-step__labels">
+                  <span className="st-step__simple">{s.simple}</span>
+                  <span className="st-step__pro">{s.pro}</span>
+                  {s.optional && <span className="st-step__opt">Можно пропустить</span>}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+        {lockMsg && <div className="st-lock">🔒 {lockMsg}</div>}
 
         {/* Результаты после запуска */}
         {launched && (
@@ -211,12 +340,12 @@ export default function PromotionClient() {
             </div>
             <div className="pw-metrics">
               {[
-                { l: "Подписчики", v: "0", cls: "" },
-                { l: "Заявки", v: String(leads), cls: "" },
-                { l: "Продажи", v: "0 ₽", cls: "" },
-                { l: "Конверсия", v: "—", cls: "" },
-                { l: "Расходы", v: "0 ₽", cls: "" },
-                { l: "Рассылки", v: "—", cls: "" },
+                { l: "Подписчики", v: "0" },
+                { l: "Заявки", v: String(leads) },
+                { l: "Продажи", v: "0 ₽" },
+                { l: "Конверсия", v: "—" },
+                { l: "Расходы", v: "0 ₽" },
+                { l: "Рассылки", v: "—" },
               ].map((m) => (
                 <div key={m.l} className="pw-metric"><div className="pw-metric__v">{m.v}</div><div className="pw-metric__l">{m.l}</div></div>
               ))}
@@ -232,91 +361,83 @@ export default function PromotionClient() {
           </div>
         )}
 
-        {/* Рабочая область: шаги + сводка */}
-        <div className="pw-grid">
-          <div className="pw-steps">
-            {STEPS.map((s, i) => {
-              const done = isDone(i);
-              const isActive = active === i;
-              return (
-                <div key={i} className={`pw-step${isActive ? " active" : ""}${done ? " done" : ""}`}>
-                  <button className="pw-step__head" onClick={() => setActive(isActive ? -1 : i)} type="button">
-                    <span className="pw-step__dot">{done ? "✓" : i + 1}</span>
-                    <span className="pw-step__titles">
-                      <span className="pw-step__title">{s.title}</span>
-                      <span className="pw-step__short">{s.short}</span>
-                    </span>
-                    <span className="pw-step__chev">{isActive ? "▲" : "▼"}</span>
-                  </button>
-                  {isActive && (
-                    <div className="pw-step__body">
-                      <div className="pw-hint">👉 Что нужно сделать: {s.hint}</div>
+        {/* Рабочая карточка активного шага + панель */}
+        <div className="st-grid">
+          <div className="st-card">
+            <div className="st-card__head">
+              <span className="st-card__num">{active + 1}</span>
+              <div className="st-card__headtext">
+                <h2 className="st-card__title">Шаг {active + 1}. {cur.simple}</h2>
+                <p className="st-card__desc">{cur.card}</p>
+              </div>
+              {cur.optional && <span className="st-card__opt">Можно пропустить</span>}
+            </div>
 
-                      {i === 0 && <Step1 c={c} bots={bots} patch={patch} />}
-                      {i === 1 && <Step2 c={c} patch={patch} advanced={advanced} setAdvanced={setAdvanced} toggle={() => {}} />}
-                      {i === 2 && <Step3 c={c} patch={patch} toggleArr={toggleArr} />}
-                      {i === 3 && <Step4 c={c} patch={patch} toggleArr={toggleArr} advanced={advanced} setAdvanced={setAdvanced} />}
-                      {i === 4 && (
-                        <>
-                          <Scheduler channel={c.projectType === "channel" ? c.projectRef : "@my_channel"} onChange={setPosts} />
-                          <details className="pw-adv" style={{ marginTop: 16 }}>
-                            <summary>Механики роста и автоматизация</summary>
-                            <div style={{ marginTop: 10 }}><Step5 c={c} toggleArr={toggleArr} /></div>
-                          </details>
-                        </>
-                      )}
-                      {i === 5 && <Step6 c={c} patch={patch} advanced={advanced} setAdvanced={setAdvanced} missing={missing} canLaunch={canLaunch} onLaunch={launch} />}
+            <div className="st-ai"><IconSpark className="ico" /><span><b>Подсказка ИИ.</b> {cur.ai}</span></div>
 
-                      {i < 5 && (
-                        <div className="pw-step__foot">
-                          <button className="btn btn-primary" onClick={() => saveStep(i)} type="button">Сохранить и продолжить →</button>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
+            <div className="st-card__body">
+              {active === 0 && <Step1 c={c} bots={bots} patch={patch} />}
+              {active === 1 && <Step2 c={c} patch={patch} />}
+              {active === 2 && <Step3 c={c} patch={patch} toggleArr={toggleArr} />}
+              {active === 3 && <Step4 c={c} patch={patch} toggleArr={toggleArr} advanced={advanced} setAdvanced={setAdvanced} />}
+              {active === 4 && (
+                <>
+                  <Scheduler channel={c.projectType === "channel" ? c.projectRef : "@my_channel"} onChange={setPosts} />
+                  <details className="pw-adv" style={{ marginTop: 16 }}>
+                    <summary>Расширенные настройки — механики роста и автоматизация</summary>
+                    <div style={{ marginTop: 10 }}><Step5 c={c} toggleArr={toggleArr} /></div>
+                  </details>
+                </>
+              )}
+              {active === 5 && <Step6 c={c} patch={patch} advanced={advanced} setAdvanced={setAdvanced} missing={missing} canLaunch={canLaunch} onLaunch={launch} />}
+            </div>
 
-          {/* Сводка */}
-          <aside className="pw-summary">
-            <div className="pw-summary__card">
-              <div className="pw-summary__t">Сводка кампании</div>
-              <SumRow label="Проект" value={projectName} ok={isDone(0)} />
-              <SumRow label="Цель" value={goalName} ok={!!c.goal} />
-              <SumRow label="Аудитория" value={audienceName} ok={isDone(1)} />
-              <SumRow label="Контент" value={c.contentTypes.length ? `${c.contentTypes.length} тип(а)` : "—"} ok={isDone(2)} />
-              <SumRow label="Продвижение" value={channelNames} ok={isDone(3)} />
+            {stepErr && <div className="st-err">⚠ {stepErr}</div>}
 
-              {/* Расписание */}
-              <div className="pw-sched">
-                <div className="pw-sched__t">📅 Расписание</div>
-                {nextPost ? (
-                  <>
-                    <div className="pw-sched__row"><span>Ближайший пост</span><b>{new Date(nextPost.date + "T00:00:00").toLocaleDateString("ru-RU", { day: "numeric", month: "long" })}</b></div>
-                    <div className="pw-sched__row"><span>Москва</span><b>{schedTime(nextPost, "moscow")}</b></div>
-                    <div className="pw-sched__row"><span>Иркутск</span><b>{schedTime(nextPost, "irkutsk")}</b></div>
-                    <div className="pw-sched__row"><span>Улан-Удэ</span><b>{schedTime(nextPost, "ulanude")}</b></div>
-                    <div className="pw-sched__row"><span>Режим</span><b>{nextPost.regionMode === "local" ? "По местному" : "Одновременно"}</b></div>
-                    <div className="pw-sched__row"><span>Запланировано</span><b>{plannedCount} публ.</b></div>
-                  </>
+            {/* Нижняя панель действий */}
+            <div className="st-actions">
+              <button className="btn btn-ghost" onClick={() => goStep(Math.max(0, active - 1))} disabled={active === 0} type="button">← Назад</button>
+              <span className={`st-saved${savedFlash ? " show" : ""}`}>✓ Изменения сохранены</span>
+              <div className="st-actions__right">
+                <button className="btn" onClick={saveDraft} type="button">Сохранить черновик</button>
+                {active < STEPS.length - 1 ? (
+                  <button className="btn btn-primary" onClick={() => saveAndContinue(active)} type="button">Сохранить и продолжить →</button>
                 ) : (
-                  <div className="pw-sched__empty">Публикации не запланированы</div>
+                  <button className="btn btn-primary" onClick={launch} disabled={!canLaunch} type="button">🚀 Запустить продвижение</button>
                 )}
               </div>
+            </div>
+          </div>
 
-              <div className="pw-summary__ready">
+          {/* Панель «Ваше продвижение» */}
+          <aside className="st-panel">
+            <div className="st-panel__card">
+              <div className="st-panel__t">Ваше продвижение</div>
+              <PanelRow label="Проект" value={c.projectRef ? projectName : "Проект не выбран"} ok={!!c.projectRef} />
+              <PanelRow label="Цель" value={c.goal ? goalName : "Цель не указана"} ok={!!c.goal} />
+              <PanelRow label="Аудитория" value={c.audienceMode ? audienceName : "Аудитория не задана"} ok={!!c.audienceMode} />
+              <PanelRow label="Постов" value={plannedCount ? `${plannedCount} публ.` : "Публикаций нет"} ok={plannedCount > 0} />
+              <PanelRow label="Каналы" value={c.channels.length ? channelNames : "Каналы не выбраны"} ok={c.channels.length > 0} />
+              <PanelRow label="Ближайшая" value={nextPost ? nextPostLabel : "Расписание не настроено"} ok={!!nextPost} />
+              <PanelRow label="Часовой пояс" value={tzLabel} ok={!!nextPost} />
+
+              <div className="st-panel__ready">
                 <span>Готовность</span>
                 <b className={canLaunch ? "ok" : "warn"}>{canLaunch ? "Готово к запуску" : `${doneCount}/6 шагов`}</b>
               </div>
-              {missing.length > 0 && (
-                <div className="pw-summary__errs">
-                  <div className="pw-summary__errs-t">⚠ Нужно настроить:</div>
-                  <ul>{missing.map((m) => <li key={m}>{m}</li>)}</ul>
+
+              {todos.length > 0 && (
+                <div className="st-todo">
+                  <div className="st-todo__t">Осталось сделать</div>
+                  {todos.map((t) => (
+                    <button key={t.step + t.t} className="st-todo__item" onClick={() => goStep(t.step)} type="button">
+                      <span className="st-todo__mark">○</span> {t.t}
+                    </button>
+                  ))}
                 </div>
               )}
-              <button className="btn btn-primary pw-summary__launch" onClick={launch} disabled={!canLaunch}>🚀 Запустить</button>
+
+              <button className="btn btn-primary st-panel__launch" onClick={launch} disabled={!canLaunch}>🚀 Запустить</button>
             </div>
           </aside>
         </div>
@@ -325,11 +446,11 @@ export default function PromotionClient() {
   );
 }
 
-function SumRow({ label, value, ok }: { label: string; value: string; ok?: boolean }) {
+function PanelRow({ label, value, ok }: { label: string; value: string; ok?: boolean }) {
   return (
-    <div className="pw-sumrow">
-      <span className="pw-sumrow__l">{label}</span>
-      <span className={`pw-sumrow__v${ok ? " ok" : ""}`}>{value}</span>
+    <div className="st-prow">
+      <span className="st-prow__l">{label}</span>
+      <span className={`st-prow__v${ok ? " ok" : " muted"}`}>{value}</span>
     </div>
   );
 }
