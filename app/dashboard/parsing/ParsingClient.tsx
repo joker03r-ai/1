@@ -7,18 +7,31 @@ import { addDrafts } from "@/lib/content";
 
 type Account = { id: string; username: string; name: string };
 type Resolved = { ok: boolean; type?: string; title?: string; username?: string; participantsAvailable?: boolean; commentsAvailable?: boolean; suggestedMode?: string; error?: string };
+type LogRow = { t: string; msg: string; kind: "info" | "ok" | "warn" | "err" };
 type Job = {
-  id: string; kind: string; mode: string; status: string; source: string;
+  id: string; kind: string; mode: string; status: string; source: string; sources?: string[];
   progress: number; found: number; saved: number; skipped: number; target: number;
-  error: string; floodSeconds: number; audience: any[]; content: any[];
+  error: string; floodSeconds: number; audience: any[]; content: any[]; logs?: LogRow[];
 };
 
-const TYPE_LABEL: Record<string, string> = { supergroup: "Супергруппа", broadcast: "Канал (broadcast)", group: "Группа", user: "Пользователь", unknown: "Неизвестно" };
-const MODES = [
-  { id: "participants", label: "Участники группы" },
-  { id: "message_authors", label: "Авторы сообщений" },
-  { id: "comment_authors", label: "Комментаторы канала" },
+const PROTECTS = [
+  { id: "conservative", label: "Консервативный", hint: "Максимальная защита" },
+  { id: "balanced", label: "Сбалансированный", hint: "Оптимально" },
+  { id: "aggressive", label: "Агрессивный", hint: "Высокая скорость" },
 ];
+const BASE_FILTERS: { id: string; label: string }[] = [
+  { id: "skipBots", label: "Пропустить ботов" },
+  { id: "skipDeleted", label: "Пропустить удалённых" },
+  { id: "skipScam", label: "Пропустить заблокированных / scam" },
+  { id: "onlyActive", label: "Только активные пользователи" },
+];
+const PROFILE_FILTERS: { id: string; label: string; premium?: boolean }[] = [
+  { id: "onlyUsername", label: "Только с username" },
+  { id: "onlyPhoto", label: "Только с фото" },
+  { id: "onlyPremium", label: "Только Premium", premium: true },
+];
+
+const TYPE_LABEL: Record<string, string> = { supergroup: "Супергруппа", broadcast: "Канал (broadcast)", group: "Группа", user: "Пользователь", unknown: "Неизвестно" };
 const JOB_LABEL: Record<string, string> = { running: "Выполняется", paused: "Пауза", flood: "Пауза (ограничение Telegram)", done: "Готово", error: "Ошибка", stopped: "Остановлена" };
 const TERMINAL = ["done", "error", "stopped"];
 
@@ -188,119 +201,235 @@ function JobPanel({ job, onControl }: { job: Job; onControl: (a: string) => void
         <span>Пропущено: <b>{job.skipped}</b></span>
       </div>
       {job.error && <div className="tgd-msg err" style={{ marginTop: 8 }}>⚠ {job.error}</div>}
+      {job.logs && job.logs.length > 0 && <LogPanel logs={job.logs} />}
+    </div>
+  );
+}
+
+function LogPanel({ logs }: { logs: LogRow[] }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => { if (ref.current) ref.current.scrollTop = ref.current.scrollHeight; }, [logs.length]);
+  return (
+    <div className="pr-log" ref={ref}>
+      <div className="pr-log__head">Логи · {logs.length}</div>
+      {logs.slice(-120).map((l, i) => (
+        <div key={i} className={`pr-log__row k-${l.kind}`}><span className="pr-log__t">{l.t}</span> {l.msg}</div>
+      ))}
     </div>
   );
 }
 
 /* ---------- Вкладка «Аудитория» ---------- */
 function AudienceTab({ account }: { account: Account }) {
-  const [link, setLink] = useState("");
-  const [res, setRes] = useState<Resolved | null>(null);
+  const [chats, setChats] = useState("");
+  const [checks, setChecks] = useState<{ link: string; res: Resolved }[]>([]);
   const [checking, setChecking] = useState(false);
   const [mode, setMode] = useState("participants");
   const [target, setTarget] = useState("1000");
+  const [days, setDays] = useState("0");
+  const [keywords, setKeywords] = useState("");
+  const [protectOn, setProtectOn] = useState(false);
+  const [protect, setProtect] = useState("balanced");
+  const [fast, setFast] = useState(false);
+  const [filters, setFilters] = useState<Record<string, boolean>>({ skipBots: true, skipDeleted: true, skipScam: true, onlyActive: false, onlyUsername: false, onlyPhoto: false, onlyPremium: false, inclReplies: true, inclForwards: false });
+  const [advOpen, setAdvOpen] = useState(false);
+  const [delayChat, setDelayChat] = useState("");
+  const [delayUser, setDelayUser] = useState("");
   const [starting, setStarting] = useState(false);
   const [err, setErr] = useState("");
   const { job, poll, reset } = useJobPoller();
 
+  const lines = chats.split(/\n/).map((s) => s.trim()).filter(Boolean);
+  const byMessages = mode !== "participants";
+  const toggle = (k: string) => setFilters((f) => ({ ...f, [k]: !f[k] }));
+
   async function check() {
-    setErr(""); setRes(null); setChecking(true); reset();
+    if (!lines.length) return;
+    setErr(""); setChecks([]); setChecking(true); reset();
     try {
-      const d: Resolved = await (await fetch("/api/tg/source/resolve", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ accountId: account.id, link }) })).json();
-      setRes(d);
-      if (d.ok && d.suggestedMode) setMode(d.suggestedMode);
-    } catch (e: any) { setErr("Не удалось проверить источник"); }
+      const out: { link: string; res: Resolved }[] = [];
+      for (const link of lines.slice(0, 20)) {
+        const d: Resolved = await (await fetch("/api/tg/source/resolve", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ accountId: account.id, link }) })).json();
+        out.push({ link, res: d });
+      }
+      setChecks(out);
+      const firstOk = out.find((o) => o.res.ok && o.res.suggestedMode);
+      if (firstOk?.res.suggestedMode) setMode(firstOk.res.suggestedMode);
+    } catch { setErr("Не удалось проверить чаты"); }
     finally { setChecking(false); }
   }
   async function start() {
+    if (!lines.length) { setErr("Добавьте хотя бы один чат"); return; }
     setErr(""); setStarting(true);
     try {
-      const d = await (await fetch("/api/tg/audience/start", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ accountId: account.id, source: link, mode, target: Number(target) || 1000 }) })).json();
+      const body = {
+        accountId: account.id, sources: lines, mode, target: Number(target) || 1000,
+        days: Number(days) || 0, keywords, filters,
+        protect: protectOn ? protect : "off", fast,
+        delayChat: Number(delayChat) || 0, delayUser: Number(delayUser) || 0,
+      };
+      const d = await (await fetch("/api/tg/audience/start", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) })).json();
       if (!d.ok) throw new Error(d.error || "Ошибка запуска");
       poll(d.jobId);
     } catch (e: any) { setErr(e?.message || "Ошибка запуска"); }
     finally { setStarting(false); }
   }
 
-  const participantsBlocked = res?.ok && res.type !== "user" && (res.type === "supergroup" || res.type === "group") && res.participantsAvailable === false;
-
   return (
     <div className="card ct-card">
-      <div className="ct-hint">👉 Вставьте ссылку или @username источника, проверьте доступность и запустите сбор. Участники доступны только у групп, где список открыт или у вас есть права.</div>
+      <div className="ct-hint">👉 Соберите базу активной аудитории из чатов и групп — даже если список участников скрыт. Вставьте один или несколько чатов, настройте фильтры и запустите сбор. Реальные данные Telegram через ваш аккаунт (MTProto).</div>
 
-      <label className="pw-label">Ссылка или username источника</label>
-      <div className="pw-row">
-        <input className="input" style={{ flex: 1, minWidth: 220 }} value={link} onChange={(e) => setLink(e.target.value)} placeholder="@mychat или https://t.me/mychat" />
-        <button className="btn" onClick={check} type="button" disabled={checking || !link.trim()}>{checking ? "Проверяю…" : "Проверить"}</button>
+      {/* Режим сбора */}
+      <label className="pw-label">Режим сбора</label>
+      <div className="pr-modes">
+        <button className={`pr-mode${mode === "participants" ? " on" : ""}`} onClick={() => setMode("participants")} type="button">
+          <b>👥 Участники группы</b><span>Список участников открыт или вы админ</span>
+        </button>
+        <button className={`pr-mode${mode === "message_authors" ? " on" : ""}`} onClick={() => setMode("message_authors")} type="button">
+          <b>💬 По сообщениям <em className="pr-rec">рекомендуется</em></b><span>Скрытый список — собираем активных по сообщениям</span>
+        </button>
+        <button className={`pr-mode${mode === "comment_authors" ? " on" : ""}`} onClick={() => setMode("comment_authors")} type="button">
+          <b>🗨 Комментаторы канала</b><span>Авторы комментариев в обсуждениях</span>
+        </button>
+      </div>
+
+      {/* Список чатов */}
+      <label className="pw-label" style={{ marginTop: 14 }}>Список чатов <span className="muted" style={{ fontWeight: 500 }}>— по одному в строке</span></label>
+      <textarea className="input" style={{ minHeight: 84, fontFamily: "ui-monospace,monospace", fontSize: 13 }} value={chats} onChange={(e) => setChats(e.target.value)} placeholder={"@mychat\nhttps://t.me/anotherchat\n+79001234567 (id)"} />
+      <div className="pw-row" style={{ marginTop: 8, alignItems: "center" }}>
+        <button className="btn" onClick={check} type="button" disabled={checking || !lines.length}>{checking ? "Проверяю…" : "Проверить чаты"}</button>
+        {lines.length > 0 && <span className="muted" style={{ fontSize: 12.5 }}>Добавлено чатов: {lines.length}</span>}
       </div>
       {err && <div className="tgd-msg err" style={{ marginTop: 8 }}>⚠ {err}</div>}
 
-      {/* Проверка перед запуском */}
-      {res && (
+      {checks.length > 0 && (
         <div className="pr-check">
-          {res.ok ? (
-            <>
-              <CheckRow ok label="Аккаунт подключён" />
-              <CheckRow ok label={`Источник найден: ${res.title}`} />
-              <CheckRow ok label={`Тип источника: ${TYPE_LABEL[res.type || "unknown"]}`} />
-              <CheckRow ok={res.participantsAvailable} label={res.participantsAvailable ? "Список участников доступен" : "Список участников недоступен"} />
-              {res.type === "broadcast" && <CheckRow ok={res.commentsAvailable} label={res.commentsAvailable ? "Есть группа обсуждений — доступны комментаторы" : "Группы обсуждений нет — только парсинг контента"} />}
-              <CheckRow ok label={`Предполагаемый режим: ${MODES.find((m) => m.id === res.suggestedMode)?.label || "—"}`} />
-            </>
-          ) : (
-            <div className="tgd-msg err">⚠ {res.error}</div>
-          )}
+          {checks.map(({ link, res }, i) => (
+            res.ok
+              ? <CheckRow key={i} ok label={`${link} — ${res.title} · ${TYPE_LABEL[res.type || "unknown"]}${res.participantsAvailable === false ? " · список скрыт" : ""}`} />
+              : <CheckRow key={i} label={`${link} — ${res.error}`} />
+          ))}
         </div>
       )}
 
-      {res?.ok && (
-        <>
-          <label className="pw-label" style={{ marginTop: 14 }}>Режим сбора</label>
-          <div className="pw-chips">
-            {MODES.map((m) => {
-              const disabled = m.id === "participants" && res.participantsAvailable === false;
-              const disabled2 = m.id === "comment_authors" && res.type === "broadcast" && !res.commentsAvailable;
-              return (
-                <button key={m.id} className={`pw-chip${mode === m.id ? " on" : ""}`} disabled={disabled || disabled2} onClick={() => setMode(m.id)} type="button" title={disabled ? "Список участников недоступен" : ""}>
-                  {mode === m.id ? "✓ " : ""}{m.label}
-                </button>
-              );
-            })}
+      {/* AI-защита аккаунтов */}
+      <div className="pr-guard">
+        <div className="pr-guard__top">
+          <div><b>🛡 AI-защита аккаунтов</b> <span className="pr-new">NEW</span><div className="muted" style={{ fontSize: 12.5 }}>Интеллектуальная защита от блокировок: задержки и работа через API. Рекомендуется для больших чатов.</div></div>
+          <label className="sw"><input type="checkbox" checked={protectOn} onChange={(e) => setProtectOn(e.target.checked)} /><span className="sw__t" /></label>
+        </div>
+        {protectOn && (
+          <div className="pr-guard__lv">
+            {PROTECTS.map((p) => (
+              <button key={p.id} className={`pr-lv${protect === p.id ? " on" : ""}`} onClick={() => setProtect(p.id)} type="button"><b>{p.label}</b><span>{p.hint}</span></button>
+            ))}
           </div>
-          {participantsBlocked && (
-            <div className="tgd-info" style={{ marginTop: 10 }}>Telegram не предоставляет список участников этой группы. Вступите в неё или получите права администратора — либо используйте режим <b>«Авторы сообщений»</b>.</div>
-          )}
+        )}
+      </div>
 
-          <div className="field" style={{ marginTop: 12, maxWidth: 200 }}><label className="pw-label">Сколько собрать</label><input className="input" value={target} onChange={(e) => setTarget(e.target.value.replace(/\D/g, ""))} inputMode="numeric" /></div>
+      {/* Быстрая работа + лимиты */}
+      <div className="pr-row2">
+        <label className="pr-toggle">
+          <span><b>⚡ Быстрая работа</b><em className="muted">Минимальные задержки (небольшие чаты 100–1000)</em></span>
+          <span className="sw"><input type="checkbox" checked={fast} onChange={(e) => setFast(e.target.checked)} /><span className="sw__t" /></span>
+        </label>
+        <div className="pr-limits">
+          <div className="field"><label className="pw-label">{byMessages ? "Собрать пользователей" : "Лимит участников"}</label><input className="input" value={target} onChange={(e) => setTarget(e.target.value.replace(/\D/g, ""))} inputMode="numeric" /></div>
+          <div className="field"><label className="pw-label">Период (дней, 0 = всё)</label><input className="input" value={days} onChange={(e) => setDays(e.target.value.replace(/\D/g, ""))} inputMode="numeric" disabled={!byMessages} title={byMessages ? "" : "Доступно в режиме «По сообщениям»"} /></div>
+        </div>
+      </div>
 
-          <div className="pw-row" style={{ marginTop: 14 }}>
-            <button className="btn btn-primary" onClick={start} type="button" disabled={starting}>{starting ? "Запускаю…" : "▶ Запустить"}</button>
-          </div>
-        </>
+      {/* Ключевые слова */}
+      {byMessages && (
+        <div className="field" style={{ marginTop: 12 }}>
+          <label className="pw-label">Ключевые слова <span className="muted" style={{ fontWeight: 500 }}>— соберём только тех, кто писал эти фразы (через запятую, необязательно)</span></label>
+          <input className="input" value={keywords} onChange={(e) => setKeywords(e.target.value)} placeholder="раскрутить канал, купить трафик, крипта" />
+        </div>
       )}
+
+      {/* Фильтры */}
+      <div className="pr-filters">
+        <div className="pr-fcard">
+          <div className="pr-fcard__t">🧰 Базовые фильтры</div>
+          {BASE_FILTERS.map((f) => (
+            <label key={f.id} className="pr-chk"><input type="checkbox" checked={!!filters[f.id]} onChange={() => toggle(f.id)} /> <span>{f.label}</span></label>
+          ))}
+        </div>
+        <div className="pr-fcard">
+          <div className="pr-fcard__t">👤 Фильтры профиля</div>
+          {PROFILE_FILTERS.map((f) => (
+            <label key={f.id} className="pr-chk"><input type="checkbox" checked={!!filters[f.id]} onChange={() => toggle(f.id)} /> <span>{f.label}{f.premium ? " ⭐" : ""}</span></label>
+          ))}
+        </div>
+        <div className="pr-fcard">
+          <div className="pr-fcard__t">⚙ Дополнительно</div>
+          <label className="pr-chk"><input type="checkbox" checked={!!filters.inclReplies} onChange={() => toggle("inclReplies")} disabled={!byMessages} /> <span>Включать ответы</span></label>
+          <label className="pr-chk"><input type="checkbox" checked={!!filters.inclForwards} onChange={() => toggle("inclForwards")} disabled={!byMessages} /> <span>Включать пересланные</span></label>
+          <button className="btn-link" style={{ marginTop: 6 }} onClick={() => setAdvOpen((v) => !v)} type="button">{advOpen ? "Скрыть задержки" : "Настройки задержек"}</button>
+          {advOpen && (
+            <div className="pr-delays">
+              <div className="field"><label className="pw-label">Между чатами (мс)</label><input className="input" value={delayChat} onChange={(e) => setDelayChat(e.target.value.replace(/\D/g, ""))} placeholder="авто" inputMode="numeric" /></div>
+              <div className="field"><label className="pw-label">Между юзерами (мс)</label><input className="input" value={delayUser} onChange={(e) => setDelayUser(e.target.value.replace(/\D/g, ""))} placeholder="авто" inputMode="numeric" /></div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="pw-row" style={{ marginTop: 16 }}>
+        <button className="btn btn-primary" onClick={start} type="button" disabled={starting || !lines.length}>{starting ? "Запускаю…" : "▶ Начать парсинг"}</button>
+      </div>
 
       {job && <JobPanel job={job} onControl={(a) => { jobControl(job.id, a); }} />}
 
-      {/* Результаты */}
-      {job && job.audience.length > 0 && (
-        <div style={{ marginTop: 16 }}>
-          <div className="pr-found__head">
-            <b>Собрано участников: {job.audience.length}</b>
-            <a className="btn btn-sm" href={`/api/tg/job/export?jobId=${job.id}`} download>⬇ Экспорт CSV</a>
-          </div>
-          <div className="tg-table-wrap">
-            <table className="tg-table">
-              <thead><tr><th>user_id</th><th>username</th><th>Имя</th><th>Источник</th><th>Активность</th></tr></thead>
-              <tbody>
-                {job.audience.slice(0, 200).map((r, i) => (
-                  <tr key={i}><td>{r.user_id}</td><td>{r.username}</td><td>{r.name}</td><td>{r.source}</td><td>{r.activity_date || "—"}</td></tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          {job.audience.length > 200 && <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>Показаны первые 200. В CSV — все {job.audience.length}.</div>}
+      {job && job.audience.length > 0 && <AudienceResults job={job} />}
+    </div>
+  );
+}
+
+function AudienceResults({ job }: { job: Job }) {
+  const [q, setQ] = useState("");
+  const [sort, setSort] = useState<"none" | "az" | "premium">("none");
+  const [copied, setCopied] = useState(false);
+  let rows = job.audience;
+  if (q.trim()) { const s = q.toLowerCase(); rows = rows.filter((r) => (r.username || "").toLowerCase().includes(s) || (r.name || "").toLowerCase().includes(s)); }
+  if (sort === "az") rows = [...rows].sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+  if (sort === "premium") rows = [...rows].sort((a, b) => Number(b.premium) - Number(a.premium));
+
+  function copyLinks() {
+    const links = job.audience.filter((r) => r.username).map((r) => "https://t.me/" + r.username.replace(/^@/, "")).join("\n");
+    navigator.clipboard?.writeText(links).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1500); }).catch(() => {});
+  }
+  const withUser = job.audience.filter((r) => r.username).length;
+
+  return (
+    <div style={{ marginTop: 16 }}>
+      <div className="pr-found__head">
+        <b>Результаты парсинга: {job.audience.length}</b>
+        <div className="pw-row" style={{ gap: 8 }}>
+          <button className="btn btn-sm" onClick={copyLinks} type="button" disabled={!withUser}>{copied ? "✓ Скопировано" : `🔗 Скопировать ссылки (${withUser})`}</button>
+          <a className="btn btn-sm btn-primary" href={`/api/tg/job/export?jobId=${job.id}`} download>⬇ Экспорт CSV</a>
         </div>
-      )}
+      </div>
+      <div className="pr-restools">
+        <input className="input" style={{ maxWidth: 260 }} value={q} onChange={(e) => setQ(e.target.value)} placeholder="Поиск по имени / username…" />
+        <select className="input" style={{ maxWidth: 200 }} value={sort} onChange={(e) => setSort(e.target.value as any)}>
+          <option value="none">Без сортировки</option>
+          <option value="az">По имени (А–Я)</option>
+          <option value="premium">Сначала Premium</option>
+        </select>
+        <span className="muted" style={{ fontSize: 12.5 }}>Показано: {Math.min(rows.length, 300)} из {rows.length}</span>
+      </div>
+      <div className="tg-table-wrap">
+        <table className="tg-table">
+          <thead><tr><th>user_id</th><th>username</th><th>Имя</th><th>Источник</th><th>Активность</th><th>Premium</th></tr></thead>
+          <tbody>
+            {rows.slice(0, 300).map((r, i) => (
+              <tr key={i}><td>{r.user_id}</td><td>{r.username || "—"}</td><td>{r.name}</td><td>{r.source}</td><td>{r.activity_date || "—"}</td><td>{r.premium ? "⭐" : "—"}</td></tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {rows.length > 300 && <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>Показаны первые 300. В CSV — все {job.audience.length}.</div>}
     </div>
   );
 }
