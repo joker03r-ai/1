@@ -163,29 +163,39 @@ export default function BotsClient() {
 
 /* ---------- Диагностика подключения Telegram ---------- */
 
-type Snap = { lastUpdateAt?: number; updates: any[]; errors: { at: number; text: string }[] };
+type Snap = { lastUpdateAt?: number; updates: any[]; errors: { at: number; text: string }[]; webhookUrl?: string };
+type Diag = { tokenValid?: boolean; webhookSet?: boolean; inbound?: boolean; webhook?: any; configError?: string };
 
 function Diagnostics({ bot, health, startPublished, onChange }: { bot: Bot; health: TgHealth; startPublished: boolean; onChange: () => void }) {
   const [token, setToken] = useState("");
   const [show, setShow] = useState(false);
   const [checking, setChecking] = useState(false);
   const [checkMsg, setCheckMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [diag, setDiag] = useState<Diag | null>(null);
   const [chatId, setChatId] = useState("");
   const [testMsg, setTestMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [sending, setSending] = useState(false);
   const [snap, setSnap] = useState<Snap>({ updates: [], errors: [] });
+  const [cfg, setCfg] = useState<{ baseUrl: string; configured: boolean; https: boolean } | null>(null);
 
-  useEffect(() => { loadSnap(); /* eslint-disable-next-line */ }, [bot.id]);
+  useEffect(() => { loadSnap(); loadCfg(); /* eslint-disable-next-line */ }, [bot.id]);
 
   async function loadSnap() {
     try {
       const res = await fetch(`/api/telegram/updates?botId=${encodeURIComponent(bot.id)}`);
       const d = await res.json();
-      if (d.ok) setSnap({ lastUpdateAt: d.lastUpdateAt, updates: d.updates || [], errors: d.errors || [] });
+      if (d.ok) setSnap({ lastUpdateAt: d.lastUpdateAt, updates: d.updates || [], errors: d.errors || [], webhookUrl: d.webhookUrl });
+    } catch {}
+  }
+  async function loadCfg() {
+    try {
+      const d = await (await fetch("/api/telegram/config")).json();
+      setCfg({ baseUrl: d.baseUrl || "", configured: !!d.configured, https: !!d.https });
     } catch {}
   }
 
-  const webhookUrl = typeof window !== "undefined" ? `${window.location.origin}/api/telegram/webhook/${bot.id}` : "";
+  // URL webhook формируется из публичного HTTPS-адреса сервера, а не из origin.
+  const webhookUrl = cfg?.baseUrl ? `${cfg.baseUrl}/api/telegram/webhook/${bot.id}` : `https://<ваш-домен>/api/telegram/webhook/${bot.id}`;
 
   async function check() {
     if (checking) return;
@@ -199,9 +209,10 @@ function Diagnostics({ bot, health, startPublished, onChange }: { bot: Bot; heal
       const res = await fetch("/api/telegram/diagnose", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ token: token.trim(), botId: bot.id, webhookUrl }),
+        body: JSON.stringify({ token: token.trim(), botId: bot.id }),
       });
       const d = await res.json();
+      setDiag(d);
       if (d.tokenValid === false) {
         updateBot(bot.id, { tgConnected: true, tgTokenValid: false, tgLastCheck: Date.now() });
         setCheckMsg({ ok: false, text: d.error || "Токен недействителен." });
@@ -210,12 +221,17 @@ function Diagnostics({ bot, health, startPublished, onChange }: { bot: Bot; heal
           tgConnected: true, tgTokenValid: true, tgWebhookSet: d.webhookSet,
           tgUsername: d.bot?.username || bot.tgUsername, tgLastCheck: Date.now(),
         });
-        const wparts = [`Бот @${d.bot?.username || "?"} на связи`];
-        wparts.push(d.webhookSet ? "webhook настроен" : "webhook НЕ настроен");
-        if (d.webhook?.pending) wparts.push(`в очереди ${d.webhook.pending} обновл.`);
-        if (d.webhook?.lastError) wparts.push(`последняя ошибка Telegram: ${d.webhook.lastError}`);
-        setCheckMsg({ ok: true, text: wparts.join(" · ") });
         setToken("");
+        // Успех НЕ по факту отправки. Проверяются все звенья цепочки.
+        if (d.configError) {
+          setCheckMsg({ ok: false, text: d.configError });
+        } else if (!d.webhookSet) {
+          setCheckMsg({ ok: false, text: `Webhook не установлен. ${d.webhook?.lastError ? "Ошибка Telegram: " + d.webhook.lastError : "Проверьте домен и Nginx/Caddy."}` });
+        } else if (!d.inbound) {
+          setCheckMsg({ ok: true, text: `Токен и webhook в порядке. Теперь напишите боту /start в Telegram — подтвердим фактический приём сообщения.` });
+        } else {
+          setCheckMsg({ ok: true, text: `Подключение полностью работает: токен, webhook и приём входящих подтверждены.` });
+        }
       } else {
         setCheckMsg({ ok: false, text: d.error || "Не удалось проверить подключение." });
       }
@@ -239,7 +255,7 @@ function Diagnostics({ bot, health, startPublished, onChange }: { bot: Bot; heal
         body: JSON.stringify({ botId: bot.id, token: token.trim() || undefined, chatId: chatId.trim() }),
       });
       const d = await res.json();
-      setTestMsg(d.ok ? { ok: true, text: "Сообщение отправлено. Проверьте Telegram." } : { ok: false, text: d.error || "Не удалось отправить." });
+      setTestMsg(d.ok ? { ok: true, text: "Исходящее отправлено. Это проверяет только отправку — приём входящих подтверждается командой /start в Telegram." } : { ok: false, text: d.error || "Не удалось отправить." });
     } catch {
       setTestMsg({ ok: false, text: "Сервер недоступен." });
     } finally {
@@ -257,13 +273,21 @@ function Diagnostics({ bot, health, startPublished, onChange }: { bot: Bot; heal
 
   return (
     <div className="tgd">
-      {/* Чек-лист состояния */}
+      {/* Чек-лист состояния — проверка успешна только при всех зелёных */}
       <div className="tgd-steps">
-        <TgStep ok={!!bot.tgConnected} label="Telegram подключён" />
-        <TgStep ok={bot.tgTokenValid !== false && !!bot.tgConnected} warn={bot.tgTokenValid === undefined} label="Токен действителен" />
-        <TgStep ok={bot.tgWebhookSet === true} warn={bot.tgWebhookSet === undefined} label="Webhook настроен" />
+        <TgStep ok={bot.tgTokenValid === true} warn={bot.tgTokenValid === undefined} label="Токен действителен" />
+        <TgStep ok={bot.tgWebhookSet === true} warn={bot.tgWebhookSet === undefined} label="Webhook установлен" />
+        <TgStep ok={!!diag?.webhook && !diag?.webhook?.lastError && bot.tgWebhookSet === true} warn={!diag} label="getWebhookInfo без ошибок" />
+        <TgStep ok={!!snap.lastUpdateAt} warn={!diag} label="Входящее получено" />
         <TgStep ok={startPublished} label="Сценарий /start опубликован" />
       </div>
+
+      {/* Публичный адрес и предупреждение про домен */}
+      {cfg && !cfg.configured && (
+        <div className="tgd-warn">
+          <span>⚠ Публичный HTTPS-адрес не настроен. Задайте <code>WEBHOOK_BASE_URL=https://api.домен.ru</code> и проксируйте 443 → localhost:3000 (Nginx/Caddy). Адрес вида <code>http://IP:3000</code> Telegram отклоняет.</span>
+        </div>
+      )}
 
       {/* Предупреждение про /start */}
       {!startPublished && (
@@ -297,9 +321,21 @@ function Diagnostics({ bot, health, startPublished, onChange }: { bot: Bot; heal
             {checking ? "Проверяем…" : "Проверить подключение"}
           </button>
         </div>
-        <div className="tgd-hint muted">🔒 Токен уходит только на сервер для проверки, не сохраняется в браузере и не показывается целиком.</div>
+        <div className="tgd-hint muted">🔒 Токен уходит только на сервер, не сохраняется в браузере и не показывается целиком. Проверка засчитывается, только когда токен действителен, webhook установлен, getWebhookInfo без ошибок и фактически получено входящее сообщение.</div>
         {checkMsg && <div className={`tgd-msg ${checkMsg.ok ? "ok" : "err"}`}>{checkMsg.ok ? "✓ " : "⚠ "}{checkMsg.text}</div>}
         <div className="tgd-line muted">Webhook-адрес: <code>{webhookUrl}</code></div>
+      </div>
+
+      {/* Состояние webhook — журнал */}
+      <div className="tgd-block">
+        <div className="tgd-block__t">Состояние webhook</div>
+        <div className="tgd-wh">
+          <div className="tgd-wh__row"><span>Установленный URL</span><b>{diag?.webhook?.url || snap.webhookUrl || "— (ещё не установлен)"}</b></div>
+          <div className="tgd-wh__row"><span>pending_update_count</span><b>{diag?.webhook?.pending ?? "—"}</b></div>
+          <div className="tgd-wh__row"><span>last_error_message</span><b className={diag?.webhook?.lastError ? "err" : ""}>{diag?.webhook?.lastError || "нет"}</b></div>
+          <div className="tgd-wh__row"><span>secret_token</span><b>{diag?.webhook?.hasSecret ? "включён" : "—"}</b></div>
+          <div className="tgd-wh__row"><span>Последнее входящее</span><b>{when(snap.lastUpdateAt)}</b></div>
+        </div>
       </div>
 
       {/* Тестовое сообщение */}

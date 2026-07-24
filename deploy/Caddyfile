@@ -1,0 +1,16 @@
+# Caddy: HTTPS с автоматическим сертификатом Let's Encrypt и проксирование
+# в приложение BotPilot на localhost:3000. Caddy сам получает и продлевает
+# сертификат — отдельный certbot не нужен.
+#
+# 1) Укажите свой домен ниже.
+# 2) Задайте в .env приложения: WEBHOOK_BASE_URL=https://api.домен.ru
+# 3) Запустите: caddy run --config ./deploy/Caddyfile
+#
+# Итоговый публичный webhook: https://api.домен.ru/api/telegram/webhook/{botId}
+
+api.example.com {
+    encode zstd gzip
+    # Заголовок секрета Telegram проксируется автоматически (reverse_proxy
+    # передаёт все заголовки). Никакой авторизации/редиректов на webhook нет.
+    reverse_proxy 127.0.0.1:3000
+}

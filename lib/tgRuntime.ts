@@ -24,6 +24,8 @@ export type BotRuntime = {
   updates: StoredUpdate[];
   lastUpdateAt?: number;
   errors: TgError[];
+  secret?: string; // секрет для проверки заголовка X-Telegram-Bot-Api-Secret-Token
+  webhookUrl?: string; // фактически установленный публичный URL
 };
 
 // Переживаем HMR/повторные импорты через globalThis.
@@ -49,6 +51,31 @@ export function getToken(botId: string): string | undefined {
   return store.get(botId)?.token;
 }
 
+// Секрет webhook: генерируем один раз на бота и передаём в setWebhook как
+// secret_token. Telegram возвращает его в заголовке каждого запроса.
+export function ensureSecret(botId: string): string {
+  const r = rt(botId);
+  if (!r.secret) r.secret = "whk_" + Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
+  return r.secret;
+}
+export function getSecret(botId: string): string | undefined {
+  return store.get(botId)?.secret;
+}
+export function setWebhookUrl(botId: string, url: string) {
+  rt(botId).webhookUrl = url;
+}
+
+// Публичный HTTPS-адрес приложения (за Nginx/Caddy). Именно отсюда строится
+// webhook, а НЕ из origin браузера (иначе получится http://IP:3000).
+export function publicBaseUrl(): string {
+  const raw = (process.env.WEBHOOK_BASE_URL || process.env.PUBLIC_BASE_URL || "").trim();
+  return raw.replace(/\/+$/, "");
+}
+export function webhookUrlFor(botId: string): string {
+  const base = publicBaseUrl();
+  return base ? `${base}/api/telegram/webhook/${botId}` : "";
+}
+
 export function pushUpdate(botId: string, u: StoredUpdate) {
   const r = rt(botId);
   r.updates.unshift(u);
@@ -70,6 +97,7 @@ export function snapshot(botId: string) {
     updates: r?.updates || [],
     lastUpdateAt: r?.lastUpdateAt,
     errors: r?.errors || [],
+    webhookUrl: r?.webhookUrl || "",
   };
 }
 
