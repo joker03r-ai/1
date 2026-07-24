@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { rt, getToken, getSecret, pushUpdate, pushError, tgCall } from "@/lib/tgRuntime";
+import { getSecret, handleUpdate } from "@/lib/tgRuntime";
 
 export const runtime = "nodejs";
 // Без авторизации приложения, без CSRF и без редиректов — Telegram шлёт
@@ -26,34 +26,7 @@ export async function POST(req: NextRequest, { params }: { params: { botId: stri
     update = await req.json();
   } catch {}
 
-  const msg = update.message || update.edited_message || null;
-  const text: string = (msg?.text || msg?.caption || "").trim();
-  const isStart = /^\/start\b/i.test(text);
-
-  if (msg) {
-    const from = msg.from ? (msg.from.username ? "@" + msg.from.username : [msg.from.first_name, msg.from.last_name].filter(Boolean).join(" ")) : "пользователь";
-    pushUpdate(botId, { at: Date.now(), from, chatId: msg.chat?.id, text: text || "(без текста)", isStart });
-  }
-
-  // Передаём сообщение в опубликованный сценарий: на /start отвечаем
-  // приветствием, на обычный текст — базовым ответом сценария.
-  const token = getToken(botId);
-  if (token && msg) {
-    const r = rt(botId);
-    const reply = isStart
-      ? (r.startMessage || "Здравствуйте! 👋 Бот на связи. Напишите свой вопрос.")
-      : (r.startMessage ? "Спасибо за сообщение! Мы уже обрабатываем ваш запрос." : "");
-    if (reply) {
-      try {
-        const res = await tgCall(token, "sendMessage", { chat_id: msg.chat.id, text: reply });
-        if (!res?.ok) pushError(botId, `Ответ не отправлен: ${res?.description || "неизвестная ошибка"}`);
-      } catch (e) {
-        pushError(botId, `Ответ не отправлен: ${String(e)}`);
-      }
-    }
-  } else if (msg && !token) {
-    pushError(botId, "Получено сообщение, но токен бота не найден на сервере. Нажмите «Проверить подключение».");
-  }
+  await handleUpdate(botId, update);
 
   // Telegram требует немедленный 200, иначе будет повторять доставку.
   return NextResponse.json({ ok: true }, { status: 200 });

@@ -3354,6 +3354,8 @@ img, svg, video, canvas { max-width: 100%; }
 
 .tgd-warn { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; background: #fff7ec; border: 1px solid #fbe0bd; border-radius: 10px; padding: 10px 14px; font-size: 13px; color: #92500a; }
 :root[data-theme="dark"] .tgd-warn { background: #2a2010; border-color: #5b3a1a; }
+.tgd-info { font-size: 12.5px; color: var(--violet-700); background: var(--violet-050); border: 1px solid var(--violet-100); border-radius: 10px; padding: 10px 14px; line-height: 1.5; }
+.tgd-info code { font-family: ui-monospace, monospace; font-size: 11.5px; background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 0 5px; }
 .tgd-line { font-size: 12.5px; }
 .tgd-line a { color: var(--violet-700); font-weight: 600; }
 .tgd-line code { font-family: ui-monospace, monospace; font-size: 11.5px; background: var(--panel); border: 1px solid var(--line); border-radius: 5px; padding: 1px 6px; word-break: break-all; }

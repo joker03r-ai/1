@@ -113,3 +113,88 @@ export async function tgCall(token: string, method: string, body?: Record<string
 }
 
 export const TOKEN_RE = /^\d{6,}:[A-Za-z0-9_-]{30,}$/;
+
+// ---------- Общая обработка входящего обновления ----------
+// Используется и webhook-маршрутом, и поллингом. Сохраняет сообщение и
+// отвечает на /start и обычный текст из приветствия сценария.
+export async function handleUpdate(botId: string, update: any) {
+  const msg = update?.message || update?.edited_message || null;
+  const text: string = (msg?.text || msg?.caption || "").trim();
+  const isStart = /^\/start\b/i.test(text);
+
+  if (msg) {
+    const from = msg.from ? (msg.from.username ? "@" + msg.from.username : [msg.from.first_name, msg.from.last_name].filter(Boolean).join(" ")) : "пользователь";
+    pushUpdate(botId, { at: Date.now(), from, chatId: msg.chat?.id, text: text || "(без текста)", isStart });
+  }
+
+  const token = getToken(botId);
+  if (token && msg) {
+    const r = rt(botId);
+    const reply = isStart
+      ? (r.startMessage || "Здравствуйте! 👋 Бот на связи. Напишите свой вопрос.")
+      : (r.startMessage ? "Спасибо за сообщение! Мы уже обрабатываем ваш запрос." : "");
+    if (reply) {
+      try {
+        const res = await tgCall(token, "sendMessage", { chat_id: msg.chat.id, text: reply });
+        if (!res?.ok) pushError(botId, `Ответ не отправлен: ${res?.description || "неизвестная ошибка"}`);
+      } catch (e) {
+        pushError(botId, `Ответ не отправлен: ${String(e)}`);
+      }
+    }
+  } else if (msg && !token) {
+    pushError(botId, "Получено сообщение, но токен бота не найден на сервере. Нажмите «Проверить подключение».");
+  }
+}
+
+// ---------- Long-polling (работает БЕЗ домена, SSL и webhook) ----------
+// Требует только исходящего доступа к api.telegram.org. Идеально, когда
+// публичный HTTPS-адрес не настроен.
+type Poller = { stop: boolean; offset: number };
+const g2 = globalThis as unknown as { __tgPollers?: Map<string, Poller> };
+const pollers: Map<string, Poller> = g2.__tgPollers || (g2.__tgPollers = new Map());
+
+export function isPolling(botId: string): boolean {
+  return pollers.has(botId);
+}
+
+export async function startPolling(botId: string): Promise<boolean> {
+  const token = getToken(botId);
+  if (!token) return false;
+  if (pollers.has(botId)) return true;
+  const state: Poller = { stop: false, offset: 0 };
+  pollers.set(botId, state);
+  // Поллинг и webhook взаимоисключающи — снимаем webhook.
+  try { await tgCall(token, "deleteWebhook", { drop_pending_updates: false }); } catch {}
+  rt(botId).webhookUrl = "";
+  void pollLoop(botId, state);
+  return true;
+}
+
+export function stopPolling(botId: string) {
+  const s = pollers.get(botId);
+  if (s) s.stop = true;
+  pollers.delete(botId);
+}
+
+async function pollLoop(botId: string, state: Poller) {
+  while (!state.stop) {
+    const token = getToken(botId);
+    if (!token) break;
+    try {
+      const res = await tgCall(token, "getUpdates", { offset: state.offset, timeout: 25, allowed_updates: ["message", "edited_message", "callback_query"] });
+      if (res?.ok && Array.isArray(res.result)) {
+        for (const u of res.result) {
+          state.offset = (u.update_id || 0) + 1;
+          await handleUpdate(botId, u);
+        }
+      } else if (res && !res.ok) {
+        pushError(botId, `getUpdates: ${res.description || "ошибка"}`);
+        await new Promise((r) => setTimeout(r, 3000));
+      }
+    } catch (e) {
+      pushError(botId, `Опрос Telegram прерван: ${String(e)}`);
+      await new Promise((r) => setTimeout(r, 5000));
+    }
+  }
+  pollers.delete(botId);
+}
