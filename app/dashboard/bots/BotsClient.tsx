@@ -19,6 +19,8 @@ import {
   removeBot,
 } from "@/lib/bots";
 import { loadScenarios, hasStartTrigger, ensureStartScenario, Scenario } from "@/lib/scenarios";
+import { loadAssistant } from "@/lib/assistant";
+import { DEFAULT_BOT, BotConfig } from "@/lib/types";
 
 const FILTERS: { id: "all" | BotStatus; label: string }[] = [
   { id: "all", label: "Все" },
@@ -72,6 +74,28 @@ export default function BotsClient() {
     const s = scenarios.find((x) => (x.botId === b.id || x.id === b.scenarioId) && x.published && hasStartTrigger(x));
     const m = s?.nodes.find((n) => n.kind === "action_message" && n.text);
     return m?.text || "";
+  }
+  // Конфиг ИИ-ассистента бота — чтобы в Telegram бот отвечал по теме, а не шаблоном.
+  function aiConfig(b: Bot): BotConfig {
+    const a = loadAssistant(b.id);
+    let base: Partial<BotConfig> = {};
+    try { const raw = localStorage.getItem("sb_bot_config"); if (raw) base = JSON.parse(raw); } catch {}
+    const knowledge = [
+      (base.knowledge || "").trim(),
+      (a.knowledge || []).join("\n").trim(),
+      a.examples?.length ? "Примеры вопросов и ответов:\n" + a.examples.map((e) => `Вопрос: ${e.q}\nОтвет: ${e.a}`).join("\n\n") : "",
+    ].filter(Boolean).join("\n\n");
+    const neutral = "Ты — вежливый ассистент компании. Отвечай по существу на вопрос клиента, коротко и по делу. Если точного ответа нет в базе знаний — не выдумывай, предложи оставить контакт для связи с менеджером.";
+    return {
+      ...DEFAULT_BOT,
+      id: b.id,
+      name: a.name || b.name || DEFAULT_BOT.name,
+      goal: /телефон|phone|контакт|заяв/i.test(b.goal || "") ? "get_phone" : "consult",
+      knowledge, // может быть пустой — тогда ассистент отвечает без «легенды про дрели»
+      instruction: (a.role || base.instruction || neutral).trim(),
+      extraContext: a.forbidden ? "Запрещённые темы (не обсуждать): " + a.forbidden : (base.extraContext || ""),
+      stopWord: base.stopWord || DEFAULT_BOT.stopWord,
+    };
   }
   function health(b: Bot): TgHealth {
     return botHealth(b, hasPublishedStart(b));
@@ -133,7 +157,7 @@ export default function BotsClient() {
                   <button className="user-act del" onClick={() => setConfirm(bt)}>Удалить</button>
                 </div>
 
-                {open && <Diagnostics bot={bt} health={h} startPublished={hasPublishedStart(bt)} welcome={startWelcome(bt)} onChange={refresh} />}
+                {open && <Diagnostics bot={bt} health={h} startPublished={hasPublishedStart(bt)} welcome={startWelcome(bt)} aiBot={aiConfig(bt)} onChange={refresh} />}
               </div>
             );
           })}
@@ -171,7 +195,7 @@ export default function BotsClient() {
 type Snap = { lastUpdateAt?: number; updates: any[]; errors: { at: number; text: string }[]; webhookUrl?: string };
 type Diag = { tokenValid?: boolean; webhookSet?: boolean; receiving?: boolean; inbound?: boolean; mode?: string; webhook?: any; configError?: string; note?: string };
 
-function Diagnostics({ bot, health, startPublished, welcome, onChange }: { bot: Bot; health: TgHealth; startPublished: boolean; welcome: string; onChange: () => void }) {
+function Diagnostics({ bot, health, startPublished, welcome, aiBot, onChange }: { bot: Bot; health: TgHealth; startPublished: boolean; welcome: string; aiBot: BotConfig; onChange: () => void }) {
   const [token, setToken] = useState("");
   const [show, setShow] = useState(false);
   const [checking, setChecking] = useState(false);
@@ -214,7 +238,7 @@ function Diagnostics({ bot, health, startPublished, welcome, onChange }: { bot: 
       const res = await fetch("/api/telegram/diagnose", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ token: token.trim(), botId: bot.id, startMessage: welcome }),
+        body: JSON.stringify({ token: token.trim(), botId: bot.id, startMessage: welcome, aiBot }),
       });
       const d = await res.json();
       setDiag(d);
@@ -330,6 +354,7 @@ function Diagnostics({ bot, health, startPublished, welcome, onChange }: { bot: 
         {cfg?.configured
           ? <div className="tgd-line muted">Webhook-адрес: <code>{webhookUrl}</code></div>
           : <div className="tgd-line muted">Приём: <b>опрос Telegram (polling)</b> — домен не требуется.</div>}
+        <div className="tgd-line muted">🧠 На обычные сообщения бот отвечает по базе знаний ИИ-ассистента, а не шаблоном. Настроить ответы: <Link href="/dashboard/assistant">ИИ-ассистент →</Link>. После правок нажмите «Проверить подключение», чтобы применить.</div>
       </div>
 
       {/* Состояние приёма — журнал */}

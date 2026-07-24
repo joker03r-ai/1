@@ -18,6 +18,8 @@ export type StoredUpdate = {
   isStart: boolean;
 };
 
+type ChatMsg = { role: "user" | "assistant"; content: string };
+
 export type BotRuntime = {
   token?: string;
   startMessage?: string;
@@ -26,6 +28,8 @@ export type BotRuntime = {
   errors: TgError[];
   secret?: string; // секрет для проверки заголовка X-Telegram-Bot-Api-Secret-Token
   webhookUrl?: string; // фактически установленный публичный URL
+  aiBot?: any; // конфиг ИИ-ассистента (BotConfig) для ответов по теме
+  histories?: Record<string, ChatMsg[]>; // история диалога по chatId
 };
 
 // Переживаем HMR/повторные импорты через globalThis.
@@ -45,6 +49,10 @@ export function setToken(botId: string, token: string, startMessage?: string) {
   const r = rt(botId);
   r.token = token;
   if (startMessage) r.startMessage = startMessage;
+}
+
+export function setAiBot(botId: string, aiBot: any) {
+  if (aiBot) rt(botId).aiBot = aiBot;
 }
 
 export function getToken(botId: string): string | undefined {
@@ -114,35 +122,65 @@ export async function tgCall(token: string, method: string, body?: Record<string
 
 export const TOKEN_RE = /^\d{6,}:[A-Za-z0-9_-]{30,}$/;
 
+async function sendTo(botId: string, token: string, chatId: number | string, text: string) {
+  try {
+    const res = await tgCall(token, "sendMessage", { chat_id: chatId, text });
+    if (!res?.ok) pushError(botId, `Ответ не отправлен: ${res?.description || "неизвестная ошибка"}`);
+  } catch (e) {
+    pushError(botId, `Ответ не отправлен: ${String(e)}`);
+  }
+}
+
 // ---------- Общая обработка входящего обновления ----------
-// Используется и webhook-маршрутом, и поллингом. Сохраняет сообщение и
-// отвечает на /start и обычный текст из приветствия сценария.
+// Используется и webhook-маршрутом, и поллингом. Сохраняет сообщение,
+// на /start отвечает приветствием, а на обычный текст — осмысленным ответом
+// ИИ-ассистента бота (по базе знаний), а не шаблонной фразой.
 export async function handleUpdate(botId: string, update: any) {
   const msg = update?.message || update?.edited_message || null;
+  if (!msg) return;
   const text: string = (msg?.text || msg?.caption || "").trim();
   const isStart = /^\/start\b/i.test(text);
+  const chatId = msg.chat?.id;
 
-  if (msg) {
-    const from = msg.from ? (msg.from.username ? "@" + msg.from.username : [msg.from.first_name, msg.from.last_name].filter(Boolean).join(" ")) : "пользователь";
-    pushUpdate(botId, { at: Date.now(), from, chatId: msg.chat?.id, text: text || "(без текста)", isStart });
-  }
+  const from = msg.from ? (msg.from.username ? "@" + msg.from.username : [msg.from.first_name, msg.from.last_name].filter(Boolean).join(" ")) : "пользователь";
+  pushUpdate(botId, { at: Date.now(), from, chatId, text: text || "(без текста)", isStart });
 
   const token = getToken(botId);
-  if (token && msg) {
-    const r = rt(botId);
-    const reply = isStart
-      ? (r.startMessage || "Здравствуйте! 👋 Бот на связи. Напишите свой вопрос.")
-      : (r.startMessage ? "Спасибо за сообщение! Мы уже обрабатываем ваш запрос." : "");
-    if (reply) {
-      try {
-        const res = await tgCall(token, "sendMessage", { chat_id: msg.chat.id, text: reply });
-        if (!res?.ok) pushError(botId, `Ответ не отправлен: ${res?.description || "неизвестная ошибка"}`);
-      } catch (e) {
-        pushError(botId, `Ответ не отправлен: ${String(e)}`);
-      }
-    }
-  } else if (msg && !token) {
+  if (!token) {
     pushError(botId, "Получено сообщение, но токен бота не найден на сервере. Нажмите «Проверить подключение».");
+    return;
+  }
+
+  const r = rt(botId);
+  if (!r.histories) r.histories = {};
+  const key = String(chatId);
+
+  // /start — приветствие и сброс истории диалога.
+  if (isStart) {
+    r.histories[key] = [];
+    await sendTo(botId, token, chatId, r.startMessage || "Здравствуйте! 👋 Бот на связи. Напишите свой вопрос.");
+    return;
+  }
+
+  // Нетекстовое сообщение без подписи — короткая подсказка.
+  if (!text) {
+    await sendTo(botId, token, chatId, "Пришлите, пожалуйста, текстом — и я помогу.");
+    return;
+  }
+
+  // Осмысленный ответ ИИ-ассистента по теме бота (с учётом истории диалога).
+  try {
+    const { generateReply } = await import("./ai");
+    const { DEFAULT_BOT } = await import("./types");
+    const bot = r.aiBot || DEFAULT_BOT;
+    const hist: ChatMsg[] = [...(r.histories[key] || []), { role: "user" as const, content: text }];
+    const { reply } = await generateReply(bot as any, hist as any);
+    const next: ChatMsg[] = [...hist, { role: "assistant" as const, content: reply }];
+    r.histories[key] = next.slice(-12);
+    await sendTo(botId, token, chatId, reply);
+  } catch (e) {
+    pushError(botId, `Ошибка ответа ИИ: ${String(e)}`);
+    await sendTo(botId, token, chatId, "Извините, не удалось обработать сообщение. Попробуйте переформулировать вопрос.");
   }
 }
 

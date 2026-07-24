@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { tgCall, setToken, ensureSecret, setWebhookUrl, webhookUrlFor, publicBaseUrl, snapshot, startPolling, stopPolling, isPolling, TOKEN_RE } from "@/lib/tgRuntime";
+import { tgCall, setToken, setAiBot, ensureSecret, setWebhookUrl, webhookUrlFor, publicBaseUrl, snapshot, startPolling, stopPolling, isPolling, TOKEN_RE } from "@/lib/tgRuntime";
 
 export const runtime = "nodejs";
 
@@ -11,11 +11,13 @@ export async function POST(req: NextRequest) {
   let token = "";
   let botId = "";
   let startMessage = "";
+  let aiBot: any = null;
   try {
-    const b = (await req.json()) as { token?: string; botId?: string; startMessage?: string };
+    const b = (await req.json()) as { token?: string; botId?: string; startMessage?: string; aiBot?: any };
     token = (b?.token || "").trim();
     botId = (b?.botId || "").trim();
     startMessage = (b?.startMessage || "").trim();
+    aiBot = b?.aiBot || null;
   } catch {}
 
   if (!TOKEN_RE.test(token)) {
@@ -33,7 +35,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, stage: "token", tokenValid: false, error: "Токен недействителен или бот удалён. Проверьте токен у @BotFather." }, { status: 200 });
   }
   const bot = { id: me.result.id, name: [me.result.first_name, me.result.last_name].filter(Boolean).join(" ") || me.result.username, username: me.result.username || "" };
-  if (botId) setToken(botId, token, startMessage || undefined);
+  if (botId) { setToken(botId, token, startMessage || undefined); setAiBot(botId, aiBot); }
   const tokenMask = `${token.slice(0, 6)}••••${token.slice(-4)}`;
 
   const base = publicBaseUrl();
