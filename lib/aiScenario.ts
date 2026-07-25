@@ -100,7 +100,7 @@ function sanitize(raw: any): GenGraph {
       node.varValue = typeof rn?.varValue === "string" ? rn.varValue : "";
     }
     if (kind === "action_stat") node.statLabel = typeof rn?.statLabel === "string" ? rn.statLabel : "Событие";
-    if (kind === "logic_subscribe") node.channelTarget = "smartbot_pro";
+    if (kind === "logic_subscribe") node.channelTarget = "botpilot_pro";
     if (kind === "action_random") {
       const vs = Array.isArray(rn?.variants) && rn.variants.length ? rn.variants : [{}, {}];
       const each = Math.round((100 / vs.length) * 10) / 10;

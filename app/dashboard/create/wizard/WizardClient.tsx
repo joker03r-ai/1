@@ -705,7 +705,7 @@ export default function WizardClient() {
             <div className="wz-form" style={{ maxWidth: 680 }}>
               <div className="field">
                 <label className="label">Как зовут ассистента?</label>
-                <input className="input" style={{ maxWidth: 320 }} value={asstName} onChange={(e) => setAsstName(e.target.value)} placeholder="Например: Анна, Алекс, SmartBot" />
+                <input className="input" style={{ maxWidth: 320 }} value={asstName} onChange={(e) => setAsstName(e.target.value)} placeholder="Например: Анна, Алекс, Макс" />
               </div>
 
               <div className="field">

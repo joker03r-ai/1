@@ -1,4 +1,4 @@
-# Деплой Smartbot AI на сервер
+# Деплой BotPilot на сервер
 
 Приложение на **Next.js**. Данные пользователя хранятся в браузере (localStorage),
 поэтому база данных не нужна. Единственное серверное место — маршрут `/api/chat`
@@ -15,22 +15,22 @@
 
 ```bash
 # 1. Клонируем репозиторий
-git clone https://github.com/joker03r-ai/1.git smartbot
-cd smartbot
+git clone https://github.com/joker03r-ai/BotPilot.git botpilot
+cd botpilot
 git checkout claude/screenshot-analysis-recreation-6yze8d
 
 # 2. Собираем образ
-docker build -t smartbot .
+docker build -t botpilot .
 
 # 3. Запускаем (порт 3000; ключ — по желанию)
-docker run -d --name smartbot --restart unless-stopped \
+docker run -d --name botpilot --restart unless-stopped \
   -p 3000:3000 \
   -e ANTHROPIC_API_KEY=sk-ant-xxxxx \
-  smartbot
+  botpilot
 ```
 
 Проверка: `curl http://localhost:3000` → должна отдаться страница.
-Обновление после `git pull`: `docker build -t smartbot . && docker rm -f smartbot && docker run ...` (та же команда).
+Обновление после `git pull`: `docker build -t botpilot . && docker rm -f botpilot && docker run ...` (та же команда).
 
 ---
 
@@ -42,8 +42,8 @@ docker run -d --name smartbot --restart unless-stopped \
 curl -fsSL https://deb.nodesource.com/setup_22.x | sudo bash -
 sudo apt-get install -y nodejs
 
-git clone https://github.com/joker03r-ai/1.git smartbot
-cd smartbot
+git clone https://github.com/joker03r-ai/BotPilot.git botpilot
+cd botpilot
 git checkout claude/screenshot-analysis-recreation-6yze8d
 npm ci
 npm run build
@@ -66,21 +66,21 @@ PORT=3000 node .next/standalone/server.js
 
 ### 3. systemd-сервис (автозапуск)
 
-Создайте `/etc/systemd/system/smartbot.service`:
+Создайте `/etc/systemd/system/botpilot.service`:
 
 ```ini
 [Unit]
-Description=Smartbot AI
+Description=BotPilot
 After=network.target
 
 [Service]
 Type=simple
-WorkingDirectory=/home/USER/smartbot
+WorkingDirectory=/home/USER/botpilot
 Environment=NODE_ENV=production
 Environment=PORT=3000
 Environment=HOSTNAME=0.0.0.0
 # Environment=ANTHROPIC_API_KEY=sk-ant-xxxxx
-ExecStart=/usr/bin/node /home/USER/smartbot/.next/standalone/server.js
+ExecStart=/usr/bin/node /home/USER/botpilot/.next/standalone/server.js
 Restart=always
 User=USER
 
@@ -92,15 +92,15 @@ WantedBy=multi-user.target
 
 ```bash
 sudo systemctl daemon-reload
-sudo systemctl enable --now smartbot
-sudo systemctl status smartbot
+sudo systemctl enable --now botpilot
+sudo systemctl status botpilot
 ```
 
 ---
 
 ## Домен и HTTPS (nginx)
 
-Пример `/etc/nginx/sites-available/smartbot`:
+Пример `/etc/nginx/sites-available/botpilot`:
 
 ```nginx
 server {
@@ -122,7 +122,7 @@ server {
 ```
 
 ```bash
-sudo ln -s /etc/nginx/sites-available/smartbot /etc/nginx/sites-enabled/
+sudo ln -s /etc/nginx/sites-available/botpilot /etc/nginx/sites-enabled/
 sudo nginx -t && sudo systemctl reload nginx
 
 # Бесплатный HTTPS
