@@ -199,7 +199,7 @@ export function saveLogoHue(h: number) {
 }
 
 // ---- Иллюстрация героя на главной (10 вариантов) ----
-export const ILLUSTS: { id: number; label: string; core: string; nodes: [string, string, string]; grad: string }[] = [
+export const ILLUSTS: { id: number; label: string; core: string; nodes: [string, string, string]; grad: string; status?: boolean }[] = [
   { id: 0, label: "Ассистент", core: "bot", nodes: ["send", "spark", "users"], grad: "linear-gradient(150deg,#5b8cff,#8b5cf6)" },
   { id: 1, label: "Ракета", core: "rocket", nodes: ["spark", "chart", "send"], grad: "linear-gradient(150deg,#f97316,#ec4899)" },
   { id: 2, label: "Магия ИИ", core: "spark", nodes: ["bot", "chat", "layers"], grad: "linear-gradient(150deg,#8b5cf6,#22d3ee)" },
@@ -210,6 +210,7 @@ export const ILLUSTS: { id: number; label: string; core: string; nodes: [string,
   { id: 7, label: "Рассылки", core: "send", nodes: ["users", "chat", "spark"], grad: "linear-gradient(150deg,#0ea5e9,#6366f1)" },
   { id: 8, label: "Сценарии", core: "layers", nodes: ["bot", "spark", "send"], grad: "linear-gradient(150deg,#f59e0b,#f97316)" },
   { id: 9, label: "Глобально", core: "globe", nodes: ["users", "send", "chat"], grad: "linear-gradient(150deg,#ec4899,#8b5cf6)" },
+  { id: 10, label: "Статус ботов", core: "bot", nodes: ["chat", "send", "users"], grad: "linear-gradient(150deg,#22c55e,#3b82f6)", status: true },
 ];
 export function loadIllust(): number {
   if (typeof window === "undefined") return 0;

@@ -4416,3 +4416,27 @@ img, svg, video, canvas { max-width: 100%; }
 
 /* Иллюстрация героя уважает переключатель анимации */
 :root[data-anim="off"] .orb__ring, :root[data-anim="off"] .orb__node, :root[data-anim="off"] .orb__glow, :root[data-anim="off"] .orb__core { animation: none !important; }
+
+/* Иллюстрация «Статус ботов» — живой индикатор */
+.orb__ind { position: absolute; top: 8px; right: 10px; width: 15px; height: 15px; border-radius: 50%; border: 3px solid var(--panel); box-shadow: 0 0 0 0 rgba(34,197,94,.6); }
+.orb__ind.on { background: #22c55e; animation: orb-ind 1.8s ease-out infinite; }
+.orb__ind.off { background: #f59e0b; }
+@keyframes orb-ind { 0% { box-shadow: 0 0 0 0 rgba(34,197,94,.55); } 70% { box-shadow: 0 0 0 9px rgba(34,197,94,0); } 100% { box-shadow: 0 0 0 0 rgba(34,197,94,0); } }
+.orb__scan { position: absolute; width: 156px; height: 156px; border-radius: 50%; border: 2px solid transparent; border-top-color: rgba(34,197,94,.7); border-right-color: rgba(59,130,246,.5); animation: orb-scan 2.4s linear infinite; }
+@keyframes orb-scan { to { transform: rotate(360deg); } }
+.orb__status { position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); display: inline-flex; align-items: center; gap: 7px; white-space: nowrap; background: var(--panel); border: 1px solid var(--line); box-shadow: var(--shadow-sm); border-radius: 999px; padding: 5px 12px; font-size: 12px; font-weight: 700; color: var(--ink); }
+:root[data-anim="off"] .orb__scan, :root[data-anim="off"] .orb__ind { animation: none !important; }
+
+/* Индикатор на превью «Статус ботов» в настройках */
+.set-ill__orb { position: relative; }
+.set-ill__dot { position: absolute; top: -1px; right: -1px; width: 10px; height: 10px; border-radius: 50%; background: #22c55e; border: 2px solid var(--panel); }
+
+/* Компактная модалка «Внешний вид» */
+.modal.appr { padding: 18px 20px 16px; }
+.appr .set-label { margin: 13px 0 7px; font-size: 12px; }
+.appr .set-label:first-of-type { margin-top: 2px; }
+.appr .modal__head { margin-bottom: 4px; }
+.appr .set-themes { gap: 7px; }
+.appr .set-theme__pv { height: 30px; }
+.appr .set-switch { margin-top: 13px; }
+.appr .set-hue { margin-top: 0; }

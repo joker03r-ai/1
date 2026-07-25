@@ -168,14 +168,24 @@ export default function HomeClient() {
             <Link href={nextHref} className="btn btn-primary btn-lg hero__cta glow">Продолжить настройку <IconArrowRight className="ico" /></Link>
           </div>
           <div className="hero__r">
-            <div className="orb" aria-hidden>
+            <div className={`orb${ill.status ? " orb--status" : ""}`} aria-hidden>
               <span className="orb__glow" style={{ background: `radial-gradient(circle, ${illGlow} , transparent 70%)` }} />
               <span className="orb__ring orb__ring--1" />
               <span className="orb__ring orb__ring--2" />
-              <span className="orb__core" style={{ background: ill.grad }}><IllCore className="ico" /></span>
+              {ill.status && <span className="orb__scan" />}
+              <span className="orb__core" style={{ background: ill.grad }}>
+                <IllCore className="ico" />
+                {ill.status && <span className={`orb__ind ${activeBots > 0 ? "on" : "off"}`} />}
+              </span>
               <span className="orb__node n-tg"><IllN0 className="ico" /></span>
               <span className="orb__node n-ai"><IllN1 className="ico" /></span>
               <span className="orb__node n-cl"><IllN2 className="ico" /></span>
+              {ill.status && (
+                <span className="orb__status">
+                  <i className={`dot ${activeBots > 0 ? "dot--live" : "dot--warn"}`} />
+                  {activeBots > 0 ? `${activeBots} ${botWord(activeBots)} онлайн` : "Боты не запущены"}
+                </span>
+              )}
             </div>
           </div>
         </section>

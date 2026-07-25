@@ -72,7 +72,7 @@ export default function SettingsButton() {
             </div>
 
             {/* Цвет шрифта */}
-            <div className="set-label" style={{ marginTop: 16 }}>Цвет шрифта</div>
+            <div className="set-label">Цвет шрифта</div>
             <div className="set-seg">
               {FONTS.map((f) => {
                 const disabled = f.id === "white" && !themeDark;
@@ -84,14 +84,14 @@ export default function SettingsButton() {
             {font === "white" && !themeDark && <div className="hint" style={{ marginTop: 6 }}>Белый шрифт доступен только в тёмных темах — на светлом фоне применён чёрный.</div>}
 
             {/* Акцент — только ползунок оттенка */}
-            <div className="set-label" style={{ marginTop: 16 }}>Акцентный цвет</div>
+            <div className="set-label">Акцентный цвет</div>
             <div className="set-hue">
               <span className="set-hue__swatch" style={{ background: `hsl(${hue} 72% 55%)` }} />
               <input className="set-hue__range" type="range" min={0} max={360} value={hue} onChange={(e) => { const h = Number(e.target.value); setHue(h); saveHue(h); }} aria-label="Оттенок акцента" />
             </div>
 
             {/* Цвет логотипа — ползунок оттенка */}
-            <div className="set-label" style={{ marginTop: 16 }}>Цвет логотипа</div>
+            <div className="set-label">Цвет логотипа</div>
             <div className="set-hue">
               <span className="set-logo__mark" style={{ background: `linear-gradient(140deg, hsl(${logoHue} 78% 62%), hsl(${(logoHue + 40) % 360} 78% 60%))` }}>
                 <svg viewBox="0 0 24 24" aria-hidden><path d="M20.6 3.4 3.7 11c-.75.34-.68 1.43.1 1.66l4.53 1.35 1.35 4.53c.23.78 1.32.85 1.66.1L20.6 3.4z" fill="#fff" /></svg>
@@ -100,13 +100,13 @@ export default function SettingsButton() {
             </div>
 
             {/* Иллюстрация героя */}
-            <div className="set-label" style={{ marginTop: 16 }}>Иллюстрация на главной</div>
+            <div className="set-label">Иллюстрация на главной</div>
             <div className="set-ills">
               {ILLUSTS.map((il) => {
                 const Core = ILL_ICONS[il.core] || IconBot;
                 return (
                   <button key={il.id} className={`set-ill${illust === il.id ? " on" : ""}`} onClick={() => { setIllust(il.id); saveIllust(il.id); }} title={il.label} type="button">
-                    <span className="set-ill__orb" style={{ background: il.grad }}><Core className="ico" /></span>
+                    <span className="set-ill__orb" style={{ background: il.grad }}><Core className="ico" />{il.status && <i className="set-ill__dot" />}</span>
                     <span className="set-ill__l">{il.label}</span>
                   </button>
                 );
@@ -114,14 +114,14 @@ export default function SettingsButton() {
             </div>
 
             {/* Плотность */}
-            <div className="set-label" style={{ marginTop: 16 }}>Плотность интерфейса</div>
+            <div className="set-label">Плотность интерфейса</div>
             <div className="set-seg">
               <button className={`set-seg__b${density === "standard" ? " on" : ""}`} onClick={() => { setDensity("standard"); saveDensity("standard"); }} type="button">Стандартная</button>
               <button className={`set-seg__b${density === "compact" ? " on" : ""}`} onClick={() => { setDensity("compact"); saveDensity("compact"); }} type="button">Компактная</button>
             </div>
 
             {/* Градиенты */}
-            <div className="set-label" style={{ marginTop: 16 }}>Интенсивность градиентов</div>
+            <div className="set-label">Интенсивность градиентов</div>
             <div className="set-seg">
               {GRADS.map((g) => (
                 <button key={g.id} className={`set-seg__b${grad === g.id ? " on" : ""}`} onClick={() => { setGrad(g.id); saveGrad(g.id); }} type="button">{g.label}</button>
@@ -129,12 +129,12 @@ export default function SettingsButton() {
             </div>
 
             {/* Анимации */}
-            <label className="set-switch" style={{ marginTop: 16 }}>
+            <label className="set-switch">
               <span><b>Анимация интерфейса</b><span className="set-switch__hint">Плавные появления и свечения. Отключите, если отвлекает.</span></span>
               <span className="sw"><input type="checkbox" checked={anim} onChange={() => { const v = !anim; setAnim(v); saveAnim(v); }} /><span className="sw__t" /></span>
             </label>
 
-            <div className="row" style={{ justifyContent: "flex-end", marginTop: 18 }}>
+            <div className="row" style={{ justifyContent: "flex-end", marginTop: 12 }}>
               <button className="btn btn-primary" onClick={() => setOpen(false)}>{t("settings.done")}</button>
             </div>
           </div>
